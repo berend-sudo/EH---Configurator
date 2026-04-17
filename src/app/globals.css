@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+@theme {
+  --color-eh-forest: #0d3b2e;
+  --color-eh-sage: #e8f0e4;
+  --color-eh-wood: #a0724a;
+  --color-eh-charcoal: #1f2624;
+}
+
+html,
+body {
+  background: white;
+  color: var(--color-eh-charcoal);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+}
