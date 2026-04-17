@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { calculatePrice } from "@/lib/costEngine";
 import { MONO_PITCH_2BR_DEFAULT } from "@/data/standardModels";
@@ -43,17 +44,25 @@ export default function Phase1TestPage() {
 
   return (
     <main className="mx-auto max-w-5xl space-y-8 p-8">
-      <header className="space-y-2">
-        <p className="text-sm uppercase tracking-wider text-eh-forest/70">
-          Easy Housing — Phase 1
-        </p>
-        <h1 className="text-2xl font-semibold text-eh-forest">
-          Cost engine sanity check
-        </h1>
-        <p className="text-sm text-eh-charcoal/70">
-          Defaults reproduce the calculation template’s default Mono Pitch 2BR
-          row. Expected price inc VAT ≈ 100,215,294 UGX.
-        </p>
+      <header className="flex items-baseline justify-between gap-4">
+        <div className="space-y-2">
+          <p className="text-sm uppercase tracking-wider text-eh-forest/70">
+            Easy Housing — Phase 1
+          </p>
+          <h1 className="text-2xl font-semibold text-eh-forest">
+            Cost engine sanity check
+          </h1>
+          <p className="text-sm text-eh-charcoal/70">
+            Defaults reproduce the calculation template’s default Mono Pitch 2BR
+            row. Expected price inc VAT ≈ 100,215,294 UGX.
+          </p>
+        </div>
+        <Link
+          href="/floor-plan"
+          className="text-sm underline text-eh-forest hover:text-eh-wood"
+        >
+          floor plan →
+        </Link>
       </header>
 
       <section className="grid gap-6 md:grid-cols-2">
