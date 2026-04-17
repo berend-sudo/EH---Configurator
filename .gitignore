@@ -1,0 +1,16 @@
+node_modules/
+.next/
+.swc/
+out/
+dist/
+build/
+.env
+.env.local
+.env.*.local
+.DS_Store
+*.tsbuildinfo
+next-env.d.ts
+coverage/
+.vitest/
+*.log
+npm-debug.log*
