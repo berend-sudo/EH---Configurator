@@ -1,7 +1,7 @@
 import type { FloorPlanModel } from "@/types/floorPlan";
 
 /**
- * 1BR Mono Pitch — traced from `mono pitch 1BR.png` (Archicad export).
+ * 1BR Mono Pitch — traced from `data/floorplans/reference-images/mono pitch 1BR.png` (Archicad export).
  *
  * Structural envelope 6,106 × 4,884 mm (2 × C frames, depth fixed).
  * Outer envelope 6,194 × 4,972 (single double-wall = 88 mm thick).
