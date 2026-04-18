@@ -12,7 +12,6 @@ describe("deriveAmounts — Mono Pitch 4884 frame formulas", () => {
       aluminiumSqm: 10.5,
       extraExtWallSteps: 0,
       bathrooms: 2,
-      depthMm: 4884,
     });
     expect(componentAmounts["floor-frame-2442x1221"]).toBe(4);
     expect(componentAmounts["floor-frame-2442x2442"]).toBe(8);
@@ -37,7 +36,6 @@ describe("deriveAmounts — Mono Pitch 4884 frame formulas", () => {
       aluminiumSqm: 7.9,
       extraExtWallSteps: 0,
       bathrooms: 1,
-      depthMm: 4884,
     });
     // Per Excel L9–V9 formulas:
     //   Floor C = 2×C = 4
@@ -65,7 +63,6 @@ describe("deriveAmounts — Mono Pitch 4884 frame formulas", () => {
       aluminiumSqm: 10.2,
       extraExtWallSteps: 0,
       bathrooms: 1,
-      depthMm: 4884,
     });
     expect(componentAmounts["floor-frame-2442x2442"]).toBe(2);
     expect(componentAmounts["floor-frame-2442x3053"]).toBe(4);
@@ -89,7 +86,6 @@ describe("deriveAmounts — Mono Pitch 4884 frame formulas", () => {
       aluminiumSqm: 10.2,
       extraExtWallSteps: 0,
       bathrooms: 1,
-      depthMm: 4884,
     });
     const withSteps = deriveAmounts({
       typology: "mono-pitch-4884",
@@ -99,7 +95,6 @@ describe("deriveAmounts — Mono Pitch 4884 frame formulas", () => {
       aluminiumSqm: 10.2,
       extraExtWallSteps: 4,
       bathrooms: 1,
-      depthMm: 4884,
     });
     expect(withSteps.componentAmounts["wall-frame-2442x2999"]).toBe(
       (base.componentAmounts["wall-frame-2442x2999"] ?? 0) + 1,
@@ -115,7 +110,6 @@ describe("deriveAmounts — Mono Pitch 4884 frame formulas", () => {
       aluminiumSqm: 10.2,
       extraExtWallSteps: 0,
       bathrooms: 1,
-      depthMm: 4884,
     });
     const result = calculatePrice({
       componentAmounts: derived.componentAmounts,
@@ -135,7 +129,6 @@ describe("deriveAmounts — Mono Pitch 4884 frame formulas", () => {
       aluminiumSqm: 7.9,
       extraExtWallSteps: 0,
       bathrooms: 1,
-      depthMm: 4884,
     });
     const big = deriveAmounts({
       typology: "mono-pitch-4884",
@@ -145,7 +138,6 @@ describe("deriveAmounts — Mono Pitch 4884 frame formulas", () => {
       aluminiumSqm: 7.9,
       extraExtWallSteps: 0,
       bathrooms: 1,
-      depthMm: 4884,
     });
     const priceSmall = calculatePrice({
       componentAmounts: small.componentAmounts,
@@ -168,7 +160,6 @@ describe("deriveAmounts — Mono Pitch 4884 frame formulas", () => {
         aluminiumSqm: 18.5,
         extraExtWallSteps: 2,
         bathrooms: 2,
-        depthMm: 6106,
       }),
     ).toThrow(/only 'mono-pitch-4884'/);
   });

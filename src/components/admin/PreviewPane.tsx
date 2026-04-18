@@ -53,7 +53,6 @@ export function PreviewPane({
         aluminiumSqm: costInputs.aluminiumSqm,
         extraExtWallSteps: costInputs.extraExtWallSteps,
         bathrooms: model.bathrooms,
-        depthMm: model.depthMm,
       });
       return calculatePrice({
         componentAmounts: derived.componentAmounts,
@@ -62,7 +61,7 @@ export function PreviewPane({
     } catch {
       return null;
     }
-  }, [model.typology, model.bathrooms, model.depthMm, frames, costInputs]);
+  }, [model.typology, model.bathrooms, frames, costInputs]);
 
   return (
     <div className="flex h-full flex-col gap-3">
