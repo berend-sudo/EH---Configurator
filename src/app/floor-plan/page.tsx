@@ -7,6 +7,7 @@ import { LengthSlider } from "@/components/LengthSlider";
 import { MONO_PITCH_1BR_FLOOR_PLAN } from "@/data/floorPlans/monoPitch1BR";
 import { MONO_PITCH_2BR_FLOOR_PLAN } from "@/data/floorPlans/monoPitch2BR";
 import { MONO_PITCH_3BR_FLOOR_PLAN } from "@/data/floorPlans/monoPitch3BR";
+import { MONO_PITCH_STUDIO_FLOOR_PLAN } from "@/data/floorPlans/monoPitchStudio";
 import { calculatePrice } from "@/lib/costEngine";
 import { deriveAmounts } from "@/lib/floorPlan/deriveAmounts";
 import { layoutZones } from "@/lib/floorPlan/zoneLayout";
@@ -31,6 +32,14 @@ interface PlanCostInputs {
 }
 
 const PLANS: ReadonlyArray<{ plan: FloorPlanModel; costs: PlanCostInputs }> = [
+  {
+    plan: MONO_PITCH_STUDIO_FLOOR_PLAN,
+    costs: {
+      partitionsM: MONO_PITCH_STUDIO_FLOOR_PLAN.costDefaults.partitionsM,
+      interiorDoors: MONO_PITCH_STUDIO_FLOOR_PLAN.costDefaults.interiorDoors,
+      aluminiumSqm: MONO_PITCH_STUDIO_FLOOR_PLAN.costDefaults.aluminiumSqm,
+    },
+  },
   {
     plan: MONO_PITCH_1BR_FLOOR_PLAN,
     costs: {
