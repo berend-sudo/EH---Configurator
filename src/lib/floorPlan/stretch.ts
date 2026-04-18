@@ -5,6 +5,7 @@ import type {
   FurnitureElement,
   RoomFillElement,
   RoomLabelElement,
+  TerraceElement,
   WallElement,
   WindowElement,
   Zone,
@@ -212,6 +213,17 @@ export function stretchFloorPlan(
           };
         }
         return el;
+      }
+      case "terrace": {
+        const t = el as TerraceElement;
+        return {
+          ...t,
+          points: t.points.map(([x, y]) => mapPoint(x, y, t)),
+        } as TerraceElement;
+      }
+      default: {
+        const _exhaustive: never = el;
+        return _exhaustive;
       }
     }
   });
