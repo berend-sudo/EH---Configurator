@@ -55,4 +55,24 @@ describe("FloorPlanSVG renders to valid SVG markup", () => {
     );
     expect(markup.length).toBeGreaterThan(1000);
   });
+
+  it("writes stretched previews at min / max lengths", () => {
+    for (const L of [
+      MONO_PITCH_2BR_FLOOR_PLAN.minLengthMm,
+      MONO_PITCH_2BR_FLOOR_PLAN.maxLengthMm,
+      10500,
+    ]) {
+      const svg = renderToStaticMarkup(
+        React.createElement(FloorPlanSVG, {
+          model: MONO_PITCH_2BR_FLOOR_PLAN,
+          lengthMm: L,
+        }),
+      );
+      writeFileSync(
+        `/tmp/plan-2br-mono-L${L}.svg`,
+        `<?xml version="1.0" encoding="UTF-8"?>\n${svg}`,
+      );
+      expect(svg).toContain("2BR Mono Pitch");
+    }
+  });
 });

@@ -40,7 +40,24 @@ export type FloorPlanElement =
   | WindowElement
   | FurnitureElement
   | RoomLabelElement
-  | DimensionElement;
+  | DimensionElement
+  | TerraceElement;
+
+export interface TerraceElement extends BaseElement {
+  type: "terrace";
+  /** Closed polygon (mm). */
+  points: ReadonlyArray<readonly [number, number]>;
+  kind: "veranda" | "pergola";
+  railing: "open" | "semi-closed" | "none";
+  covered: boolean;
+  /** Built from veranda frames — A=1221, B=2442, C=3053 mm. */
+  frameA?: number;
+  frameB?: number;
+  frameC?: number;
+  /** Linear metres of railing (derived from polygon perimeter excluding the wall edge by default). */
+  railingM?: number;
+  label?: string;
+}
 
 interface BaseElement {
   id: string;
@@ -108,6 +125,20 @@ export interface FurnitureElement extends BaseElement {
   heightMm: number;
   /** Degrees, clockwise. Default 0. */
   rotationDeg?: number;
+  /**
+   * How this furniture item moves when its zone stretches.
+   * - "wall-anchored" (default): stays fixed distance from `anchorWallId`.
+   * - "centered": re-centers inside its zone.
+   * - "proportional": moves with the zone's stretch ratio.
+   */
+  stretchBehavior?: "wall-anchored" | "centered" | "proportional";
+  /** ID of the wall this item anchors to when `stretchBehavior === "wall-anchored"`. */
+  anchorWallId?: string;
+  /**
+   * True if this is a free-form custom rectangle rather than a standard
+   * library item — allows editing width/height in the properties panel.
+   */
+  isCustom?: boolean;
 }
 
 export interface RoomLabelElement extends BaseElement {

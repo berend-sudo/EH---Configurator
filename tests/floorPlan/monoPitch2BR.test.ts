@@ -94,6 +94,25 @@ describe("2BR Mono Pitch floor plan", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
+  it("declares 3 interior doors + 1 entrance (2BR / 1 bath)", () => {
+    const doors = plan.elements.filter((e) => e.type === "door");
+    expect(doors).toHaveLength(4);
+    expect(plan.bathrooms).toBe(1);
+    expect(doors.map((d) => d.id)).toContain("door-entrance");
+  });
+
+  it("populates moving / stretching element lists for every zone", () => {
+    for (const zone of plan.zones) {
+      const ids = new Set(plan.elements.map((e) => e.id));
+      for (const id of zone.movingElementIds) {
+        expect(ids, `unknown moving element ${id}`).toContain(id);
+      }
+      for (const id of zone.stretchingElementIds) {
+        expect(ids, `unknown stretching element ${id}`).toContain(id);
+      }
+    }
+  });
+
   it("keeps every element inside the viewBox", () => {
     const { width, height } = plan.viewBox;
     for (const el of plan.elements) {
@@ -114,6 +133,7 @@ function pointsOf(
     case "wall":
     case "partition":
     case "room-fill":
+    case "terrace":
       return el.points;
     case "window":
       return el.points;

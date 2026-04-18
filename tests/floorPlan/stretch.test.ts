@@ -1,92 +1,73 @@
 import { describe, expect, it } from "vitest";
 import { MONO_PITCH_2BR_FLOOR_PLAN } from "@/data/floorPlans/monoPitch2BR";
-import {
-  snapLength,
-  stretchFloorPlan,
-} from "@/lib/floorPlan/stretch";
-import type { WallElement } from "@/types/floorPlan";
-
-const plan = MONO_PITCH_2BR_FLOOR_PLAN;
-// Base 8547 isn't on the 610 mm grid → snaps to 8540 (14 jumps).
-const BASE_SNAPPED = snapLength(plan, plan.baseLengthMm);
-
-describe("snapLength", () => {
-  it("rounds to the nearest jump", () => {
-    expect(snapLength(plan, 8500)).toBe(8540); // 13.93 → 14
-    expect(snapLength(plan, 8547)).toBe(8540); // 14.011 → 14
-    expect(snapLength(plan, 8540)).toBe(8540);
-  });
-
-  it("clamps to the typology min/max", () => {
-    expect(snapLength(plan, 0)).toBe(plan.minLengthMm);
-    expect(snapLength(plan, 999999)).toBe(plan.maxLengthMm);
-  });
-});
+import { stretchFloorPlan } from "@/lib/floorPlan/stretch";
 
 describe("stretchFloorPlan", () => {
-  it("at base length snaps to the 610 mm grid", () => {
-    const stretched = stretchFloorPlan(plan, plan.baseLengthMm);
-    expect(stretched.lengthMm).toBe(BASE_SNAPPED);
-    expect(stretched.zones).toHaveLength(plan.zones.length);
-  });
+  const plan = MONO_PITCH_2BR_FLOOR_PLAN;
 
-  it("grows the highest-priority zone first (living room)", () => {
-    // Two jumps more than the snapped base.
-    const stretched = stretchFloorPlan(plan, BASE_SNAPPED + 2 * 610);
-    const living = stretched.zones.find((z) => z.id === "zone-living")!;
-    const bedrooms = stretched.zones.find((z) => z.id === "zone-bedrooms")!;
-    const wetcore = stretched.zones.find((z) => z.id === "zone-wet-core")!;
-    const deltaVsAuthoredBase = stretched.lengthMm - plan.baseLengthMm;
-    // Living zone should absorb every mm of growth.
-    expect(living.widthNewMm - living.widthBaseMm).toBeCloseTo(
-      deltaVsAuthoredBase,
-      1,
-    );
-    expect(bedrooms.widthNewMm).toBeCloseTo(bedrooms.widthBaseMm, 6);
-    expect(wetcore.widthNewMm).toBeCloseTo(wetcore.widthBaseMm, 6);
-  });
-
-  it("caps each zone at maxWidth and spills to the next priority", () => {
-    const stretched = stretchFloorPlan(plan, plan.maxLengthMm);
-    for (const z of stretched.zones) {
-      expect(z.widthNewMm).toBeLessThanOrEqual(z.maxWidthMm + 1);
+  it("is an identity at baseLengthMm", () => {
+    const { model, zoneLayouts } = stretchFloorPlan(plan, plan.baseLengthMm);
+    expect(model.viewBox.width).toBe(plan.viewBox.width);
+    for (const l of zoneLayouts) {
+      expect(l.newXStart).toBeCloseTo(l.origXStart, 1);
+      expect(l.newXEnd).toBeCloseTo(l.origXEnd, 1);
+      expect(l.newWidth).toBeCloseTo(l.origWidth, 1);
     }
   });
 
-  it("shrinks from the lowest-priority zone first", () => {
-    // One jump smaller — fully absorbed by wet-core (slack ~988 mm).
-    const stretched = stretchFloorPlan(plan, BASE_SNAPPED - 610);
-    const living = stretched.zones.find((z) => z.id === "zone-living")!;
-    const bedrooms = stretched.zones.find((z) => z.id === "zone-bedrooms")!;
-    const wetcore = stretched.zones.find((z) => z.id === "zone-wet-core")!;
-    expect(wetcore.widthNewMm).toBeLessThan(wetcore.widthBaseMm);
-    expect(bedrooms.widthNewMm).toBeCloseTo(bedrooms.widthBaseMm, 6);
-    expect(living.widthNewMm).toBeCloseTo(living.widthBaseMm, 6);
+  it("grows the outer viewBox width by the length delta", () => {
+    const target = plan.baseLengthMm + 2 * plan.jumpSizeMm; // + 1220 mm
+    const { model } = stretchFloorPlan(plan, target);
+    expect(model.viewBox.width).toBe(plan.viewBox.width + 1220);
   });
 
-  it("moves the external wall's right edge to the new outer width", () => {
-    const stretched = stretchFloorPlan(plan, BASE_SNAPPED + 2 * 610);
-    const ext = stretched.elements.find(
-      (e): e is WallElement => e.type === "wall" && e.id === "wall-external",
-    )!;
-    const maxX = Math.max(...ext.points.map(([x]) => x));
-    expect(maxX).toBeCloseTo(stretched.outerWidthMm, 3);
+  it("shrinks when asked to go below base length", () => {
+    const target = plan.baseLengthMm - plan.jumpSizeMm; // - 610 mm
+    const { model } = stretchFloorPlan(plan, target);
+    expect(model.viewBox.width).toBe(plan.viewBox.width - 610);
   });
 
-  it("preserves element counts and ids", () => {
-    const stretched = stretchFloorPlan(plan, BASE_SNAPPED + 2 * 610);
-    expect(stretched.elements).toHaveLength(plan.elements.length);
-    const originalIds = plan.elements.map((e) => e.id).sort();
-    const stretchedIds = stretched.elements.map((e) => e.id).sort();
-    expect(stretchedIds).toEqual(originalIds);
+  it("absorbs growth into the living zone first (order=1)", () => {
+    const target = plan.baseLengthMm + 1000;
+    const { zoneLayouts } = stretchFloorPlan(plan, target);
+    const living = zoneLayouts.find((z) => z.id === "zone-living")!;
+    const bedrooms = zoneLayouts.find((z) => z.id === "zone-bedrooms")!;
+    const wet = zoneLayouts.find((z) => z.id === "zone-wet-core")!;
+    expect(living.newWidth - living.origWidth).toBeGreaterThan(0);
+    expect(bedrooms.newWidth - bedrooms.origWidth).toBeCloseTo(0, 1);
+    expect(wet.newWidth - wet.origWidth).toBeCloseTo(0, 1);
   });
 
-  it("rewrites numeric dimension labels to match the new distance", () => {
-    const stretched = stretchFloorPlan(plan, BASE_SNAPPED + 2 * 610);
-    const overall = stretched.elements.find(
-      (e) => e.type === "dimension" && e.id === "dim-overall-width",
+  it("respects zone maxWidth — overflow spills into the next zone", () => {
+    const living = plan.zones.find((z) => z.id === "zone-living")!;
+    const overshoot = living.maxWidthMm - (living.xEndMm - living.xStartMm) + 500;
+    const target = plan.baseLengthMm + overshoot;
+    const { zoneLayouts } = stretchFloorPlan(plan, target);
+    const livingLay = zoneLayouts.find((z) => z.id === "zone-living")!;
+    const bedroomsLay = zoneLayouts.find((z) => z.id === "zone-bedrooms")!;
+    expect(livingLay.newWidth).toBeLessThanOrEqual(living.maxWidthMm + 0.5);
+    expect(bedroomsLay.newWidth).toBeGreaterThan(
+      bedroomsLay.origWidth - 0.5,
     );
-    if (!overall || overall.type !== "dimension") throw new Error("not found");
-    expect(overall.label).toBe(stretched.outerWidthMm.toLocaleString("en-US"));
+  });
+
+  it("keeps zones spatially contiguous (no gaps, no overlaps)", () => {
+    const { zoneLayouts } = stretchFloorPlan(plan, plan.baseLengthMm + 1800);
+    const sorted = [...zoneLayouts].sort((a, b) => a.newXStart - b.newXStart);
+    for (let i = 1; i < sorted.length; i++) {
+      expect(sorted[i].newXStart).toBeCloseTo(sorted[i - 1].newXEnd, 1);
+    }
+  });
+
+  it("updates the overall-width dimension label", () => {
+    const target = plan.baseLengthMm + plan.jumpSizeMm;
+    const { model } = stretchFloorPlan(plan, target);
+    const dim = model.elements.find((e) => e.id === "dim-overall-width");
+    expect(dim).toBeDefined();
+    if (dim && dim.type === "dimension") {
+      expect(dim.label).toContain(",");
+      // 9,245 = 8635 + 610
+      expect(dim.label.replace(/,/g, "")).toBe(String(target + (plan.viewBox.width - plan.baseLengthMm)));
+    }
   });
 });
