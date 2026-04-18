@@ -140,26 +140,39 @@ export function FloorPlanSVG({
 }
 
 /**
- * The external wall spans the full outer width. Stretch it by:
- *   - Moving every point at the east edge (originalMaxX) rightward by delta.
- *   - Also shifting south-wall interior points (entrance gap) by delta so the
- *     door opening tracks the living zone's right edge rather than staying at
- *     a fixed coordinate while everything around it moves.
+ * Stretch the external wall polygon using zone layout information.
+ *
+ * For each point [x, y]:
+ *   - x === 0: leave unchanged (west edge, always fixed).
+ *   - x >= base east edge of the rightmost zone: shift by total delta
+ *     (east edge of the building).
+ *   - Otherwise: find which zone owns x at base length and apply that
+ *     zone's rightShiftMm as the translation. When x falls exactly on a
+ *     zone boundary the zone to the right takes precedence.
+ *
+ * This correctly handles interior south-wall notch points (veranda
+ * recesses, entrance gaps) at any y-coordinate, not just y === outerDepth.
  */
 function stretchExternalWall(
   el: WallElement,
   model: FloorPlanModel,
   layouts: LayoutResult,
 ): WallElement {
-  const originalMaxX = Math.max(...el.points.map((p) => p[0]));
-  const outerDepth = Math.max(...el.points.map((p) => p[1]));
   const delta = layouts.totalLengthMm - model.viewBox.width;
+  const lastZone = layouts.zones[layouts.zones.length - 1];
+
   return {
     ...el,
     points: el.points.map(([x, y]) => {
-      if (x === originalMaxX) return [x + delta, y] as const;
-      // South-wall interior points = entrance gap. Shift with east wall.
-      if (y === outerDepth && x !== 0) return [x + delta, y] as const;
+      if (x === 0) return [x, y] as const;
+      if (x >= lastZone.baseXEndMm) return [x + delta, y] as const;
+      // Find the zone owning x — iterate right-to-left to prefer the zone
+      // to the right when x sits exactly on a boundary.
+      for (let i = layouts.zones.length - 1; i >= 0; i--) {
+        if (layouts.zones[i].baseXStartMm <= x) {
+          return [x + layouts.zones[i].rightShiftMm, y] as const;
+        }
+      }
       return [x, y] as const;
     }),
   };

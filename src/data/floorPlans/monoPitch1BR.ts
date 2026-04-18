@@ -10,6 +10,10 @@ import type { FloorPlanModel } from "@/types/floorPlan";
  * AND bedroom zones — both fills share the same beige floor so the
  * joint at x = bathroom-east is invisible.
  *
+ * The south (external) wall has an entrance gap notch at ENTRANCE_X →
+ * ENTRANCE_X + ENTRANCE_W, matching the veranda opening. When zone-living
+ * stretches, both notch points shift with it via zone-aware remapping.
+ *
  * Coordinates are in mm, origin at the top-left of the outer envelope.
  * Zones are ordered so the living room stretches first (order = 1),
  * the bedroom strip second, the wet-core last (fixed bathroom width).
@@ -203,7 +207,7 @@ export const MONO_PITCH_1BR_FLOOR_PLAN: FloorPlanModel = {
       ],
     },
 
-    // === External walls (single closed rectangle; entrance is internal) ===
+    // === External walls (south wall has entrance gap notch at veranda opening) ===
     {
       id: "wall-external",
       type: "wall",
@@ -212,6 +216,9 @@ export const MONO_PITCH_1BR_FLOOR_PLAN: FloorPlanModel = {
         [0, 0],
         [OUTER_WIDTH, 0],
         [OUTER_WIDTH, OUTER_DEPTH],
+        [ENTRANCE_X + ENTRANCE_W, OUTER_DEPTH],
+        // entrance gap in south wall
+        [ENTRANCE_X, OUTER_DEPTH],
         [0, OUTER_DEPTH],
         [0, 0],
       ],

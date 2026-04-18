@@ -13,8 +13,13 @@ import type { FloorPlanModel } from "@/types/floorPlan";
  *   – Right:    bedroom 2 (top-right) + bedroom 3 (bottom-right).
  *
  * The veranda is a south-facing recess carved out of the envelope —
- * its floor is outside GFA but inside the outer perimeter. Coordinates
- * are in mm, origin at the top-left of the outer envelope.
+ * its floor is outside GFA but inside the outer perimeter. The external
+ * wall polygon traces the recess via interior notch points at VERANDA_X0
+ * and VERANDA_X1 (both inside zone-centre). When zone-centre stretches,
+ * these points shift with it via zone-aware remapping so the outer shell
+ * stays connected to the veranda partitions at all plan lengths.
+ *
+ * Coordinates are in mm, origin at the top-left of the outer envelope.
  *
  * Zone stretch priority (order): centre (1) fills first, then right
  * bedrooms (2), wet core (3) last.
