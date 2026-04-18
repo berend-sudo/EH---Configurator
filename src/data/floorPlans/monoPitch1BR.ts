@@ -209,6 +209,18 @@ export const MONO_PITCH_1BR_FLOOR_PLAN: FloorPlanModel = {
         [P_VERANDA_WEST, INNER_Y1],
       ],
     },
+    {
+      id: "fill-corridor-south",
+      type: "room-fill",
+      zoneId: "zone-bedroom",
+      fill: "#efe2c6",
+      points: [
+        [P_BEDROOM_EAST, P_VERANDA_NORTH],
+        [P_VERANDA_WEST, P_VERANDA_NORTH],
+        [P_VERANDA_WEST, INNER_Y1],
+        [P_BEDROOM_EAST, INNER_Y1],
+      ],
+    },
 
     // === External walls (south wall has veranda opening from P_VERANDA_WEST to INNER_X1) ===
     {
@@ -257,6 +269,17 @@ export const MONO_PITCH_1BR_FLOOR_PLAN: FloorPlanModel = {
       points: [
         [P_BEDROOM_EAST, P_BATHROOM_SOUTH],
         [P_BEDROOM_EAST, INNER_Y1],
+      ],
+    },
+    {
+      id: "partition-corridor-south",
+      type: "partition",
+      zoneId: "zone-bedroom",
+      thicknessMm: PARTITION_THK,
+      // South wall of the entrance corridor between bedroom and veranda
+      points: [
+        [P_BEDROOM_EAST, P_VERANDA_NORTH],
+        [P_VERANDA_WEST, P_VERANDA_NORTH],
       ],
     },
     {
@@ -435,7 +458,7 @@ export const MONO_PITCH_1BR_FLOOR_PLAN: FloorPlanModel = {
       zoneId: "zone-living",
       subtype: "fridge",
       xMm: P_BEDROOM_EAST + 150,
-      yMm: INNER_Y0 + 100,
+      yMm: INNER_Y0,
       widthMm: 600,
       heightMm: 600,
     },
@@ -445,7 +468,7 @@ export const MONO_PITCH_1BR_FLOOR_PLAN: FloorPlanModel = {
       zoneId: "zone-living",
       subtype: "kitchen-counter",
       xMm: P_BEDROOM_EAST + 800,
-      yMm: INNER_Y0 + 100,
+      yMm: INNER_Y0,
       widthMm: 1700,
       heightMm: 600,
     },
@@ -455,7 +478,7 @@ export const MONO_PITCH_1BR_FLOOR_PLAN: FloorPlanModel = {
       zoneId: "zone-living",
       subtype: "sink-kitchen",
       xMm: P_BEDROOM_EAST + 900,
-      yMm: INNER_Y0 + 200,
+      yMm: INNER_Y0,
       widthMm: 700,
       heightMm: 450,
     },
@@ -465,7 +488,7 @@ export const MONO_PITCH_1BR_FLOOR_PLAN: FloorPlanModel = {
       zoneId: "zone-living",
       subtype: "stove",
       xMm: P_BEDROOM_EAST + 1750,
-      yMm: INNER_Y0 + 150,
+      yMm: INNER_Y0,
       widthMm: 600,
       heightMm: 550,
     },
