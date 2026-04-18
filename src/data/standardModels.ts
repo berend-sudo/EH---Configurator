@@ -1,4 +1,5 @@
 import type { ComponentAmounts, TypologyId } from "@/types/costEngine";
+import { deriveMonoPitchAmounts } from "@/lib/floorPlan/deriveMonoPitchAmounts";
 
 export interface StandardModel {
   id: string;
@@ -6,88 +7,144 @@ export interface StandardModel {
   typology: TypologyId;
   bedrooms: number;
   bathrooms: number;
+  /** Columns A (1221 mm). */
+  columnsA: number;
+  /** Columns B (2442 mm). */
+  columnsB: number;
+  /** Columns C (3053 mm). */
+  columnsC: number;
+  /** Partition wall length (m). */
+  partitionsM: number;
+  /** Interior doors. */
+  interiorDoors: number;
+  /** Bulk aluminium (sqm). */
+  aluminiumSqm: number;
   /** Gross floor area in sqm (Excel B23). */
   gfaSqm: number;
   /**
    * Per-component amounts published in the Excel template.
-   * Phase 1 uses these literally; Phase 2 will derive them
-   * from frame counts + zone-stretch deltas.
+   * Phase 1 uses these literally; Phase 2 derives them from the
+   * frame counts + zone-stretch deltas via `deriveMonoPitchAmounts`.
    */
   componentAmounts: ComponentAmounts;
 }
 
 /**
- * "Mono Pitch 2BR" — the default configuration in
- * "Project Costs" of the calculation template (column E in the standard
- * models table, "Project Input" rows 22–40).
+ * "Mono Pitch 2BR (template default)" — the default configuration in
+ * "Project Costs" of the calculation template (columns E24:E34 of
+ * "Project Input"). This is the configuration the calibration test
+ * targets (≈ 100,215,294 UGX inc VAT, Excel B51).
  *
- * Inputs:
  *   typology   = Mono Pitch (4884)
- *   columnsA/B/C = 2 / 4 / 0
+ *   columnsA/B/C = 2 / 4 / 0    (2A + 4B + 0C → 12,210 mm structural)
  *   partitions = 27 m
  *   interior doors = 6
  *   aluminium  = 10.5 sqm
  *   bedrooms = 2, bathrooms = 2
  *   GFA = 61.137912 sqm
- *
- * Expected total: ~100,215,294 UGX inclusive VAT (Excel B51).
  */
-export const MONO_PITCH_2BR_DEFAULT: StandardModel = {
+export const MONO_PITCH_2BR_DEFAULT: StandardModel = makeMonoPitchStandardModel({
   id: "mono-pitch-2br-default",
-  name: "Mono Pitch 2BR (default template config)",
-  typology: "mono-pitch-4884",
+  name: "Mono Pitch 2BR (template default)",
   bedrooms: 2,
   bathrooms: 2,
-  gfaSqm: 61.137912,
-  componentAmounts: {
-    // Frames — derived from 2A + 4B + 0C columns at 4884 mm depth
-    "floor-frame-2442x1221": 4,
-    "floor-frame-2442x2442": 8,
-    "wall-frame-2442x2654": 5,
-    "wall-frame-2442x2999": 9,
-    "partition-wall-frame-per-m1": 27,
-    "facade-cladding-per-m2": 93.697698,
-    "roof-frame-mono-pitch": 8,
-    "roof-frame-mono-pitch-edge": 2,
+  columnsA: 2,
+  columnsB: 4,
+  columnsC: 0,
+  partitionsM: 27,
+  interiorDoors: 6,
+  aluminiumSqm: 10.5,
+  pergolaSqm: 17,
+});
 
-    // Aluminium (bulk pricing)
-    "aluminium-bulk-per-sqm": 10.5,
+/**
+ * "Mono Pitch 1BR" — row F45:F56 of the standard-models table in
+ * "Project Costs". Baseline for the 1-bedroom Mono-Pitch floor plan.
+ *
+ *   columnsA/B/C = 0 / 0 / 2   (2C → 6,106 mm structural)
+ *   partitions = 6 m
+ *   interior doors = 2
+ *   aluminium = 7.9 sqm
+ *   bathrooms = 1
+ */
+export const MONO_PITCH_1BR_DEFAULT: StandardModel = makeMonoPitchStandardModel({
+  id: "mono-pitch-1br-default",
+  name: "Mono Pitch 1BR (standard)",
+  bedrooms: 1,
+  bathrooms: 1,
+  columnsA: 0,
+  columnsB: 0,
+  columnsC: 2,
+  partitionsM: 6,
+  interiorDoors: 2,
+  aluminiumSqm: 7.9,
+});
 
-    // Building materials & works
-    "foundation-point": 21,
-    "interior-door": 6,
-    "roof-sheets-per-sqm": 74.522832,
-    "paintworks-per-sqm": 506.05614,
-    "pergola-per-sqm": 17,
-    "cement-boards-per-bathroom": 2,
-    "extra-timber": 1,
-    "smoke-detector": 1,
-    "fire-extinguisher": 1,
-
-    // Project overhead
-    "easy-building-licence-fee": 1,
-    "design-fee-siteplan": 1,
-    "transport-materials-to-workshop": 1,
-    "transport-frames-to-site": 1,
-    "transport-foundation-to-site": 1,
-    "travel-costs-site-team": 1,
-    "accommodation-site-team": 1,
-    "workshop-costs": 1,
-    "unforeseen-costs": 1,
-    "vehicle-tool-maintenance": 1,
-    "project-management": 1,
-    "aftercare-warranty": 1,
-    "account-management": 1,
-    "customer-acquisition": 1,
-    "placement-labour": 1,
-    "cleaning-on-completion": 1,
-
-    // Finishings
-    electricity: 1,
-    plumbing: 1,
-  },
-};
+/**
+ * "Mono Pitch 2BR (standard)" — row G45:G56 of the standard-models table.
+ * This is the configuration the floor-plan renderer uses as its base
+ * (0A + 1B + 2C, 8,547 mm structural length).
+ */
+export const MONO_PITCH_2BR_STANDARD: StandardModel = makeMonoPitchStandardModel({
+  id: "mono-pitch-2br-standard",
+  name: "Mono Pitch 2BR (standard)",
+  bedrooms: 2,
+  bathrooms: 1,
+  columnsA: 0,
+  columnsB: 1,
+  columnsC: 2,
+  partitionsM: 12.5,
+  interiorDoors: 3,
+  aluminiumSqm: 10.2,
+});
 
 export const STANDARD_MODELS: readonly StandardModel[] = [
+  MONO_PITCH_1BR_DEFAULT,
+  MONO_PITCH_2BR_STANDARD,
   MONO_PITCH_2BR_DEFAULT,
 ];
+
+interface MonoPitchStandardModelSeed {
+  id: string;
+  name: string;
+  bedrooms: number;
+  bathrooms: number;
+  columnsA: number;
+  columnsB: number;
+  columnsC: number;
+  partitionsM: number;
+  interiorDoors: number;
+  aluminiumSqm: number;
+  pergolaSqm?: number;
+}
+
+function makeMonoPitchStandardModel(
+  seed: MonoPitchStandardModelSeed,
+): StandardModel {
+  const derived = deriveMonoPitchAmounts({
+    typology: "mono-pitch-4884",
+    columnsA: seed.columnsA,
+    columnsB: seed.columnsB,
+    columnsC: seed.columnsC,
+    partitionsM: seed.partitionsM,
+    interiorDoors: seed.interiorDoors,
+    aluminiumSqm: seed.aluminiumSqm,
+    bathrooms: seed.bathrooms,
+    pergolaSqm: seed.pergolaSqm,
+  });
+  return {
+    id: seed.id,
+    name: seed.name,
+    typology: "mono-pitch-4884",
+    bedrooms: seed.bedrooms,
+    bathrooms: seed.bathrooms,
+    columnsA: seed.columnsA,
+    columnsB: seed.columnsB,
+    columnsC: seed.columnsC,
+    partitionsM: seed.partitionsM,
+    interiorDoors: seed.interiorDoors,
+    aluminiumSqm: seed.aluminiumSqm,
+    gfaSqm: derived.gfaSqm,
+    componentAmounts: derived.componentAmounts,
+  };
+}

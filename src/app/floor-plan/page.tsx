@@ -207,6 +207,42 @@ export default function FloorPlanPreviewPage() {
         </h2>
         <ZoneTable outerLengthMm={outerLengthMm} />
       </section>
+
+      <section className="rounded-md border border-eh-sage p-4">
+        <h2 className="mb-2 text-sm font-semibold text-eh-forest">
+          Price breakdown
+        </h2>
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm md:grid-cols-4">
+          <dt>Cost USD ex VAT</dt>
+          <dd className="text-right font-mono">
+            {priced.price.costUsdExVat.toFixed(2)}
+          </dd>
+          <dt>Margin (10%)</dt>
+          <dd className="text-right font-mono">
+            {priced.price.marginUsd.toFixed(2)}
+          </dd>
+          <dt>VAT (18%)</dt>
+          <dd className="text-right font-mono">
+            {priced.price.vatUsd.toFixed(2)}
+          </dd>
+          <dt>Price USD inc VAT</dt>
+          <dd className="text-right font-mono">
+            {priced.price.priceUsdIncVat.toFixed(2)}
+          </dd>
+          <dt>Price UGX inc VAT</dt>
+          <dd className="text-right font-mono">
+            {ugx.format(priced.price.priceUgxIncVat)}
+          </dd>
+          <dt>Rounded UP (100k)</dt>
+          <dd className="text-right font-mono font-semibold text-eh-forest">
+            {ugx.format(priced.price.priceUgxIncVatRounded)}
+          </dd>
+          <dt>Per sqm GFA</dt>
+          <dd className="text-right font-mono">
+            {ugx.format(priced.price.pricePerSqmUgxIncVat)}
+          </dd>
+        </dl>
+      </section>
     </main>
   );
 }

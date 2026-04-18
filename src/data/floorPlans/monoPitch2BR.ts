@@ -51,6 +51,9 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
   jumpSizeMm: 610,
   viewBox: { width: OUTER_WIDTH, height: VERANDA_Y1 + 400 },
 
+  // Zone limits are sized so Σ(min) ≤ outerWidth(minLength) and
+  // Σ(max) ≥ outerWidth(maxLength) — i.e. the plan covers the whole
+  // typology range (8–20 jumps of 610 mm).
   zones: [
     {
       id: "zone-wet-core",
