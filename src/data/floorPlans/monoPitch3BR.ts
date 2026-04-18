@@ -61,6 +61,11 @@ export const MONO_PITCH_3BR_FLOOR_PLAN: FloorPlanModel = {
   maxLengthMm: 20 * 610, // 12200 mm — typology max
   jumpSizeMm: 610,
   viewBox: { width: OUTER_WIDTH, height: OUTER_DEPTH + 400 },
+  costDefaults: {
+    partitionsM: 14.0, // 3BR Mono standard from Excel col G
+    interiorDoors: 4,
+    aluminiumSqm: 9.4,
+  },
 
   zones: [
     {
@@ -113,7 +118,6 @@ export const MONO_PITCH_3BR_FLOOR_PLAN: FloorPlanModel = {
         "window-kitchen",
         "window-living-north",
         "f-kitchen-counter",
-        "f-sofa",
       ],
     },
     {

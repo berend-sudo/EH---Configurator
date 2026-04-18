@@ -131,7 +131,6 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
       stretchingElementIds: [
         "fill-living",
         "window-living-north",
-        "f-sofa",
       ],
     },
   ],
