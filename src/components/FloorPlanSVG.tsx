@@ -49,14 +49,27 @@ export function FloorPlanSVG({
   const layouts = layoutZones(model, { targetLengthMm: target });
   const elements = model.elements.map((el) => transformElement(el, layouts));
 
-  // Transform the external wall and overall-width dimension (zone-less) to
-  // follow the new total length; the vertical dimension stays put.
+  // Build a map of fill-id → live area (m²) from the transformed polygons.
+  const fillAreas = new Map<string, number>();
+  for (const el of elements) {
+    if (el.type === "room-fill") {
+      fillAreas.set(el.id, polygonAreaM2(el.points));
+    }
+  }
+
+  // Patch room-label areaM2 using the live fill area where fillId is wired.
   const transformedElements = elements.map((el) => {
     if (el.type === "wall" && el.id === "wall-external") {
       return stretchExternalWall(el, model, layouts);
     }
     if (el.type === "dimension" && el.id === "dim-overall-width") {
       return updateOverallWidthDim(el, layouts.totalLengthMm);
+    }
+    if (el.type === "room-label" && el.fillId) {
+      const area = fillAreas.get(el.fillId);
+      if (area !== undefined) {
+        return { ...el, areaM2: Math.round(area * 10) / 10 };
+      }
     }
     return el;
   });
@@ -127,8 +140,11 @@ export function FloorPlanSVG({
 }
 
 /**
- * The external wall is one continuous rectangle spanning the full outer
- * width. Stretch its right-side vertices to match the new total length.
+ * The external wall spans the full outer width. Stretch it by:
+ *   - Moving every point at the east edge (originalMaxX) rightward by delta.
+ *   - Also shifting south-wall interior points (entrance gap) by delta so the
+ *     door opening tracks the living zone's right edge rather than staying at
+ *     a fixed coordinate while everything around it moves.
  */
 function stretchExternalWall(
   el: WallElement,
@@ -136,13 +152,16 @@ function stretchExternalWall(
   layouts: LayoutResult,
 ): WallElement {
   const originalMaxX = Math.max(...el.points.map((p) => p[0]));
+  const outerDepth = Math.max(...el.points.map((p) => p[1]));
   const delta = layouts.totalLengthMm - model.viewBox.width;
   return {
     ...el,
-    points: el.points.map(([x, y]) => [
-      x === originalMaxX ? x + delta : x,
-      y,
-    ] as const),
+    points: el.points.map(([x, y]) => {
+      if (x === originalMaxX) return [x + delta, y] as const;
+      // South-wall interior points = entrance gap. Shift with east wall.
+      if (y === outerDepth && x !== 0) return [x + delta, y] as const;
+      return [x, y] as const;
+    }),
   };
 }
 
@@ -615,6 +634,16 @@ function Dimension({ el }: { el: DimensionElement }) {
 }
 
 /* ---------- helpers ---------- */
+
+/** Shoelace formula: area of a polygon in m² (inputs in mm). */
+function polygonAreaM2(points: ReadonlyArray<readonly [number, number]>): number {
+  let area = 0;
+  const n = points.length;
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    area += (points[j][0] + points[i][0]) * (points[j][1] - points[i][1]);
+  }
+  return Math.abs(area / 2) / 1_000_000;
+}
 
 function polylinePath(points: ReadonlyArray<readonly [number, number]>): string {
   return points

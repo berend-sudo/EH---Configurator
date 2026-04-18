@@ -65,8 +65,8 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
       order: 3, // stretches last
       xStartMm: 0,
       xEndMm: P_WETCORE_EAST + PARTITION_THK / 2,
-      minWidthMm: 2000,
-      maxWidthMm: 2600,
+      minWidthMm: 1200,
+      maxWidthMm: 3000,
       movingElementIds: [
         "partition-bathroom-east",
         "partition-wetcore-east",
@@ -88,7 +88,7 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
       order: 2,
       xStartMm: P_WETCORE_EAST + PARTITION_THK / 2,
       xEndMm: P_BEDROOMS_EAST + PARTITION_THK / 2,
-      minWidthMm: 2400,
+      minWidthMm: 1200,
       maxWidthMm: 3000,
       movingElementIds: [
         "partition-bedrooms-east",
@@ -109,8 +109,9 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
       order: 1, // fills first — living room absorbs most of the delta
       xStartMm: P_BEDROOMS_EAST + PARTITION_THK / 2,
       xEndMm: OUTER_WIDTH,
-      minWidthMm: 2400,
-      maxWidthMm: 5500,
+      minWidthMm: 900,
+      maxWidthMm: 6600,
+      // anchor-right: translate with the zone's east (right) edge
       movingElementIds: [
         "f-dining-table",
         "f-dining-chair-1",
@@ -121,10 +122,14 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
         "f-veranda-chair-2",
         "f-veranda-chair-3",
         "label-veranda-entrance-arrow",
+        // Veranda fill and label stay fixed-size against the east wall
+        "fill-veranda",
+        "label-veranda",
+        // Entrance door tracks the veranda west edge
+        "door-entrance",
       ],
       stretchingElementIds: [
         "fill-living",
-        "fill-veranda",
         "window-living-north",
         "f-sofa",
       ],
@@ -603,6 +608,7 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
       id: "label-bathroom",
       type: "room-label",
       zoneId: "zone-wet-core",
+      fillId: "fill-bathroom",
       xMm: (INNER_X0 + P_WETCORE_EAST) / 2,
       yMm: (INNER_Y0 + P_BATHROOM_SOUTH) / 2 + 350,
       label: "Bathroom",
@@ -612,6 +618,7 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
       id: "label-bedroom1",
       type: "room-label",
       zoneId: "zone-wet-core",
+      fillId: "fill-bedroom1",
       xMm: (INNER_X0 + P_WETCORE_EAST) / 2,
       yMm: (P_BATHROOM_SOUTH + INNER_Y1) / 2 - 300,
       label: "Bedroom 1",
@@ -621,6 +628,7 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
       id: "label-bedroom2",
       type: "room-label",
       zoneId: "zone-bedrooms",
+      fillId: "fill-bedroom2",
       xMm: (P_WETCORE_EAST + P_BEDROOMS_EAST) / 2,
       yMm: (P_KITCHEN_SOUTH + INNER_Y1) / 2 - 300,
       label: "Bedroom 2",
@@ -630,6 +638,7 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
       id: "label-living",
       type: "room-label",
       zoneId: "zone-living",
+      fillId: "fill-living",
       xMm: (P_BEDROOMS_EAST + INNER_X1) / 2 - 600,
       yMm: 1350,
       label: "Living Room",
@@ -639,6 +648,7 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
       id: "label-veranda",
       type: "room-label",
       zoneId: "zone-living",
+      fillId: "fill-veranda",
       xMm: (VERANDA_X0 + VERANDA_X1) / 2,
       yMm: (VERANDA_Y0 + VERANDA_Y1) / 2,
       label: "Veranda",

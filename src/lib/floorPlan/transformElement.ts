@@ -3,18 +3,31 @@ import type { LayoutResult, ZoneLayout } from "./zoneLayout";
 
 /**
  * Per-element behaviour when its zone stretches.
- *   "stretch" — linearly map x from [baseZone] to [newZone] (used for room
- *               fills, walls, partitions, windows — geometry that spans
- *               the zone).
- *   "shift"   — translate by the zone's xShift only (used for furniture
- *               so it doesn't deform).
- *   "center"  — keep the element's relative position at (center offset ÷
- *               baseWidth) within the new zone, preserving its own width
- *               (used for room labels).
+ *   "stretch"      — linearly map x from [baseZone] to [newZone] (room fills,
+ *                    spanning walls, windows — geometry that spans the zone).
+ *   "shift"        — translate by the zone's LEFT-edge shift (xShiftMm). Used
+ *                    for furniture anchored near the west/left wall.
+ *   "anchor-right" — translate by the zone's RIGHT-edge shift (rightShiftMm).
+ *                    Used for furniture and fills anchored near the east/right
+ *                    wall (dining table, veranda, zone-boundary partitions).
+ *   "center"       — keep the element's relative position within the zone
+ *                    (room labels not in either explicit list).
  */
-type Mode = "stretch" | "shift" | "center";
+type Mode = "stretch" | "shift" | "anchor-right" | "center";
 
-function modeFor(type: FloorPlanElement["type"]): Mode {
+/**
+ * Determine mode. Priority:
+ *   1. Element id in zone's movingElementIds    → anchor-right
+ *   2. Element id in zone's stretchingElementIds → stretch
+ *   3. Fallback by element type
+ */
+function modeForElement(el: FloorPlanElement, layout: ZoneLayout): Mode {
+  if (layout.movingElementIds.includes(el.id)) return "anchor-right";
+  if (layout.stretchingElementIds.includes(el.id)) return "stretch";
+  return fallbackMode(el.type);
+}
+
+function fallbackMode(type: FloorPlanElement["type"]): Mode {
   switch (type) {
     case "furniture":
       return "shift";
@@ -42,9 +55,9 @@ function mapX(x: number, layout: ZoneLayout, mode: Mode): number {
     }
     case "shift":
       return x + layout.xShiftMm;
+    case "anchor-right":
+      return x + layout.rightShiftMm;
     case "center": {
-      // Treat x as the element's anchor (label position). Keep its relative
-      // position in the zone identical.
       const rel = layout.baseWidthMm > 0
         ? (x - layout.baseXStartMm) / layout.baseWidthMm
         : 0;
@@ -55,7 +68,7 @@ function mapX(x: number, layout: ZoneLayout, mode: Mode): number {
 
 /**
  * Apply the layout to an element. Elements without a zoneId are returned
- * unchanged (external wall, overall dimensions).
+ * unchanged (external wall, overall dimensions handled separately).
  */
 export function transformElement(
   el: FloorPlanElement,
@@ -64,7 +77,7 @@ export function transformElement(
   if (!el.zoneId) return el;
   const layout = layouts.zones.find((z) => z.id === el.zoneId);
   if (!layout) return el;
-  const mode = modeFor(el.type);
+  const mode = modeForElement(el, layout);
 
   switch (el.type) {
     case "wall":
@@ -90,8 +103,6 @@ export function transformElement(
     case "room-label":
       return { ...el, xMm: mapX(el.xMm, layout, mode) };
     case "dimension":
-      // Dimensions are zone-bound in principle but we don't ship any inside
-      // a zone yet; pass through.
       return el;
   }
 }

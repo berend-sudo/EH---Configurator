@@ -13,8 +13,14 @@ export interface ZoneLayout {
   widthMm: number;
   /** Shift applied to this zone's xStart from its base position. */
   xShiftMm: number;
+  /** Shift applied to this zone's xEnd from its base position (= right-edge delta). */
+  rightShiftMm: number;
   /** Multiplicative horizontal scale for stretchable elements within the zone. */
   scaleX: number;
+  /** Copied from zone definition — elements that translate with the right edge. */
+  movingElementIds: ReadonlyArray<string>;
+  /** Copied from zone definition — elements that scale proportionally within zone. */
+  stretchingElementIds: ReadonlyArray<string>;
 }
 
 export interface LayoutOptions {
@@ -101,7 +107,10 @@ export function layoutZones(
       xEndMm: x + w,
       widthMm: w,
       xShiftMm: x - z.xStartMm,
+      rightShiftMm: (x + w) - z.xEndMm,
       scaleX: baseWidths[i] > 0 ? w / baseWidths[i] : 1,
+      movingElementIds: z.movingElementIds,
+      stretchingElementIds: z.stretchingElementIds,
     };
     x += w;
     return layout;
