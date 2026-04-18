@@ -78,6 +78,11 @@ export function emptyModel(): FloorPlanModel {
     viewBox: { width: 7326, height: 4884 },
     zones: [],
     elements: [],
+    costDefaults: {
+      partitionsM: 0,
+      interiorDoors: 0,
+      aluminiumSqm: 0,
+    },
   };
 }
 

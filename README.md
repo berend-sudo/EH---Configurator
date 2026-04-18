@@ -7,14 +7,21 @@ live.
 
 ## Status
 
-**Phase 1 — done.** Project scaffold + pure-TypeScript cost engine with
-unit tests. The engine reproduces cell B51 of the calculation template
-("Project Costs" sheet) for the default Mono Pitch 2BR input
-(2A + 4B + 0C frames, 27 m partitions, 6 interior doors, 10.5 sqm
-aluminium, 2 BR / 2 bath) — ≈ 100,215,294 UGX inclusive VAT.
-
-Phases 2–5 (SVG floor-plan renderer with zone stretching, admin tracing
-tool, full 8-step client flow, PWA + Vercel deploy) are not yet built.
+- **Phase 1 ✅** — Project scaffold + pure-TypeScript cost engine with
+  unit tests. Reproduces cell B51 of the calculation template
+  ("Project Costs" sheet) for the default Mono Pitch 2BR input
+  (2A + 4B + 0C frames, 27 m partitions, 6 interior doors, 10.5 sqm
+  aluminium, 2 BR / 2 bath) — ≈ 100,215,294 UGX inclusive VAT.
+- **Phase 2a/2b ✅** — Parametric SVG floor-plan renderer with zone
+  stretching. Length slider drives frame decomposition → amount
+  derivation → live price.
+- **Phase 3 ✅** — Admin tracing tool. Upload a floor-plan PNG, run
+  Claude Sonnet 4 vision detection, calibrate, edit walls/rooms/
+  furniture/zones, export JSON to `data/floorplans/`.
+- **Phase 4 ⏳** — Full client wizard (typology → bedrooms → length →
+  options → quote). Not started; Mono Pitch 4884 is the only
+  supported typology today.
+- **Phase 5 ⏳** — PWA + Vercel deploy. Not started.
 
 ## Stack
 
@@ -22,36 +29,55 @@ tool, full 8-step client flow, PWA + Vercel deploy) are not yet built.
 - TypeScript (strict) with `@/*` → `./src/*` path alias
 - Tailwind CSS v4
 - Vitest for unit tests
+- `@anthropic-ai/sdk` for Phase 3 vision detection
 
 ## Layout
 
 ```
 src/
-  app/                  Next.js App Router
-    page.tsx            Phase 1 sanity-check UI for the cost engine
-    layout.tsx
-    globals.css
-  lib/costEngine/
-    index.ts            Public API: calculatePrice(input)
-    components.ts       COMPONENT_COSTS — every line item from the Excel
-    constants.ts        MARGIN, VAT, USD_TO_UGX, frame dimensions
-    pricing.ts          marginUsd, vatUsd, usdToUgx, roundUpUgx
+  app/
+    page.tsx                 Phase 1 cost-engine sanity page
+    floor-plan/page.tsx      Phase 2b parametric preview
+    admin/page.tsx           Phase 3 tracer (gated by ADMIN_SECRET)
+    api/floorplans/          Save + detect endpoints
+    layout.tsx, globals.css
+  lib/
+    costEngine/              calculatePrice, COMPONENT_COSTS, constants
+    floorPlan/               deriveAmounts (dispatcher),
+                             deriveMonoPitchAmounts (canonical),
+                             stretch, zoneLayout, priceForLength,
+                             costForLength, transformElement
+    admin/                   AI detection, editor state, derived layers
+    frameCombo.ts            A/B/C decomposition in jump units
+  components/                FloorPlanSVG, LengthSlider, admin/*
   data/
-    standardModels.ts   Default Mono Pitch 2BR preset (Excel template default)
-  types/
-    costEngine.ts       Public types
-tests/costEngine/       Vitest suites
+    standardModels.ts        Mono Pitch 1BR / 2BR default / 2BR standard
+    floorPlans/monoPitch2BR  Hardcoded SVG model (Phase 2b baseline)
+  types/                     Public cost-engine + floor-plan types
+  middleware.ts              ADMIN_SECRET gate for /admin + /api/floorplans
+tests/
+  costEngine/                calibration, pricing primitives, component table
+  floorPlan/                 stretch, zone layout, render snapshot, price-for-length
+  lib/                       frameCombo, deriveAmounts, transformElement, zoneLayout
 ```
 
 ## Scripts
 
 ```sh
 npm install
-npm run dev          # http://localhost:3000 — Phase 1 sanity-check page
+npm run dev          # http://localhost:3000
 npm run build        # production build
 npm run test         # vitest
 npm run typecheck    # tsc --noEmit
 ```
+
+## Environment
+
+- `ANTHROPIC_API_KEY` — required for Phase 3 admin vision detection.
+- `ADMIN_SECRET` — when set, `/admin` and `/api/floorplans` are gated.
+  Unlock by visiting `/admin?secret=<value>` once (sets the
+  `eh_admin` cookie) or by sending the `x-admin-secret` header.
+  Leave unset in dev to skip the gate.
 
 ## Calculation reference
 
@@ -64,8 +90,16 @@ The engine mirrors the "Project Costs" sheet of
 | Add 10% margin | `B42 = B41 × B39` | `marginUsd` |
 | Sales price USD ex VAT | `B44 = B41 + B42` | `cost + margin` |
 | Add 18% VAT | `B45 = B44 × 1.18` | `× 1.18` |
-| Convert to UGX | `B48 = round(B41 × B38, 0)` | `Math.round(cost × 3700)` |
+| Convert to UGX | `B48 = round(B41 × B38, 0)` | `costUgxRounded` |
 | Margin in UGX | `B49 = B48 × B39` | `× 0.10` |
 | VAT in UGX | `B50 = (B48 + B49) × B40` | `× 0.18` |
 | Total inc VAT in UGX | `B51 = B48 + B49 + B50` | `priceUgxIncVat` |
 | Round UP for display | (manual rule from spec) | `ceil(× / 100,000) × 100,000` |
+
+## Amount derivation
+
+`deriveAmounts(input)` is the typology dispatcher. Today it delegates
+to `deriveMonoPitchAmounts` for `mono-pitch-4884`; other typologies
+plug into the same `switch` as their derive functions land. The
+Mono-Pitch logic uses precise surface constants extracted from the
+Excel "Structures Database".

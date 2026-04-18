@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FloorPlanSVG } from "@/components/FloorPlanSVG";
 import { LengthSlider } from "@/components/LengthSlider";
+import { MONO_PITCH_1BR_FLOOR_PLAN } from "@/data/floorPlans/monoPitch1BR";
 import { MONO_PITCH_2BR_FLOOR_PLAN } from "@/data/floorPlans/monoPitch2BR";
 import { MONO_PITCH_3BR_FLOOR_PLAN } from "@/data/floorPlans/monoPitch3BR";
 import { calculatePrice } from "@/lib/costEngine";
@@ -98,7 +99,6 @@ export default function FloorPlanPreviewPage() {
       aluminiumSqm: costs.aluminiumSqm,
       extraExtWallSteps,
       bathrooms: plan.bathrooms,
-      depthMm: plan.depthMm,
     });
   }, [frames, plan, costs, extraExtWallSteps]);
 
@@ -156,6 +156,23 @@ export default function FloorPlanPreviewPage() {
 
       <section className="grid gap-4 rounded-md border border-eh-sage p-4 md:grid-cols-[1fr_auto]">
         <div className="space-y-4">
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-eh-forest">
+              Standard model
+            </label>
+            <select
+              value={planId}
+              onChange={(e) => setPlanId(e.target.value)}
+              className="w-full rounded-md border border-eh-sage bg-white p-2 text-sm font-mono text-eh-forest"
+            >
+              {PLANS.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <LengthSlider
             lengthMm={clampedOuterLengthMm}
             minLengthMm={minOuter}
