@@ -18,13 +18,13 @@ import { marginUsd, roundUpUgx, usdToUgx, vatUsd } from "./pricing";
  *   vatUsd        = salesUsd × 18%                            // B45 - B44
  *   priceUsdInc   = salesUsd × 1.18                           // B45
  *
- *   priceUgxExVat       = round(costUsd × 3700)               // B48 — labelled
+ *   costUgxRounded      = round(costUsd × 3700)               // B48 — labelled
  *                                                             //  "Price in UGX ex VAT"
  *                                                             //  in the sheet but is
  *                                                             //  literally cost × rate.
- *   marginUgx           = priceUgxExVat × 10%                 // B49
- *   vatUgx              = (priceUgxExVat + marginUgx) × 18%   // B50
- *   priceUgxIncVat      = priceUgxExVat + marginUgx + vatUgx  // B51
+ *   marginUgx           = costUgxRounded × 10%                // B49
+ *   vatUgx              = (costUgxRounded + marginUgx) × 18%  // B50
+ *   priceUgxIncVat      = costUgxRounded + marginUgx + vatUgx // B51
  *   priceUgxIncVatRounded = ceil(priceUgxIncVat / 100,000)    // client display
  *                          × 100,000
  */
@@ -55,10 +55,10 @@ export function calculatePrice(input: CostInput): CostBreakdown {
   const vat = vatUsd(salesPriceUsdExVat);
   const priceUsdIncVat = salesPriceUsdExVat + vat;
 
-  const priceUgxExVat = Math.round(usdToUgx(costUsdExVat));
-  const marginUgx = priceUgxExVat * 0.10;
-  const vatUgx = (priceUgxExVat + marginUgx) * 0.18;
-  const priceUgxIncVat = priceUgxExVat + marginUgx + vatUgx;
+  const costUgxRounded = Math.round(usdToUgx(costUsdExVat));
+  const marginUgx = costUgxRounded * 0.10;
+  const vatUgx = (costUgxRounded + marginUgx) * 0.18;
+  const priceUgxIncVat = costUgxRounded + marginUgx + vatUgx;
   const priceUgxIncVatRounded = roundUpUgx(priceUgxIncVat);
 
   const pricePerSqmUgxIncVat =
@@ -71,7 +71,7 @@ export function calculatePrice(input: CostInput): CostBreakdown {
     salesPriceUsdExVat,
     vatUsd: vat,
     priceUsdIncVat,
-    priceUgxExVat,
+    costUgxRounded,
     marginUgx,
     vatUgx,
     priceUgxIncVat,
@@ -95,3 +95,13 @@ export {
   MAX_JUMPS,
 } from "./constants";
 export { marginUsd, vatUsd, usdToUgx, roundUpUgx } from "./pricing";
+export {
+  deriveAmounts,
+  type PlanAmountsInput,
+  type DerivedAmounts,
+} from "@/lib/floorPlan/deriveAmounts";
+export {
+  deriveMonoPitchAmounts,
+  type MonoPitchInputs,
+  type DerivedMonoPitchModel,
+} from "@/lib/floorPlan/deriveMonoPitchAmounts";

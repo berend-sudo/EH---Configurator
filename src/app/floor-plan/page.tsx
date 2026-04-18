@@ -65,7 +65,6 @@ export default function FloorPlanPreviewPage() {
       aluminiumSqm: 10.2,
       extraExtWallSteps,
       bathrooms: plan.bathrooms,
-      depthMm: plan.depthMm,
     });
   }, [frames, plan, extraExtWallSteps]);
 

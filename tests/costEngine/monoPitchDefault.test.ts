@@ -42,8 +42,8 @@ describe("cost engine — default Mono Pitch 2BR (template default)", () => {
     expect(result.priceUsdIncVat).toBeCloseTo(27085.21, 1);
   });
 
-  it("computes price UGX ex VAT (B48 = 77,207,468)", () => {
-    expect(result.priceUgxExVat).toBe(77_207_468);
+  it("computes cost UGX rounded (B48 = 77,207,468)", () => {
+    expect(result.costUgxRounded).toBe(77_207_468);
   });
 
   it("computes margin UGX (B49 ≈ 7,720,747)", () => {

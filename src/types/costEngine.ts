@@ -130,8 +130,12 @@ export interface CostBreakdown {
   salesPriceUsdExVat: number;
   vatUsd: number;
   priceUsdIncVat: number;
-  /** UGX equivalents — `priceUgxExVat` follows Excel B48 semantics: cost × rate, rounded. */
-  priceUgxExVat: number;
+  /**
+   * UGX equivalent of `costUsdExVat` rounded to the nearest whole UGX.
+   * Mirrors Excel B48, which the sheet labels "Price in UGX ex VAT"
+   * but literally computes as `cost × USD_TO_UGX`. Not a sales price.
+   */
+  costUgxRounded: number;
   marginUgx: number;
   vatUgx: number;
   priceUgxIncVat: number;
