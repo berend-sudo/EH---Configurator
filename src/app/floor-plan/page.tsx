@@ -81,7 +81,6 @@ export default function FloorPlanPreviewPage() {
       aluminiumSqm: plan.costDefaults.aluminiumSqm,
       extraExtWallSteps,
       bathrooms: plan.bathrooms,
-      depthMm: plan.depthMm,
     });
   }, [frames, plan, extraExtWallSteps]);
 
@@ -239,6 +238,48 @@ export default function FloorPlanPreviewPage() {
           Zone layout
         </h2>
         <ZoneTable plan={plan} outerLengthMm={outerLengthMm} />
+      </section>
+
+      <section className="rounded-md border border-eh-sage p-4">
+        <h2 className="mb-2 text-sm font-semibold text-eh-forest">
+          Price breakdown
+        </h2>
+        {price ? (
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm md:grid-cols-4">
+            <dt>Cost USD ex VAT</dt>
+            <dd className="text-right font-mono">
+              {price.costUsdExVat.toFixed(2)}
+            </dd>
+            <dt>Margin (10%)</dt>
+            <dd className="text-right font-mono">
+              {price.marginUsd.toFixed(2)}
+            </dd>
+            <dt>VAT (18%)</dt>
+            <dd className="text-right font-mono">
+              {price.vatUsd.toFixed(2)}
+            </dd>
+            <dt>Price USD inc VAT</dt>
+            <dd className="text-right font-mono">
+              {price.priceUsdIncVat.toFixed(2)}
+            </dd>
+            <dt>Price UGX inc VAT</dt>
+            <dd className="text-right font-mono">
+              {ugx.format(price.priceUgxIncVat)}
+            </dd>
+            <dt>Rounded UP (100k)</dt>
+            <dd className="text-right font-mono font-semibold text-eh-forest">
+              {ugx.format(price.priceUgxIncVatRounded)}
+            </dd>
+            <dt>Per sqm GFA</dt>
+            <dd className="text-right font-mono">
+              {ugx.format(price.pricePerSqmUgxIncVat)}
+            </dd>
+          </dl>
+        ) : (
+          <p className="text-sm text-eh-charcoal/60">
+            No valid frame combo for {jumps} jumps.
+          </p>
+        )}
       </section>
     </main>
   );

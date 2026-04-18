@@ -1,7 +1,7 @@
 import type { FloorPlanModel } from "@/types/floorPlan";
 
 /**
- * 2BR Mono Pitch — traced from `mono pitch 2BR.png` (Archicad export).
+ * 2BR Mono Pitch — traced from `data/floorplans/reference-images/mono pitch 2BR.png` (Archicad export).
  *
  * Envelope 8,635 × 4,972 mm (double-walled, structural 8,547 × 4,884).
  * Layout columns (west → east): wet-core (bathroom / bedroom 1),
@@ -56,6 +56,9 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
     aluminiumSqm: 10.2,
   },
 
+  // Zone limits are sized so Σ(min) ≤ outerWidth(minLength) and
+  // Σ(max) ≥ outerWidth(maxLength) — i.e. the plan covers the whole
+  // typology range (8–20 jumps of 610 mm).
   zones: [
     {
       id: "zone-wet-core",
