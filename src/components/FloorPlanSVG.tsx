@@ -10,10 +10,11 @@ import type {
   WallElement,
   WindowElement,
 } from "@/types/floorPlan";
+import { stretchFloorPlan } from "@/lib/floorPlan/stretch";
 
 interface Props {
   model: FloorPlanModel;
-  /** If provided, overrides model.baseLengthMm for the viewBox width. Phase 2a: purely cosmetic. */
+  /** Target structural length (mm). When set, the plan is stretched to match. */
   lengthMm?: number;
   /** Show half-frame grid (610 mm). */
   showGrid?: boolean;
@@ -40,60 +41,66 @@ export function FloorPlanSVG({
   showGrid = false,
   className,
 }: Props) {
-  const length = lengthMm ?? model.baseLengthMm;
-  // For Phase 2a the viewBox stays fixed at the authored size;
-  // length changes will drive zone stretching in Phase 2b.
-  const vb = model.viewBox;
-  void length;
+  const stretched =
+    lengthMm !== undefined && lengthMm !== model.baseLengthMm
+      ? stretchFloorPlan(model, lengthMm)
+      : null;
+
+  const elements = stretched?.elements ?? model.elements;
+  const vbWidth = stretched?.outerWidthMm ?? model.viewBox.width;
+  const vbHeight = model.viewBox.height;
+
+  // Keep the veranda's overhang + dimension labels visible in the viewBox.
+  const pad = 800;
 
   return (
     <svg
-      viewBox={`${-800} ${-800} ${vb.width + 1600} ${vb.height + 1600}`}
+      viewBox={`${-pad} ${-pad} ${vbWidth + 2 * pad} ${vbHeight + 2 * pad}`}
       xmlns="http://www.w3.org/2000/svg"
       className={className}
       role="img"
       aria-label={`${model.name} floor plan`}
     >
-      {showGrid && <GridLayer width={vb.width} height={vb.height} />}
+      {showGrid && <GridLayer width={vbWidth} height={vbHeight} />}
 
       {/* Paint room fills first so walls and furniture stack on top. */}
-      {model.elements
+      {elements
         .filter((e): e is RoomFillElement => e.type === "room-fill")
         .map((e) => (
           <RoomFill key={e.id} el={e} />
         ))}
 
-      {model.elements
+      {elements
         .filter((e): e is WallElement => e.type === "wall" || e.type === "partition")
         .map((e) => (
           <Wall key={e.id} el={e} />
         ))}
 
-      {model.elements
+      {elements
         .filter((e): e is WindowElement => e.type === "window")
         .map((e) => (
           <Window key={e.id} el={e} />
         ))}
 
-      {model.elements
+      {elements
         .filter((e): e is DoorElement => e.type === "door")
         .map((e) => (
           <Door key={e.id} el={e} />
         ))}
 
-      {model.elements
+      {elements
         .filter((e): e is FurnitureElement => e.type === "furniture")
         .map((e) => (
           <Furniture key={e.id} el={e} />
         ))}
 
-      {model.elements
+      {elements
         .filter((e): e is RoomLabelElement => e.type === "room-label")
         .map((e) => (
           <RoomLabel key={e.id} el={e} />
         ))}
 
-      {model.elements
+      {elements
         .filter((e): e is DimensionElement => e.type === "dimension")
         .map((e) => (
           <Dimension key={e.id} el={e} />

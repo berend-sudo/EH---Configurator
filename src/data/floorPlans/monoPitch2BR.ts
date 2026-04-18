@@ -49,14 +49,17 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
   jumpSizeMm: 610,
   viewBox: { width: OUTER_WIDTH, height: VERANDA_Y1 + 400 },
 
+  // Zone limits are sized so Σ(min) ≤ outerWidth(minLength) and
+  // Σ(max) ≥ outerWidth(maxLength) — i.e. the plan covers the whole
+  // typology range (8–20 jumps of 610 mm).
   zones: [
     {
       id: "zone-wet-core",
       order: 3, // stretches last
       xStartMm: 0,
       xEndMm: P_BATHROOM_RIGHT + WALL_THK,
-      minWidthMm: 1800,
-      maxWidthMm: 2800,
+      minWidthMm: 1200,
+      maxWidthMm: 3000,
       movingElementIds: [],
       stretchingElementIds: [],
     },
@@ -65,8 +68,8 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
       order: 2,
       xStartMm: P_BATHROOM_RIGHT + WALL_THK,
       xEndMm: P_BEDROOM2_RIGHT + WALL_THK,
-      minWidthMm: 2200,
-      maxWidthMm: 3400,
+      minWidthMm: 1500,
+      maxWidthMm: 4000,
       movingElementIds: [],
       stretchingElementIds: [],
     },
@@ -75,8 +78,8 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
       order: 1, // fills first — living room grows most
       xStartMm: P_BEDROOM2_RIGHT + WALL_THK,
       xEndMm: OUTER_WIDTH,
-      minWidthMm: 2800,
-      maxWidthMm: 5200,
+      minWidthMm: 2000,
+      maxWidthMm: 7000,
       movingElementIds: [],
       stretchingElementIds: [],
     },
