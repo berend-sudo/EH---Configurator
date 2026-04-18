@@ -35,11 +35,14 @@ describe("1BR Mono Pitch floor plan", () => {
     expect(plan.costDefaults.aluminiumSqm).toBe(7.9);
   });
 
-  it("has exactly one external wall element", () => {
-    const ext = plan.elements.filter(
-      (e) => e.type === "wall" && e.id === "wall-external",
-    );
-    expect(ext).toHaveLength(1);
+  it("has four outer wall segments (north, east, west, south)", () => {
+    const outerIds = ["wall-north", "wall-east", "wall-west", "wall-south"];
+    for (const id of outerIds) {
+      expect(
+        plan.elements.some((e) => e.type === "wall" && e.id === id),
+        `missing ${id}`,
+      ).toBe(true);
+    }
   });
 
   it("has at least one element of every major kind", () => {
@@ -94,7 +97,7 @@ describe("1BR Mono Pitch floor plan", () => {
   it("assigns a valid zoneId to every non-structural element", () => {
     const zoneIds = new Set(plan.zones.map((z) => z.id));
     for (const el of plan.elements) {
-      if (el.type === "wall" && el.id === "wall-external") continue;
+      if (el.type === "wall" && !el.zoneId) continue;
       if (el.type === "dimension") continue;
       expect(el.zoneId, `${el.id} has no zoneId`).toBeDefined();
       expect(zoneIds, `${el.id} references unknown zone ${el.zoneId}`).toContain(
