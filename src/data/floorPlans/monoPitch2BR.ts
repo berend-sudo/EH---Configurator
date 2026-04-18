@@ -1,7 +1,7 @@
 import type { FloorPlanModel } from "@/types/floorPlan";
 
 /**
- * 2BR Mono Pitch — traced from `mono pitch 2BR.png` (Archicad export).
+ * 2BR Mono Pitch — traced from `data/floorplans/reference-images/mono pitch 2BR.png` (Archicad export).
  *
  * Envelope 8,635 × 4,972 mm (double-walled, structural 8,547 × 4,884).
  * Layout columns (west → east): wet-core (bathroom / bedroom 1),
