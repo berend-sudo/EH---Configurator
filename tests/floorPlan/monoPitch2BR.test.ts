@@ -114,6 +114,7 @@ function pointsOf(
     case "wall":
     case "partition":
     case "room-fill":
+    case "terrace":
       return el.points;
     case "window":
       return el.points;
