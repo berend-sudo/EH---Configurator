@@ -32,6 +32,14 @@ interface PlanCostInputs {
 
 const PLANS: ReadonlyArray<{ plan: FloorPlanModel; costs: PlanCostInputs }> = [
   {
+    plan: MONO_PITCH_1BR_FLOOR_PLAN,
+    costs: {
+      partitionsM: MONO_PITCH_1BR_FLOOR_PLAN.costDefaults.partitionsM,
+      interiorDoors: MONO_PITCH_1BR_FLOOR_PLAN.costDefaults.interiorDoors,
+      aluminiumSqm: MONO_PITCH_1BR_FLOOR_PLAN.costDefaults.aluminiumSqm,
+    },
+  },
+  {
     plan: MONO_PITCH_2BR_FLOOR_PLAN,
     costs: { partitionsM: 12.5, interiorDoors: 3, aluminiumSqm: 10.2 },
   },
@@ -156,23 +164,6 @@ export default function FloorPlanPreviewPage() {
 
       <section className="grid gap-4 rounded-md border border-eh-sage p-4 md:grid-cols-[1fr_auto]">
         <div className="space-y-4">
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-eh-forest">
-              Standard model
-            </label>
-            <select
-              value={planId}
-              onChange={(e) => setPlanId(e.target.value)}
-              className="w-full rounded-md border border-eh-sage bg-white p-2 text-sm font-mono text-eh-forest"
-            >
-              {PLANS.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
           <LengthSlider
             lengthMm={clampedOuterLengthMm}
             minLengthMm={minOuter}

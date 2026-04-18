@@ -118,7 +118,6 @@ export const MONO_PITCH_1BR_FLOOR_PLAN: FloorPlanModel = {
         "window-kitchen-east",
         "window-living-east",
         "f-kitchen-counter",
-        "f-sofa",
       ],
     },
   ],
