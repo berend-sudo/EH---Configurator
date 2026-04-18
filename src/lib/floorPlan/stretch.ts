@@ -5,6 +5,7 @@ import type {
   FurnitureElement,
   RoomFillElement,
   RoomLabelElement,
+  TerraceElement,
   WallElement,
   WindowElement,
   Zone,
