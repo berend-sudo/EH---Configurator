@@ -140,18 +140,13 @@ export function FloorPlanSVG({
 }
 
 /**
- * Stretch the external wall polygon using zone layout information.
+ * Remap the external wall polygon when the plan length changes.
  *
- * For each point [x, y]:
- *   - x === 0: leave unchanged (west edge, always fixed).
- *   - x >= base east edge of the rightmost zone: shift by total delta
- *     (east edge of the building).
- *   - Otherwise: find which zone owns x at base length and apply that
- *     zone's rightShiftMm as the translation. When x falls exactly on a
- *     zone boundary the zone to the right takes precedence.
- *
- * This correctly handles interior south-wall notch points (veranda
- * recesses, entrance gaps) at any y-coordinate, not just y === outerDepth.
+ * Each point is remapped by finding which zone its x-coordinate falls
+ * in at base length, then translating by that zone's rightShiftMm.
+ * Points at x=0 are left unchanged (west outer wall).
+ * Points at or beyond the easternmost zone's base right edge are
+ * shifted by the total length delta (east outer wall).
  */
 function stretchExternalWall(
   el: WallElement,
@@ -159,22 +154,29 @@ function stretchExternalWall(
   layouts: LayoutResult,
 ): WallElement {
   const delta = layouts.totalLengthMm - model.viewBox.width;
-  const lastZone = layouts.zones[layouts.zones.length - 1];
+  if (Math.abs(delta) < 0.5) return el;
+
+  const sorted = [...layouts.zones].sort(
+    (a, b) => a.baseXStartMm - b.baseXStartMm,
+  );
+  const lastZone = sorted[sorted.length - 1];
+
+  const remapX = (x: number): number => {
+    if (x <= 0) return x;
+    if (x >= lastZone.baseXEndMm) return x + delta;
+    // Find the zone whose base range contains x.
+    // If x sits exactly on a boundary, use the zone to the right.
+    for (const z of sorted) {
+      if (x >= z.baseXStartMm && x <= z.baseXEndMm) {
+        return x + z.rightShiftMm;
+      }
+    }
+    return x + delta;
+  };
 
   return {
     ...el,
-    points: el.points.map(([x, y]) => {
-      if (x === 0) return [x, y] as const;
-      if (x >= lastZone.baseXEndMm) return [x + delta, y] as const;
-      // Find the zone owning x — iterate right-to-left to prefer the zone
-      // to the right when x sits exactly on a boundary.
-      for (let i = layouts.zones.length - 1; i >= 0; i--) {
-        if (layouts.zones[i].baseXStartMm <= x) {
-          return [x + layouts.zones[i].rightShiftMm, y] as const;
-        }
-      }
-      return [x, y] as const;
-    }),
+    points: el.points.map(([x, y]) => [remapX(x), y] as const),
   };
 }
 

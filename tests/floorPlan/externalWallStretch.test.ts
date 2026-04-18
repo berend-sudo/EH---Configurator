@@ -7,39 +7,30 @@ import { MONO_PITCH_2BR_FLOOR_PLAN } from "@/data/floorPlans/monoPitch2BR";
 import { MONO_PITCH_3BR_FLOOR_PLAN } from "@/data/floorPlans/monoPitch3BR";
 import { layoutZones } from "@/lib/floorPlan/zoneLayout";
 
-function getExternalWallPoints(model: typeof MONO_PITCH_1BR_FLOOR_PLAN, lengthMm: number) {
-  const markup = renderToStaticMarkup(
-    React.createElement(FloorPlanSVG, { model, lengthMm, showGrid: false }),
-  );
-  // Extract the first <path d="..."> that corresponds to wall-external.
-  // The external wall is rendered as the first thick stroke path.
-  // We check that the rendered SVG contains a path whose d attribute
-  // includes coordinates near the expected east edge.
-  return markup;
-}
+const plans = [
+  ["1BR", MONO_PITCH_1BR_FLOOR_PLAN],
+  ["2BR", MONO_PITCH_2BR_FLOOR_PLAN],
+  ["3BR", MONO_PITCH_3BR_FLOOR_PLAN],
+] as const;
 
-describe("external wall stretches correctly at max length", () => {
-  for (const [label, plan] of [
-    ["1BR", MONO_PITCH_1BR_FLOOR_PLAN],
-    ["2BR", MONO_PITCH_2BR_FLOOR_PLAN],
-    ["3BR", MONO_PITCH_3BR_FLOOR_PLAN],
-  ] as const) {
-    it(`${label}: SVG renders without error at max zone length`, () => {
-      const dryRun = layoutZones(plan, { targetLengthMm: 0 });
-      const maxL = dryRun.maxLengthMm;
+describe("external wall renders without broken geometry at all lengths", () => {
+  for (const [label, plan] of plans) {
+    const dryRun = layoutZones(plan, { targetLengthMm: 0 });
+    const maxL = dryRun.maxLengthMm;
+    const midL = (plan.viewBox.width + maxL) / 2;
+
+    it(`${label} renders at mid length without NaN or Infinity`, () => {
       const markup = renderToStaticMarkup(
-        React.createElement(FloorPlanSVG, { model: plan, lengthMm: maxL }),
+        React.createElement(FloorPlanSVG, { model: plan, lengthMm: midL }),
       );
       expect(markup).toMatch(/^<svg /);
       expect(markup).not.toMatch(/NaN/);
       expect(markup).not.toMatch(/Infinity/);
     });
 
-    it(`${label}: SVG renders without error at mid length`, () => {
-      const dryRun = layoutZones(plan, { targetLengthMm: 0 });
-      const midL = (plan.viewBox.width + dryRun.maxLengthMm) / 2;
+    it(`${label} renders at max length without NaN or Infinity`, () => {
       const markup = renderToStaticMarkup(
-        React.createElement(FloorPlanSVG, { model: plan, lengthMm: midL }),
+        React.createElement(FloorPlanSVG, { model: plan, lengthMm: maxL }),
       );
       expect(markup).toMatch(/^<svg /);
       expect(markup).not.toMatch(/NaN/);
