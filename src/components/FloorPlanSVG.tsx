@@ -59,7 +59,7 @@ export function FloorPlanSVG({
 
   // Patch room-label areaM2 using the live fill area where fillId is wired.
   const transformedElements = elements.map((el) => {
-    if (el.type === "wall" && el.id === "wall-external") {
+    if (el.type === "wall" && !el.zoneId) {
       return stretchExternalWall(el, model, layouts);
     }
     if (el.type === "dimension" && el.id === "dim-overall-width") {

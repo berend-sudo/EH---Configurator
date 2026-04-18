@@ -221,19 +221,42 @@ export const MONO_PITCH_1BR_FLOOR_PLAN: FloorPlanModel = {
       ],
     },
 
-    // === External walls (south wall has veranda opening from P_VERANDA_WEST to INNER_X1) ===
+    // === External walls — four separate segments so the veranda south side is open ===
     {
-      id: "wall-external",
+      id: "wall-north",
       type: "wall",
       thicknessMm: WALL_THK,
       points: [
         [0, 0],
         [OUTER_WIDTH, 0],
+      ],
+    },
+    {
+      id: "wall-east",
+      type: "wall",
+      thicknessMm: WALL_THK,
+      points: [
+        [OUTER_WIDTH, 0],
         [OUTER_WIDTH, OUTER_DEPTH],
-        // veranda opening in south wall
-        [P_VERANDA_WEST, OUTER_DEPTH],
-        [0, OUTER_DEPTH],
+      ],
+    },
+    {
+      id: "wall-west",
+      type: "wall",
+      thicknessMm: WALL_THK,
+      points: [
         [0, 0],
+        [0, OUTER_DEPTH],
+      ],
+    },
+    // South wall — bedroom/corridor side only; veranda side (east of P_VERANDA_WEST) is open
+    {
+      id: "wall-south",
+      type: "wall",
+      thicknessMm: WALL_THK,
+      points: [
+        [0, OUTER_DEPTH],
+        [P_VERANDA_WEST, OUTER_DEPTH],
       ],
     },
 
