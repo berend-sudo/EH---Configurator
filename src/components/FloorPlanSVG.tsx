@@ -10,11 +10,12 @@ import type {
   WallElement,
   WindowElement,
 } from "@/types/floorPlan";
-import { stretchFloorPlan } from "@/lib/floorPlan/stretch";
+import { layoutZones, type LayoutResult } from "@/lib/floorPlan/zoneLayout";
+import { transformElement } from "@/lib/floorPlan/transformElement";
 
 interface Props {
   model: FloorPlanModel;
-  /** Applies zone-based stretching to match this structural length. Defaults to baseLengthMm. */
+  /** Target outer length in mm. Defaults to the plan's base length. */
   lengthMm?: number;
   /** Show half-frame grid (610 mm). */
   showGrid?: boolean;
@@ -41,66 +42,113 @@ export function FloorPlanSVG({
   showGrid = false,
   className,
 }: Props) {
-  const stretched =
-    lengthMm !== undefined && lengthMm !== model.baseLengthMm
-      ? stretchFloorPlan(model, lengthMm).model
-      : model;
-  const vb = stretched.viewBox;
+  // Default to the authored outer width (sum of zone base widths), not the
+  // structural baseLengthMm — that's what layoutZones distributes over.
+  const target = lengthMm ?? model.viewBox.width;
+  const layouts = layoutZones(model, { targetLengthMm: target });
+  const elements = model.elements.map((el) => transformElement(el, layouts));
+
+  // Transform the external wall and overall-width dimension (zone-less) to
+  // follow the new total length; the vertical dimension stays put.
+  const transformedElements = elements.map((el) => {
+    if (el.type === "wall" && el.id === "wall-external") {
+      return stretchExternalWall(el, model, layouts);
+    }
+    if (el.type === "dimension" && el.id === "dim-overall-width") {
+      return updateOverallWidthDim(el, layouts.totalLengthMm);
+    }
+    return el;
+  });
+
+  const vbWidth = Math.max(model.viewBox.width, layouts.totalLengthMm);
+  const vbHeight = model.viewBox.height;
 
   return (
     <svg
-      viewBox={`${-800} ${-800} ${vb.width + 1600} ${vb.height + 1600}`}
+      viewBox={`${-800} ${-800} ${vbWidth + 1600} ${vbHeight + 1600}`}
       xmlns="http://www.w3.org/2000/svg"
       className={className}
       role="img"
-      aria-label={`${model.name} floor plan`}
+      aria-label={`${model.name} floor plan at ${Math.round(layouts.totalLengthMm)} mm`}
     >
-      {showGrid && <GridLayer width={vb.width} height={vb.height} />}
+      {showGrid && <GridLayer width={vbWidth} height={vbHeight} />}
 
       {/* Paint room fills first so walls and furniture stack on top. */}
-      {stretched.elements
+      {transformedElements
         .filter((e): e is RoomFillElement => e.type === "room-fill")
         .map((e) => (
           <RoomFill key={e.id} el={e} />
         ))}
 
-      {stretched.elements
+      {transformedElements
         .filter((e): e is WallElement => e.type === "wall" || e.type === "partition")
         .map((e) => (
           <Wall key={e.id} el={e} />
         ))}
 
-      {stretched.elements
+      {transformedElements
         .filter((e): e is WindowElement => e.type === "window")
         .map((e) => (
           <Window key={e.id} el={e} />
         ))}
 
-      {stretched.elements
+      {transformedElements
         .filter((e): e is DoorElement => e.type === "door")
         .map((e) => (
           <Door key={e.id} el={e} />
         ))}
 
-      {stretched.elements
+      {transformedElements
         .filter((e): e is FurnitureElement => e.type === "furniture")
         .map((e) => (
           <Furniture key={e.id} el={e} />
         ))}
 
-      {stretched.elements
+      {transformedElements
         .filter((e): e is RoomLabelElement => e.type === "room-label")
         .map((e) => (
           <RoomLabel key={e.id} el={e} />
         ))}
 
-      {stretched.elements
+      {transformedElements
         .filter((e): e is DimensionElement => e.type === "dimension")
         .map((e) => (
           <Dimension key={e.id} el={e} />
         ))}
     </svg>
   );
+}
+
+/**
+ * The external wall is one continuous rectangle spanning the full outer
+ * width. Stretch its right-side vertices to match the new total length.
+ */
+function stretchExternalWall(
+  el: WallElement,
+  model: FloorPlanModel,
+  layouts: LayoutResult,
+): WallElement {
+  const originalMaxX = Math.max(...el.points.map((p) => p[0]));
+  const delta = layouts.totalLengthMm - model.viewBox.width;
+  return {
+    ...el,
+    points: el.points.map(([x, y]) => [
+      x === originalMaxX ? x + delta : x,
+      y,
+    ] as const),
+  };
+}
+
+function updateOverallWidthDim(
+  el: DimensionElement,
+  newLength: number,
+): DimensionElement {
+  const formatted = Math.round(newLength).toLocaleString("en-US");
+  return {
+    ...el,
+    to: [newLength, el.to[1]] as const,
+    label: formatted,
+  };
 }
 
 /* ---------- element renderers ---------- */
