@@ -10,6 +10,9 @@ import type { FloorPlanModel } from "@/types/floorPlan";
  * Coordinates are in mm, origin at the top-left of the outer envelope.
  * Zones are ordered so the living room stretches first, bedrooms second,
  * wet-core last when the length slider changes.
+ *
+ * Each door carries a wallAxis field ("horizontal" or "vertical") that
+ * classifies the wall it sits in and drives the leaf direction in the SVG renderer.
  */
 
 const OUTER_WIDTH = 8635;
@@ -292,6 +295,7 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
       hingeYMm: P_BATHROOM_SOUTH,
       widthMm: 800,
       swing: "SW",
+      wallAxis: "horizontal",
     },
     // Bedroom 1 → bedroom 2 (east partition of BR1, hinge south, swings NE)
     {
@@ -302,6 +306,7 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
       hingeYMm: 3300,
       widthMm: 800,
       swing: "NE",
+      wallAxis: "horizontal",
     },
     // Bedroom 2 → living (east partition of BR2, hinge south, swings NW)
     {
@@ -312,6 +317,7 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
       hingeYMm: 2400,
       widthMm: 800,
       swing: "NW",
+      wallAxis: "vertical",
     },
     // Entrance door (south wall into living, hinge east, swings NW — into room)
     {
@@ -322,6 +328,7 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
       hingeYMm: INNER_Y1,
       widthMm: ENTRANCE_W,
       swing: "NW",
+      wallAxis: "horizontal",
     },
 
     // === Windows on external walls ===

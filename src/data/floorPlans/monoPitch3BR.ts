@@ -23,6 +23,9 @@ import type { FloorPlanModel } from "@/types/floorPlan";
  *
  * Zone stretch priority (order): centre (1) fills first, then right
  * bedrooms (2), wet core (3) last.
+ *
+ * Each door carries a wallAxis field ("horizontal" or "vertical") that
+ * classifies the wall it sits in and drives the leaf direction in the SVG renderer.
  */
 
 const OUTER_WIDTH = 9246;
@@ -356,6 +359,7 @@ export const MONO_PITCH_3BR_FLOOR_PLAN: FloorPlanModel = {
       hingeYMm: P_BATHROOM_SOUTH,
       widthMm: 800,
       swing: "SW",
+      wallAxis: "horizontal",
     },
     // BR1 → corridor (east wall of BR1, hinge near the top of the wall).
     {
@@ -366,6 +370,7 @@ export const MONO_PITCH_3BR_FLOOR_PLAN: FloorPlanModel = {
       hingeYMm: 2100,
       widthMm: 900,
       swing: "NW",
+      wallAxis: "vertical",
     },
     // BR2 → living (west wall of BR2, hinge near the south-west corner).
     {
@@ -376,6 +381,7 @@ export const MONO_PITCH_3BR_FLOOR_PLAN: FloorPlanModel = {
       hingeYMm: 2100,
       widthMm: 900,
       swing: "NE",
+      wallAxis: "vertical",
     },
     // BR3 → living (west wall of BR3, hinge near the north-west corner).
     {
@@ -386,6 +392,7 @@ export const MONO_PITCH_3BR_FLOOR_PLAN: FloorPlanModel = {
       hingeYMm: P_BR2_SOUTH + 200,
       widthMm: 900,
       swing: "SE",
+      wallAxis: "vertical",
     },
     // Entrance door on the north wall of the veranda, swings into living.
     {
@@ -396,6 +403,7 @@ export const MONO_PITCH_3BR_FLOOR_PLAN: FloorPlanModel = {
       hingeYMm: VERANDA_Y0,
       widthMm: ENTRANCE_W,
       swing: "NW",
+      wallAxis: "horizontal",
     },
 
     // ==================================================================
