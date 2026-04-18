@@ -70,6 +70,7 @@ export function transformElement(
     case "wall":
     case "partition":
     case "room-fill":
+    case "terrace":
       return {
         ...el,
         points: el.points.map(([x, y]) => [mapX(x, layout, mode), y] as const),

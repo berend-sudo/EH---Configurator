@@ -7,6 +7,7 @@ import type {
   FurnitureSubtype,
   RoomFillElement,
   RoomLabelElement,
+  TerraceElement,
   WallElement,
   WindowElement,
 } from "@/types/floorPlan";
@@ -78,6 +79,12 @@ export function FloorPlanSVG({
         .filter((e): e is RoomFillElement => e.type === "room-fill")
         .map((e) => (
           <RoomFill key={e.id} el={e} />
+        ))}
+
+      {transformedElements
+        .filter((e): e is TerraceElement => e.type === "terrace")
+        .map((e) => (
+          <Terrace key={e.id} el={e} />
         ))}
 
       {transformedElements
@@ -188,6 +195,71 @@ function GridLayer({ width, height }: { width: number; height: number }) {
 function RoomFill({ el }: { el: RoomFillElement }) {
   const d = polygonPath(el.points);
   return <path d={d} fill={el.fill ?? "#efe5d0"} />;
+}
+
+function Terrace({ el }: { el: TerraceElement }) {
+  const d = polygonPath(el.points);
+  const fill = "#d8d6d2";
+  // Railing decoration along polygon edges.
+  const railingElements: React.ReactNode[] = [];
+  if (el.railing !== "none") {
+    for (let i = 0; i < el.points.length; i += 1) {
+      const [ax, ay] = el.points[i];
+      const [bx, by] = el.points[(i + 1) % el.points.length];
+      const segLen = Math.hypot(bx - ax, by - ay);
+      if (segLen < 100) continue;
+      if (el.railing === "open") {
+        // vertical-ish bars every 200mm along the edge (perpendicular to edge direction)
+        const steps = Math.max(2, Math.floor(segLen / 200));
+        for (let s = 0; s <= steps; s += 1) {
+          const t = s / steps;
+          const x = ax + (bx - ax) * t;
+          const y = ay + (by - ay) * t;
+          railingElements.push(
+            <circle key={`r-${i}-${s}`} cx={x} cy={y} r={20} fill="#8a8279" />,
+          );
+        }
+      } else {
+        // semi-closed = horizontal boards along edge
+        railingElements.push(
+          <line
+            key={`r-${i}`}
+            x1={ax}
+            y1={ay}
+            x2={bx}
+            y2={by}
+            stroke="#8a8279"
+            strokeWidth={36}
+          />,
+        );
+      }
+    }
+  }
+  return (
+    <g>
+      <path d={d} fill={fill} opacity={0.65} />
+      <path
+        d={d}
+        fill="none"
+        stroke="#8a8279"
+        strokeWidth={24}
+        strokeDasharray={el.railing === "none" ? undefined : "80 60"}
+      />
+      {railingElements}
+      {el.label && (
+        <text
+          x={el.points.reduce((s, p) => s + p[0], 0) / el.points.length}
+          y={el.points.reduce((s, p) => s + p[1], 0) / el.points.length}
+          textAnchor="middle"
+          fontSize={150}
+          fill="#6b6256"
+          fontStyle="italic"
+        >
+          {el.label}
+        </text>
+      )}
+    </g>
+  );
 }
 
 function Wall({ el }: { el: WallElement }) {

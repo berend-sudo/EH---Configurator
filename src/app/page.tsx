@@ -57,12 +57,20 @@ export default function Phase1TestPage() {
             row. Expected price inc VAT ≈ 100,215,294 UGX.
           </p>
         </div>
-        <Link
-          href="/floor-plan"
-          className="text-sm underline text-eh-forest hover:text-eh-wood"
-        >
-          floor plan →
-        </Link>
+        <div className="flex gap-3 text-sm">
+          <Link
+            href="/floor-plan"
+            className="underline text-eh-forest hover:text-eh-wood"
+          >
+            floor plan →
+          </Link>
+          <Link
+            href="/admin"
+            className="underline text-eh-forest hover:text-eh-wood"
+          >
+            admin editor →
+          </Link>
+        </div>
       </header>
 
       <section className="grid gap-6 md:grid-cols-2">
