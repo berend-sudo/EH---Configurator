@@ -156,8 +156,10 @@ export interface RoomLabelElement extends BaseElement {
   xMm: number;
   yMm: number;
   label: string;
-  /** Optional area annotation (m²). */
+  /** Optional area annotation (m²). Recalculated dynamically from fillId when present. */
   areaM2?: number;
+  /** Id of the room-fill element whose polygon area drives the live m² annotation. */
+  fillId?: string;
 }
 
 export interface DimensionElement extends BaseElement {
