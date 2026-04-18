@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { FloorPlanSVG } from "@/components/FloorPlanSVG";
 import { LengthSlider } from "@/components/LengthSlider";
 import { MONO_PITCH_2BR_FLOOR_PLAN } from "@/data/floorPlans/monoPitch2BR";
+import { MONO_PITCH_3BR_FLOOR_PLAN } from "@/data/floorPlans/monoPitch3BR";
 import { calculatePrice } from "@/lib/costEngine";
 import { deriveAmounts } from "@/lib/floorPlan/deriveAmounts";
 import { layoutZones } from "@/lib/floorPlan/zoneLayout";
@@ -13,8 +14,31 @@ import {
   frameComboLengthMm,
   jumpsForLengthMm,
 } from "@/lib/frameCombo";
+import type { FloorPlanModel } from "@/types/floorPlan";
 
 const WALL_THK_BOTH = 88 * 2;
+
+/**
+ * Excel standard-model inputs per plan (columns G–H of the "Typologies"
+ * overview sheet). Keep in sync with `deriveAmounts` — these vary by plan,
+ * not typology, so they live alongside the model registry.
+ */
+interface PlanCostInputs {
+  partitionsM: number;
+  interiorDoors: number;
+  aluminiumSqm: number;
+}
+
+const PLANS: ReadonlyArray<{ plan: FloorPlanModel; costs: PlanCostInputs }> = [
+  {
+    plan: MONO_PITCH_2BR_FLOOR_PLAN,
+    costs: { partitionsM: 12.5, interiorDoors: 3, aluminiumSqm: 10.2 },
+  },
+  {
+    plan: MONO_PITCH_3BR_FLOOR_PLAN,
+    costs: { partitionsM: 14.0, interiorDoors: 4, aluminiumSqm: 9.4 },
+  },
+];
 
 const ugx = new Intl.NumberFormat("en-UG", {
   style: "currency",
@@ -28,7 +52,10 @@ const usd = new Intl.NumberFormat("en-US", {
 });
 
 export default function FloorPlanPreviewPage() {
-  const plan = MONO_PITCH_2BR_FLOOR_PLAN;
+  const [planId, setPlanId] = useState(PLANS[0].plan.id);
+  const active = PLANS.find((p) => p.plan.id === planId) ?? PLANS[0];
+  const plan = active.plan;
+  const costs = active.costs;
 
   // Slider controls the OUTER length. Convert to structural length for frame
   // decomposition. Jump bounds come from the plan's zone capacity clamped
@@ -45,7 +72,13 @@ export default function FloorPlanPreviewPage() {
   const [extraExtWallSteps, setExtraExtWallSteps] = useState(0);
   const [showGrid, setShowGrid] = useState(false);
 
-  const structuralMm = outerLengthMm - WALL_THK_BOTH;
+  // When the user switches models, snap the length back to the new plan's base.
+  const clampedOuterLengthMm = Math.min(
+    Math.max(outerLengthMm, minOuter),
+    maxOuter,
+  );
+
+  const structuralMm = clampedOuterLengthMm - WALL_THK_BOTH;
   const jumps = jumpsForLengthMm(structuralMm);
   const frames = useMemo(() => {
     try {
@@ -60,14 +93,14 @@ export default function FloorPlanPreviewPage() {
     return deriveAmounts({
       typology: plan.typology,
       frames,
-      partitionsM: 12.5,  // 2BR Mono standard from Excel col G
-      interiorDoors: 3,
-      aluminiumSqm: 10.2,
+      partitionsM: costs.partitionsM,
+      interiorDoors: costs.interiorDoors,
+      aluminiumSqm: costs.aluminiumSqm,
       extraExtWallSteps,
       bathrooms: plan.bathrooms,
       depthMm: plan.depthMm,
     });
-  }, [frames, plan, extraExtWallSteps]);
+  }, [frames, plan, costs, extraExtWallSteps]);
 
   const price = useMemo(() => {
     if (!derived) return null;
@@ -100,10 +133,31 @@ export default function FloorPlanPreviewPage() {
         </Link>
       </header>
 
+      <section className="flex flex-wrap items-center gap-2 rounded-md border border-eh-sage p-3">
+        <label className="text-sm font-medium text-eh-forest">Model</label>
+        <select
+          value={planId}
+          onChange={(e) => {
+            const next = PLANS.find((p) => p.plan.id === e.target.value);
+            if (next) {
+              setPlanId(next.plan.id);
+              setOuterLengthMm(next.plan.viewBox.width);
+            }
+          }}
+          className="rounded border border-eh-sage bg-white px-2 py-1 text-sm"
+        >
+          {PLANS.map(({ plan: p }) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+      </section>
+
       <section className="grid gap-4 rounded-md border border-eh-sage p-4 md:grid-cols-[1fr_auto]">
         <div className="space-y-4">
           <LengthSlider
-            lengthMm={outerLengthMm}
+            lengthMm={clampedOuterLengthMm}
             minLengthMm={minOuter}
             maxLengthMm={maxOuter}
             jumpSizeMm={plan.jumpSizeMm}
@@ -146,7 +200,7 @@ export default function FloorPlanPreviewPage() {
         <div className="rounded-md border border-eh-sage bg-white p-4">
           <FloorPlanSVG
             model={plan}
-            lengthMm={outerLengthMm}
+            lengthMm={clampedOuterLengthMm}
             showGrid={showGrid}
             className="h-auto w-full"
           />
@@ -205,50 +259,57 @@ export default function FloorPlanPreviewPage() {
         <h2 className="mb-2 text-sm font-semibold text-eh-forest">
           Zone layout
         </h2>
-        <ZoneTable outerLengthMm={outerLengthMm} />
+        <ZoneTable plan={plan} outerLengthMm={clampedOuterLengthMm} />
       </section>
 
-      <section className="rounded-md border border-eh-sage p-4">
-        <h2 className="mb-2 text-sm font-semibold text-eh-forest">
-          Price breakdown
-        </h2>
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm md:grid-cols-4">
-          <dt>Cost USD ex VAT</dt>
-          <dd className="text-right font-mono">
-            {priced.price.costUsdExVat.toFixed(2)}
-          </dd>
-          <dt>Margin (10%)</dt>
-          <dd className="text-right font-mono">
-            {priced.price.marginUsd.toFixed(2)}
-          </dd>
-          <dt>VAT (18%)</dt>
-          <dd className="text-right font-mono">
-            {priced.price.vatUsd.toFixed(2)}
-          </dd>
-          <dt>Price USD inc VAT</dt>
-          <dd className="text-right font-mono">
-            {priced.price.priceUsdIncVat.toFixed(2)}
-          </dd>
-          <dt>Price UGX inc VAT</dt>
-          <dd className="text-right font-mono">
-            {ugx.format(priced.price.priceUgxIncVat)}
-          </dd>
-          <dt>Rounded UP (100k)</dt>
-          <dd className="text-right font-mono font-semibold text-eh-forest">
-            {ugx.format(priced.price.priceUgxIncVatRounded)}
-          </dd>
-          <dt>Per sqm GFA</dt>
-          <dd className="text-right font-mono">
-            {ugx.format(priced.price.pricePerSqmUgxIncVat)}
-          </dd>
-        </dl>
-      </section>
+      {price && (
+        <section className="rounded-md border border-eh-sage p-4">
+          <h2 className="mb-2 text-sm font-semibold text-eh-forest">
+            Price breakdown
+          </h2>
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm md:grid-cols-4">
+            <dt>Cost USD ex VAT</dt>
+            <dd className="text-right font-mono">
+              {price.costUsdExVat.toFixed(2)}
+            </dd>
+            <dt>Margin (10%)</dt>
+            <dd className="text-right font-mono">
+              {price.marginUsd.toFixed(2)}
+            </dd>
+            <dt>VAT (18%)</dt>
+            <dd className="text-right font-mono">
+              {price.vatUsd.toFixed(2)}
+            </dd>
+            <dt>Price USD inc VAT</dt>
+            <dd className="text-right font-mono">
+              {price.priceUsdIncVat.toFixed(2)}
+            </dd>
+            <dt>Price UGX inc VAT</dt>
+            <dd className="text-right font-mono">
+              {ugx.format(price.priceUgxIncVat)}
+            </dd>
+            <dt>Rounded UP (100k)</dt>
+            <dd className="text-right font-mono font-semibold text-eh-forest">
+              {ugx.format(price.priceUgxIncVatRounded)}
+            </dd>
+            <dt>Per sqm GFA</dt>
+            <dd className="text-right font-mono">
+              {ugx.format(price.pricePerSqmUgxIncVat)}
+            </dd>
+          </dl>
+        </section>
+      )}
     </main>
   );
 }
 
-function ZoneTable({ outerLengthMm }: { outerLengthMm: number }) {
-  const plan = MONO_PITCH_2BR_FLOOR_PLAN;
+function ZoneTable({
+  plan,
+  outerLengthMm,
+}: {
+  plan: FloorPlanModel;
+  outerLengthMm: number;
+}) {
   const layout = layoutZones(plan, { targetLengthMm: outerLengthMm });
   return (
     <table className="w-full text-xs">
