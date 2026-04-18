@@ -210,7 +210,7 @@ export const MONO_PITCH_1BR_FLOOR_PLAN: FloorPlanModel = {
       ],
     },
 
-    // === External walls (south wall has entrance gap notch at veranda opening) ===
+    // === External walls (south wall has veranda opening from P_VERANDA_WEST to INNER_X1) ===
     {
       id: "wall-external",
       type: "wall",
@@ -219,9 +219,9 @@ export const MONO_PITCH_1BR_FLOOR_PLAN: FloorPlanModel = {
         [0, 0],
         [OUTER_WIDTH, 0],
         [OUTER_WIDTH, OUTER_DEPTH],
-        [ENTRANCE_X + ENTRANCE_W, OUTER_DEPTH],
-        // entrance gap in south wall
-        [ENTRANCE_X, OUTER_DEPTH],
+        [INNER_X1, OUTER_DEPTH],
+        // veranda opening in south wall
+        [P_VERANDA_WEST, OUTER_DEPTH],
         [0, OUTER_DEPTH],
         [0, 0],
       ],

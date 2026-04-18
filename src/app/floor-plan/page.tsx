@@ -81,6 +81,11 @@ export default function FloorPlanPreviewPage() {
   const [extraExtWallSteps, setExtraExtWallSteps] = useState(0);
   const [showGrid, setShowGrid] = useState(false);
 
+  // Reset slider when the user picks a different plan.
+  useEffect(() => {
+    setOuterLengthMm(plan.viewBox.width);
+  }, [plan]);
+
   // When the user switches models, snap the length back to the new plan's base.
   const clampedOuterLengthMm = Math.min(
     Math.max(outerLengthMm, minOuter),
