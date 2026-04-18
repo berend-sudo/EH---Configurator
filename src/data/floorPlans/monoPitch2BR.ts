@@ -50,6 +50,11 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
   maxLengthMm: 20 * 610, // 12200 mm — typology max
   jumpSizeMm: 610,
   viewBox: { width: OUTER_WIDTH, height: VERANDA_Y1 + 400 },
+  costDefaults: {
+    partitionsM: 12.5,  // 2BR Mono standard from Excel col G
+    interiorDoors: 3,
+    aluminiumSqm: 10.2,
+  },
 
   // Zone limits are sized so Σ(min) ≤ outerWidth(minLength) and
   // Σ(max) ≥ outerWidth(maxLength) — i.e. the plan covers the whole

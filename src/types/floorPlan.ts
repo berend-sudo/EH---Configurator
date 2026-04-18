@@ -31,6 +31,16 @@ export interface FloorPlanModel {
   elements: readonly FloorPlanElement[];
   /** Ordered stretchable zones along the length axis. Used in Phase 2b. */
   zones: readonly Zone[];
+  /**
+   * Default cost-engine inputs for this standard model. Mirrors Excel
+   * "Project Input" cells D27 (partitions), E28 (interior doors), E29
+   * (aluminium). The floor-plan page passes these into `deriveAmounts`.
+   */
+  costDefaults: {
+    partitionsM: number;
+    interiorDoors: number;
+    aluminiumSqm: number;
+  };
 }
 
 export type FloorPlanElement =

@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FloorPlanSVG } from "@/components/FloorPlanSVG";
 import { LengthSlider } from "@/components/LengthSlider";
+import { MONO_PITCH_1BR_FLOOR_PLAN } from "@/data/floorPlans/monoPitch1BR";
 import { MONO_PITCH_2BR_FLOOR_PLAN } from "@/data/floorPlans/monoPitch2BR";
 import { calculatePrice } from "@/lib/costEngine";
 import { deriveAmounts } from "@/lib/floorPlan/deriveAmounts";
@@ -13,8 +14,14 @@ import {
   frameComboLengthMm,
   jumpsForLengthMm,
 } from "@/lib/frameCombo";
+import type { FloorPlanModel } from "@/types/floorPlan";
 
 const WALL_THK_BOTH = 88 * 2;
+
+const PLANS: readonly FloorPlanModel[] = [
+  MONO_PITCH_1BR_FLOOR_PLAN,
+  MONO_PITCH_2BR_FLOOR_PLAN,
+];
 
 const ugx = new Intl.NumberFormat("en-UG", {
   style: "currency",
@@ -28,7 +35,11 @@ const usd = new Intl.NumberFormat("en-US", {
 });
 
 export default function FloorPlanPreviewPage() {
-  const plan = MONO_PITCH_2BR_FLOOR_PLAN;
+  const [planId, setPlanId] = useState(PLANS[0].id);
+  const plan = useMemo(
+    () => PLANS.find((p) => p.id === planId) ?? PLANS[0],
+    [planId],
+  );
 
   // Slider controls the OUTER length. Convert to structural length for frame
   // decomposition. Jump bounds come from the plan's zone capacity clamped
@@ -45,6 +56,11 @@ export default function FloorPlanPreviewPage() {
   const [extraExtWallSteps, setExtraExtWallSteps] = useState(0);
   const [showGrid, setShowGrid] = useState(false);
 
+  // Reset slider when the user picks a different plan.
+  useEffect(() => {
+    setOuterLengthMm(plan.viewBox.width);
+  }, [plan]);
+
   const structuralMm = outerLengthMm - WALL_THK_BOTH;
   const jumps = jumpsForLengthMm(structuralMm);
   const frames = useMemo(() => {
@@ -60,9 +76,9 @@ export default function FloorPlanPreviewPage() {
     return deriveAmounts({
       typology: plan.typology,
       frames,
-      partitionsM: 12.5,  // 2BR Mono standard from Excel col G
-      interiorDoors: 3,
-      aluminiumSqm: 10.2,
+      partitionsM: plan.costDefaults.partitionsM,
+      interiorDoors: plan.costDefaults.interiorDoors,
+      aluminiumSqm: plan.costDefaults.aluminiumSqm,
       extraExtWallSteps,
       bathrooms: plan.bathrooms,
     });
@@ -101,6 +117,23 @@ export default function FloorPlanPreviewPage() {
 
       <section className="grid gap-4 rounded-md border border-eh-sage p-4 md:grid-cols-[1fr_auto]">
         <div className="space-y-4">
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-eh-forest">
+              Standard model
+            </label>
+            <select
+              value={planId}
+              onChange={(e) => setPlanId(e.target.value)}
+              className="w-full rounded-md border border-eh-sage bg-white p-2 text-sm font-mono text-eh-forest"
+            >
+              {PLANS.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <LengthSlider
             lengthMm={outerLengthMm}
             minLengthMm={minOuter}
@@ -204,7 +237,7 @@ export default function FloorPlanPreviewPage() {
         <h2 className="mb-2 text-sm font-semibold text-eh-forest">
           Zone layout
         </h2>
-        <ZoneTable outerLengthMm={outerLengthMm} />
+        <ZoneTable plan={plan} outerLengthMm={outerLengthMm} />
       </section>
 
       <section className="rounded-md border border-eh-sage p-4">
@@ -252,8 +285,13 @@ export default function FloorPlanPreviewPage() {
   );
 }
 
-function ZoneTable({ outerLengthMm }: { outerLengthMm: number }) {
-  const plan = MONO_PITCH_2BR_FLOOR_PLAN;
+function ZoneTable({
+  plan,
+  outerLengthMm,
+}: {
+  plan: FloorPlanModel;
+  outerLengthMm: number;
+}) {
   const layout = layoutZones(plan, { targetLengthMm: outerLengthMm });
   return (
     <table className="w-full text-xs">
