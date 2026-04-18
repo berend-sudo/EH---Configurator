@@ -1,40 +1,42 @@
 import type { FloorPlanModel } from "@/types/floorPlan";
 
 /**
- * 2BR Mono Pitch — standard Easy Housing model (0A + 1B + 2C columns).
+ * 2BR Mono Pitch — traced from `mono pitch 2BR.png` (Archicad export).
  *
- * Hand-traced from `2br mono plan.png` (the Archicad-exported reference).
- * Dimensions in millimetres. Outer envelope 8,635 × 4,972 (double-walled,
- * structural depth 4,884 mm = Mono Pitch depth, structural length
- * 8,547 mm = 1×2442 + 2×3053).
+ * Envelope 8,635 × 4,972 mm (double-walled, structural 8,547 × 4,884).
+ * Layout columns (west → east): wet-core (bathroom / bedroom 1),
+ * bedrooms (kitchen strip / bedroom 2), living (living room / veranda).
  *
- * This is a Phase 2a placeholder: enough structure, rooms, doors, windows,
- * furniture and dimensions to validate the renderer and data model.
- * The admin tool in Phase 3 will produce the production-grade JSON.
+ * Coordinates are in mm, origin at the top-left of the outer envelope.
+ * Zones are ordered so the living room stretches first, bedrooms second,
+ * wet-core last when the length slider changes.
  */
 
 const OUTER_WIDTH = 8635;
 const OUTER_DEPTH = 4972;
 const WALL_THK = 88;
 const PARTITION_THK = 60;
+
 const INNER_X0 = WALL_THK;
 const INNER_Y0 = WALL_THK;
 const INNER_X1 = OUTER_WIDTH - WALL_THK; // 8547
 const INNER_Y1 = OUTER_DEPTH - WALL_THK; // 4884
 
 // Partition lines (approximate from the PNG)
-const P_BATHROOM_RIGHT = 2100;     // bathroom east wall
-const P_BATHROOM_SOUTH = 1688;     // bathroom south wall
-const P_BEDROOM1_RIGHT = 2100;     // bedroom 1 = bathroom column
-const P_BEDROOM2_RIGHT = 4700;     // bedroom 2 east wall
-const P_BEDROOM2_NORTH = 1688;     // bedroom 2 north wall (kitchen divider)
-const P_LIVING_WEST = P_BEDROOM2_RIGHT;
+const P_WETCORE_EAST = 2100; // east wall of bathroom + bedroom 1
+const P_BATHROOM_SOUTH = 1688; // south wall of bathroom / north wall of BR1
+const P_BEDROOMS_EAST = 4700; // east wall of bedroom 2 (west wall of living)
+const P_KITCHEN_SOUTH = 1688; // south wall of kitchen strip (matches bathroom south)
 
-// Veranda (external, sits outside south wall under the roof overhang)
+// Veranda — recessed outdoor space under roof overhang, south-east corner
 const VERANDA_X0 = 5200;
-const VERANDA_X1 = 8100;
+const VERANDA_X1 = INNER_X1; // aligns to outer east wall
 const VERANDA_Y0 = OUTER_DEPTH;
-const VERANDA_Y1 = OUTER_DEPTH + 1400;
+const VERANDA_Y1 = OUTER_DEPTH + 1200;
+
+// Entrance door position on south wall (just west of veranda)
+const ENTRANCE_X = 5400;
+const ENTRANCE_W = 900;
 
 export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
   id: "mono-pitch-2br-standard",
@@ -44,8 +46,8 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
   bathrooms: 1,
   depthMm: 4884,
   baseLengthMm: 8547,
-  minLengthMm: 8 * 610,   // 4880 mm — typology min
-  maxLengthMm: 20 * 610,  // 12200 mm — typology max
+  minLengthMm: 8 * 610, // 4880 mm — typology min
+  maxLengthMm: 20 * 610, // 12200 mm — typology max
   jumpSizeMm: 610,
   viewBox: { width: OUTER_WIDTH, height: VERANDA_Y1 + 400 },
 
@@ -54,45 +56,84 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
       id: "zone-wet-core",
       order: 3, // stretches last
       xStartMm: 0,
-      xEndMm: P_BATHROOM_RIGHT + WALL_THK,
-      minWidthMm: 1800,
-      maxWidthMm: 2800,
-      movingElementIds: [],
-      stretchingElementIds: [],
+      xEndMm: P_WETCORE_EAST + PARTITION_THK / 2,
+      minWidthMm: 2000,
+      maxWidthMm: 2600,
+      movingElementIds: [
+        "partition-bathroom-east",
+        "partition-wetcore-east",
+        "door-bedroom1",
+      ],
+      stretchingElementIds: [
+        "fill-bathroom",
+        "fill-bedroom1",
+        "partition-bathroom-south",
+        "window-bathroom",
+        "window-bedroom1",
+        "f-bed1",
+        "f-wardrobe1",
+        "f-bathtub",
+      ],
     },
     {
       id: "zone-bedrooms",
       order: 2,
-      xStartMm: P_BATHROOM_RIGHT + WALL_THK,
-      xEndMm: P_BEDROOM2_RIGHT + WALL_THK,
-      minWidthMm: 2200,
-      maxWidthMm: 3400,
-      movingElementIds: [],
-      stretchingElementIds: [],
+      xStartMm: P_WETCORE_EAST + PARTITION_THK / 2,
+      xEndMm: P_BEDROOMS_EAST + PARTITION_THK / 2,
+      minWidthMm: 2400,
+      maxWidthMm: 3000,
+      movingElementIds: [
+        "partition-bedrooms-east",
+        "door-bedroom2",
+      ],
+      stretchingElementIds: [
+        "fill-kitchen",
+        "fill-bedroom2",
+        "partition-kitchen-south",
+        "window-kitchen",
+        "window-bedroom2",
+        "f-kitchen-counter",
+        "f-wardrobe2",
+      ],
     },
     {
       id: "zone-living",
-      order: 1, // fills first — living room grows most
-      xStartMm: P_BEDROOM2_RIGHT + WALL_THK,
+      order: 1, // fills first — living room absorbs most of the delta
+      xStartMm: P_BEDROOMS_EAST + PARTITION_THK / 2,
       xEndMm: OUTER_WIDTH,
-      minWidthMm: 2800,
-      maxWidthMm: 5200,
-      movingElementIds: [],
-      stretchingElementIds: [],
+      minWidthMm: 2400,
+      maxWidthMm: 5500,
+      movingElementIds: [
+        "f-dining-table",
+        "f-dining-chair-1",
+        "f-dining-chair-2",
+        "f-dining-chair-3",
+        "f-dining-chair-4",
+        "f-veranda-chair-1",
+        "f-veranda-chair-2",
+        "f-veranda-chair-3",
+        "label-veranda-entrance-arrow",
+      ],
+      stretchingElementIds: [
+        "fill-living",
+        "fill-veranda",
+        "window-living-north",
+        "f-sofa",
+      ],
     },
   ],
 
   elements: [
-    // === Room fills (painted first so walls draw on top) ===
+    // === Room fills (painted first so walls/furniture draw on top) ===
     {
       id: "fill-bathroom",
       type: "room-fill",
       zoneId: "zone-wet-core",
-      fill: "#f3ece0",
+      fill: "#ffffff",
       points: [
         [INNER_X0, INNER_Y0],
-        [P_BATHROOM_RIGHT, INNER_Y0],
-        [P_BATHROOM_RIGHT, P_BATHROOM_SOUTH],
+        [P_WETCORE_EAST, INNER_Y0],
+        [P_WETCORE_EAST, P_BATHROOM_SOUTH],
         [INNER_X0, P_BATHROOM_SOUTH],
       ],
     },
@@ -100,11 +141,11 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
       id: "fill-bedroom1",
       type: "room-fill",
       zoneId: "zone-wet-core",
-      fill: "#efe5d0",
+      fill: "#efe2c6",
       points: [
         [INNER_X0, P_BATHROOM_SOUTH],
-        [P_BEDROOM1_RIGHT, P_BATHROOM_SOUTH],
-        [P_BEDROOM1_RIGHT, INNER_Y1],
+        [P_WETCORE_EAST, P_BATHROOM_SOUTH],
+        [P_WETCORE_EAST, INNER_Y1],
         [INNER_X0, INNER_Y1],
       ],
     },
@@ -112,43 +153,43 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
       id: "fill-kitchen",
       type: "room-fill",
       zoneId: "zone-bedrooms",
-      fill: "#f3ece0",
+      fill: "#efe2c6",
       points: [
-        [P_BATHROOM_RIGHT, INNER_Y0],
-        [P_BEDROOM2_RIGHT, INNER_Y0],
-        [P_BEDROOM2_RIGHT, P_BEDROOM2_NORTH],
-        [P_BATHROOM_RIGHT, P_BEDROOM2_NORTH],
+        [P_WETCORE_EAST, INNER_Y0],
+        [P_BEDROOMS_EAST, INNER_Y0],
+        [P_BEDROOMS_EAST, P_KITCHEN_SOUTH],
+        [P_WETCORE_EAST, P_KITCHEN_SOUTH],
       ],
     },
     {
       id: "fill-bedroom2",
       type: "room-fill",
       zoneId: "zone-bedrooms",
-      fill: "#efe5d0",
+      fill: "#efe2c6",
       points: [
-        [P_BATHROOM_RIGHT, P_BEDROOM2_NORTH],
-        [P_BEDROOM2_RIGHT, P_BEDROOM2_NORTH],
-        [P_BEDROOM2_RIGHT, INNER_Y1],
-        [P_BATHROOM_RIGHT, INNER_Y1],
+        [P_WETCORE_EAST, P_KITCHEN_SOUTH],
+        [P_BEDROOMS_EAST, P_KITCHEN_SOUTH],
+        [P_BEDROOMS_EAST, INNER_Y1],
+        [P_WETCORE_EAST, INNER_Y1],
       ],
     },
     {
       id: "fill-living",
       type: "room-fill",
       zoneId: "zone-living",
-      fill: "#efe5d0",
+      fill: "#efe2c6",
       points: [
-        [P_LIVING_WEST, INNER_Y0],
+        [P_BEDROOMS_EAST, INNER_Y0],
         [INNER_X1, INNER_Y0],
         [INNER_X1, INNER_Y1],
-        [P_LIVING_WEST, INNER_Y1],
+        [P_BEDROOMS_EAST, INNER_Y1],
       ],
     },
     {
       id: "fill-veranda",
       type: "room-fill",
       zoneId: "zone-living",
-      fill: "#e3d7c1",
+      fill: "#b9b0a2",
       points: [
         [VERANDA_X0, VERANDA_Y0],
         [VERANDA_X1, VERANDA_Y0],
@@ -157,7 +198,7 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
       ],
     },
 
-    // === External walls (one polygon, thick stroke) ===
+    // === External walls (thick single polygon) ===
     {
       id: "wall-external",
       type: "wall",
@@ -166,6 +207,9 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
         [0, 0],
         [OUTER_WIDTH, 0],
         [OUTER_WIDTH, OUTER_DEPTH],
+        [ENTRANCE_X + ENTRANCE_W, OUTER_DEPTH],
+        // gap for entrance door — south wall continues after the opening
+        [ENTRANCE_X, OUTER_DEPTH],
         [0, OUTER_DEPTH],
         [0, 0],
       ],
@@ -179,7 +223,7 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
       thicknessMm: PARTITION_THK,
       points: [
         [INNER_X0, P_BATHROOM_SOUTH],
-        [P_BATHROOM_RIGHT, P_BATHROOM_SOUTH],
+        [P_WETCORE_EAST, P_BATHROOM_SOUTH],
       ],
     },
     {
@@ -187,9 +231,21 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
       type: "partition",
       zoneId: "zone-wet-core",
       thicknessMm: PARTITION_THK,
+      // bathroom → kitchen east divider (stops at bathroom south)
       points: [
-        [P_BATHROOM_RIGHT, INNER_Y0],
-        [P_BATHROOM_RIGHT, INNER_Y1],
+        [P_WETCORE_EAST, INNER_Y0],
+        [P_WETCORE_EAST, P_BATHROOM_SOUTH],
+      ],
+    },
+    {
+      id: "partition-wetcore-east",
+      type: "partition",
+      zoneId: "zone-wet-core",
+      thicknessMm: PARTITION_THK,
+      // bedroom 1 east wall (partition to bedroom 2)
+      points: [
+        [P_WETCORE_EAST, P_BATHROOM_SOUTH],
+        [P_WETCORE_EAST, INNER_Y1],
       ],
     },
     {
@@ -198,75 +254,74 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
       zoneId: "zone-bedrooms",
       thicknessMm: PARTITION_THK,
       points: [
-        [P_BATHROOM_RIGHT, P_BEDROOM2_NORTH],
-        [P_BEDROOM2_RIGHT, P_BEDROOM2_NORTH],
+        [P_WETCORE_EAST, P_KITCHEN_SOUTH],
+        [P_BEDROOMS_EAST, P_KITCHEN_SOUTH],
       ],
     },
     {
-      id: "partition-bedroom2-east",
+      id: "partition-bedrooms-east",
       type: "partition",
       zoneId: "zone-bedrooms",
       thicknessMm: PARTITION_THK,
+      // full-height partition between bedroom 2/kitchen and living room
       points: [
-        [P_BEDROOM2_RIGHT, INNER_Y0],
-        [P_BEDROOM2_RIGHT, INNER_Y1],
+        [P_BEDROOMS_EAST, INNER_Y0],
+        [P_BEDROOMS_EAST, INNER_Y1],
       ],
     },
 
-    // === Doors ===
-    // Bathroom door — opens north into bathroom from bedroom 1 corridor
+    // === Doors (quarter-circle swing arcs) ===
+    // Bathroom → bedroom 1 (south wall of bathroom, hinge east, swings SW)
     {
       id: "door-bathroom",
       type: "door",
       zoneId: "zone-wet-core",
-      hingeXMm: 1000,
+      hingeXMm: P_WETCORE_EAST - 150,
       hingeYMm: P_BATHROOM_SOUTH,
-      widthMm: 750,
-      swing: "NE",
+      widthMm: 800,
+      swing: "SW",
     },
-    // Bedroom 1 door — from bedroom 1 into bedroom 2 corridor area
+    // Bedroom 1 → bedroom 2 (east partition of BR1, hinge south, swings NE)
     {
       id: "door-bedroom1",
       type: "door",
       zoneId: "zone-wet-core",
-      hingeXMm: P_BEDROOM1_RIGHT,
-      hingeYMm: 3200,
+      hingeXMm: P_WETCORE_EAST,
+      hingeYMm: 3300,
       widthMm: 800,
       swing: "NE",
     },
-    // Bedroom 2 door — from bedroom 2 into living area
+    // Bedroom 2 → living (east partition of BR2, hinge south, swings NW)
     {
       id: "door-bedroom2",
       type: "door",
       zoneId: "zone-bedrooms",
-      hingeXMm: P_BEDROOM2_RIGHT,
-      hingeYMm: 2200,
+      hingeXMm: P_BEDROOMS_EAST,
+      hingeYMm: 2400,
       widthMm: 800,
       swing: "NW",
     },
-    // Entrance door — south wall into living/veranda
+    // Entrance door (south wall into living, hinge east, swings NW — into room)
     {
       id: "door-entrance",
       type: "door",
       zoneId: "zone-living",
-      hingeXMm: 5400,
+      hingeXMm: ENTRANCE_X + ENTRANCE_W,
       hingeYMm: INNER_Y1,
-      widthMm: 900,
-      swing: "NE",
+      widthMm: ENTRANCE_W,
+      swing: "NW",
     },
 
     // === Windows on external walls ===
-    // Bathroom small window (north)
     {
       id: "window-bathroom",
       type: "window",
       zoneId: "zone-wet-core",
       points: [
-        [600, 0],
-        [1300, 0],
+        [500, 0],
+        [1100, 0],
       ],
     },
-    // Bedroom 1 window (south)
     {
       id: "window-bedroom1",
       type: "window",
@@ -276,87 +331,83 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
         [1700, OUTER_DEPTH],
       ],
     },
-    // Kitchen window (north, above sink)
     {
       id: "window-kitchen",
       type: "window",
       zoneId: "zone-bedrooms",
       points: [
-        [2700, 0],
-        [4300, 0],
+        [P_WETCORE_EAST + 600, 0],
+        [P_BEDROOMS_EAST - 400, 0],
       ],
     },
-    // Bedroom 2 window (south)
     {
       id: "window-bedroom2",
       type: "window",
       zoneId: "zone-bedrooms",
       points: [
-        [2700, OUTER_DEPTH],
-        [4200, OUTER_DEPTH],
+        [P_WETCORE_EAST + 400, OUTER_DEPTH],
+        [P_BEDROOMS_EAST - 300, OUTER_DEPTH],
       ],
     },
-    // Living room panorama window (east)
-    {
-      id: "window-living-east",
-      type: "window",
-      zoneId: "zone-living",
-      points: [
-        [OUTER_WIDTH, 700],
-        [OUTER_WIDTH, 3200],
-      ],
-    },
-    // Living room north window
     {
       id: "window-living-north",
       type: "window",
       zoneId: "zone-living",
       points: [
-        [5400, 0],
-        [7800, 0],
+        [P_BEDROOMS_EAST + 700, 0],
+        [INNER_X1 - 400, 0],
+      ],
+    },
+    {
+      id: "window-living-east",
+      type: "window",
+      zoneId: "zone-living",
+      points: [
+        [OUTER_WIDTH, 900],
+        [OUTER_WIDTH, 3300],
       ],
     },
 
-    // === Furniture ===
-    // Bathroom — toilet, sink, bathtub
+    // === Furniture — bathroom ===
     {
       id: "f-bathtub",
       type: "furniture",
       zoneId: "zone-wet-core",
       subtype: "bathtub",
-      xMm: 200,
-      yMm: 200,
-      widthMm: 1700,
-      heightMm: 700,
+      xMm: 220,
+      yMm: 240,
+      widthMm: 1600,
+      heightMm: 750,
     },
     {
       id: "f-bath-sink",
       type: "furniture",
       zoneId: "zone-wet-core",
       subtype: "sink-bathroom",
-      xMm: 200,
-      yMm: 1000,
-      widthMm: 600,
-      heightMm: 450,
+      xMm: 220,
+      yMm: 1050,
+      widthMm: 450,
+      heightMm: 400,
     },
     {
       id: "f-toilet",
       type: "furniture",
       zoneId: "zone-wet-core",
       subtype: "toilet",
-      xMm: 900,
+      xMm: 1350,
       yMm: 1050,
-      widthMm: 450,
+      widthMm: 500,
       heightMm: 550,
     },
-    // Bedroom 1 — double bed + wardrobe
+
+    // === Furniture — bedroom 1 ===
     {
       id: "f-bed1",
       type: "furniture",
       zoneId: "zone-wet-core",
       subtype: "bed-double",
-      xMm: 250,
-      yMm: 1900,
+      xMm: 260,
+      yMm: 2000,
       widthMm: 1400,
       heightMm: 2000,
     },
@@ -365,20 +416,31 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
       type: "furniture",
       zoneId: "zone-wet-core",
       subtype: "wardrobe",
-      xMm: 250,
+      xMm: 260,
       yMm: 4200,
-      widthMm: 1800,
-      heightMm: 600,
+      widthMm: 1700,
+      heightMm: 550,
     },
-    // Kitchen — counter top + sink + stove + fridge
+
+    // === Furniture — kitchen ===
     {
       id: "f-kitchen-counter",
       type: "furniture",
       zoneId: "zone-bedrooms",
       subtype: "kitchen-counter",
-      xMm: P_BATHROOM_RIGHT + 100,
+      xMm: P_WETCORE_EAST + 120,
       yMm: INNER_Y0 + 100,
-      widthMm: 2400,
+      widthMm: P_BEDROOMS_EAST - P_WETCORE_EAST - 240,
+      heightMm: 650,
+    },
+    {
+      id: "f-fridge",
+      type: "furniture",
+      zoneId: "zone-bedrooms",
+      subtype: "fridge",
+      xMm: P_WETCORE_EAST + 150,
+      yMm: INNER_Y0 + 130,
+      widthMm: 600,
       heightMm: 600,
     },
     {
@@ -386,39 +448,30 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
       type: "furniture",
       zoneId: "zone-bedrooms",
       subtype: "sink-kitchen",
-      xMm: P_BATHROOM_RIGHT + 500,
+      xMm: P_WETCORE_EAST + 900,
       yMm: INNER_Y0 + 200,
       widthMm: 700,
-      heightMm: 400,
+      heightMm: 450,
     },
     {
       id: "f-stove",
       type: "furniture",
       zoneId: "zone-bedrooms",
       subtype: "stove",
-      xMm: P_BATHROOM_RIGHT + 1500,
-      yMm: INNER_Y0 + 150,
+      xMm: P_WETCORE_EAST + 1750,
+      yMm: INNER_Y0 + 200,
       widthMm: 600,
-      heightMm: 500,
+      heightMm: 550,
     },
-    {
-      id: "f-fridge",
-      type: "furniture",
-      zoneId: "zone-bedrooms",
-      subtype: "fridge",
-      xMm: P_BATHROOM_RIGHT + 150,
-      yMm: INNER_Y0 + 100,
-      widthMm: 600,
-      heightMm: 600,
-    },
-    // Bedroom 2 — bed + wardrobe
+
+    // === Furniture — bedroom 2 ===
     {
       id: "f-bed2",
       type: "furniture",
       zoneId: "zone-bedrooms",
       subtype: "bed-double",
-      xMm: P_BATHROOM_RIGHT + 250,
-      yMm: P_BEDROOM2_NORTH + 300,
+      xMm: P_WETCORE_EAST + 950,
+      yMm: 2000,
       widthMm: 1400,
       heightMm: 2000,
     },
@@ -427,20 +480,21 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
       type: "furniture",
       zoneId: "zone-bedrooms",
       subtype: "wardrobe",
-      xMm: P_BATHROOM_RIGHT + 250,
-      yMm: INNER_Y1 - 700,
-      widthMm: 2000,
-      heightMm: 600,
+      xMm: P_WETCORE_EAST + 220,
+      yMm: 4200,
+      widthMm: 2200,
+      heightMm: 550,
     },
-    // Living room — sofa, armchair, dining table + chairs
+
+    // === Furniture — living room ===
     {
       id: "f-sofa",
       type: "furniture",
       zoneId: "zone-living",
       subtype: "sofa",
-      xMm: P_LIVING_WEST + 300,
-      yMm: 2200,
-      widthMm: 2200,
+      xMm: P_BEDROOMS_EAST + 1100,
+      yMm: 2050,
+      widthMm: 2000,
       heightMm: 900,
     },
     {
@@ -448,8 +502,8 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
       type: "furniture",
       zoneId: "zone-living",
       subtype: "armchair",
-      xMm: P_LIVING_WEST + 2700,
-      yMm: 2400,
+      xMm: P_BEDROOMS_EAST + 300,
+      yMm: 2200,
       widthMm: 900,
       heightMm: 900,
     },
@@ -458,8 +512,8 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
       type: "furniture",
       zoneId: "zone-living",
       subtype: "dining-table",
-      xMm: P_LIVING_WEST + 1400,
-      yMm: 400,
+      xMm: INNER_X1 - 1700,
+      yMm: INNER_Y0 + 300,
       widthMm: 1400,
       heightMm: 1200,
     },
@@ -468,49 +522,81 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
       type: "furniture",
       zoneId: "zone-living",
       subtype: "dining-chair",
-      xMm: P_LIVING_WEST + 1200,
-      yMm: 600,
-      widthMm: 450,
-      heightMm: 450,
+      xMm: INNER_X1 - 1850,
+      yMm: INNER_Y0 + 400,
+      widthMm: 420,
+      heightMm: 420,
     },
     {
       id: "f-dining-chair-2",
       type: "furniture",
       zoneId: "zone-living",
       subtype: "dining-chair",
-      xMm: P_LIVING_WEST + 1200,
-      yMm: 1200,
-      widthMm: 450,
-      heightMm: 450,
+      xMm: INNER_X1 - 1850,
+      yMm: INNER_Y0 + 1050,
+      widthMm: 420,
+      heightMm: 420,
     },
     {
       id: "f-dining-chair-3",
       type: "furniture",
       zoneId: "zone-living",
       subtype: "dining-chair",
-      xMm: P_LIVING_WEST + 2800,
-      yMm: 600,
-      widthMm: 450,
-      heightMm: 450,
+      xMm: INNER_X1 - 600,
+      yMm: INNER_Y0 + 400,
+      widthMm: 420,
+      heightMm: 420,
     },
     {
       id: "f-dining-chair-4",
       type: "furniture",
       zoneId: "zone-living",
       subtype: "dining-chair",
-      xMm: P_LIVING_WEST + 2800,
-      yMm: 1200,
-      widthMm: 450,
-      heightMm: 450,
+      xMm: INNER_X1 - 600,
+      yMm: INNER_Y0 + 1050,
+      widthMm: 420,
+      heightMm: 420,
     },
 
-    // === Room labels (placed at visual centre of each room) ===
+    // === Veranda — three round lounge chairs ===
+    {
+      id: "f-veranda-chair-1",
+      type: "furniture",
+      zoneId: "zone-living",
+      subtype: "armchair",
+      xMm: VERANDA_X0 + 180,
+      yMm: VERANDA_Y0 + 180,
+      widthMm: 800,
+      heightMm: 800,
+    },
+    {
+      id: "f-veranda-chair-2",
+      type: "furniture",
+      zoneId: "zone-living",
+      subtype: "armchair",
+      xMm: VERANDA_X0 + 1080,
+      yMm: VERANDA_Y0 + 180,
+      widthMm: 800,
+      heightMm: 800,
+    },
+    {
+      id: "f-veranda-chair-3",
+      type: "furniture",
+      zoneId: "zone-living",
+      subtype: "armchair",
+      xMm: VERANDA_X0 + 1980,
+      yMm: VERANDA_Y0 + 180,
+      widthMm: 800,
+      heightMm: 800,
+    },
+
+    // === Room labels ===
     {
       id: "label-bathroom",
       type: "room-label",
       zoneId: "zone-wet-core",
-      xMm: (INNER_X0 + P_BATHROOM_RIGHT) / 2,
-      yMm: (INNER_Y0 + P_BATHROOM_SOUTH) / 2,
+      xMm: (INNER_X0 + P_WETCORE_EAST) / 2,
+      yMm: (INNER_Y0 + P_BATHROOM_SOUTH) / 2 + 350,
       label: "Bathroom",
       areaM2: 3,
     },
@@ -518,8 +604,8 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
       id: "label-bedroom1",
       type: "room-label",
       zoneId: "zone-wet-core",
-      xMm: (INNER_X0 + P_BEDROOM1_RIGHT) / 2,
-      yMm: (P_BATHROOM_SOUTH + INNER_Y1) / 2,
+      xMm: (INNER_X0 + P_WETCORE_EAST) / 2,
+      yMm: (P_BATHROOM_SOUTH + INNER_Y1) / 2 - 300,
       label: "Bedroom 1",
       areaM2: 9,
     },
@@ -527,8 +613,8 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
       id: "label-bedroom2",
       type: "room-label",
       zoneId: "zone-bedrooms",
-      xMm: (P_BATHROOM_RIGHT + P_BEDROOM2_RIGHT) / 2,
-      yMm: (P_BEDROOM2_NORTH + INNER_Y1) / 2,
+      xMm: (P_WETCORE_EAST + P_BEDROOMS_EAST) / 2,
+      yMm: (P_KITCHEN_SOUTH + INNER_Y1) / 2 - 300,
       label: "Bedroom 2",
       areaM2: 7,
     },
@@ -536,8 +622,8 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
       id: "label-living",
       type: "room-label",
       zoneId: "zone-living",
-      xMm: (P_LIVING_WEST + INNER_X1) / 2,
-      yMm: 1300,
+      xMm: (P_BEDROOMS_EAST + INNER_X1) / 2 - 600,
+      yMm: 1350,
       label: "Living Room",
       areaM2: 17,
     },
@@ -550,8 +636,16 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
       label: "Veranda",
       areaM2: 4,
     },
+    {
+      id: "label-veranda-entrance-arrow",
+      type: "room-label",
+      zoneId: "zone-living",
+      xMm: ENTRANCE_X + ENTRANCE_W / 2,
+      yMm: INNER_Y1 + 400,
+      label: "↑ Entrance",
+    },
 
-    // === Dimensions ===
+    // === Overall dimensions ===
     {
       id: "dim-overall-width",
       type: "dimension",
@@ -561,8 +655,6 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
       offsetMm: -450,
     },
     {
-      // Sign is positive because our clockwise-normal convention puts
-      // positive offsets to the "left" of a downward-pointing line.
       id: "dim-overall-depth",
       type: "dimension",
       from: [0, 0],
