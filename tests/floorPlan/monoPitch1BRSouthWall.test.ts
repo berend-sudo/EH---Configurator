@@ -15,8 +15,8 @@ describe("1BR south wall veranda opening", () => {
     expect(southPoints.some(([x]) => x === 3053)).toBe(true);
   });
 
-  it("south wall has a notch point at INNER_X1 (east edge of veranda opening)", () => {
-    expect(southPoints.some(([x]) => x === 6106)).toBe(true);
+  it("south wall has a notch point at OUTER_WIDTH (east edge of veranda opening)", () => {
+    expect(southPoints.some(([x]) => x === 6194)).toBe(true);
   });
 
   it("south wall does not place a notch at ENTRANCE_X (the door, not the veranda opening)", () => {

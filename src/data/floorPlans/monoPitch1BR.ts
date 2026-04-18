@@ -124,7 +124,6 @@ export const MONO_PITCH_1BR_FLOOR_PLAN: FloorPlanModel = {
         "window-kitchen-center",
         "window-kitchen-east",
         "window-living-east",
-        "f-kitchen-counter",
       ],
     },
   ],
@@ -231,7 +230,6 @@ export const MONO_PITCH_1BR_FLOOR_PLAN: FloorPlanModel = {
         [0, 0],
         [OUTER_WIDTH, 0],
         [OUTER_WIDTH, OUTER_DEPTH],
-        [INNER_X1, OUTER_DEPTH],
         // veranda opening in south wall
         [P_VERANDA_WEST, OUTER_DEPTH],
         [0, OUTER_DEPTH],
