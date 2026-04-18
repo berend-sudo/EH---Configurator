@@ -204,6 +204,7 @@ export function aiPlanToModel(detected: AIDetectedPlan): FloorPlanModel {
       hingeYMm: py(d.yPct),
       widthMm: d.widthMm,
       swing: d.swing,
+      wallAxis: "horizontal",
     });
   }
 

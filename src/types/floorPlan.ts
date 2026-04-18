@@ -99,6 +99,14 @@ export interface DoorElement extends BaseElement {
   widthMm: number;
   /** Which quadrant the door swings into from the hinge. */
   swing: "NE" | "NW" | "SE" | "SW";
+  /**
+   * Axis of the wall this door sits in.
+   * "horizontal" — wall runs left-right (e.g. bathroom south wall):
+   *   leaf moves along X, arc sweeps along Y.
+   * "vertical" — wall runs top-bottom (e.g. bedroom east partition):
+   *   leaf moves along Y, arc sweeps along X.
+   */
+  wallAxis: "horizontal" | "vertical";
 }
 
 export interface WindowElement extends BaseElement {

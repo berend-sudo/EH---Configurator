@@ -352,33 +352,38 @@ function Window({ el }: { el: WindowElement }) {
 }
 
 function Door({ el }: { el: DoorElement }) {
-  const { hingeXMm: hx, hingeYMm: hy, widthMm: w, swing } = el;
-  // Compute leaf endpoint and arc sweep from swing quadrant.
-  const dir = {
-    NE: { dx: 1, dy: -1, large: 0, sweep: 1 },
-    NW: { dx: -1, dy: -1, large: 0, sweep: 0 },
-    SE: { dx: 1, dy: 1, large: 0, sweep: 0 },
-    SW: { dx: -1, dy: 1, large: 0, sweep: 1 },
-  }[swing];
-  const leafX = hx + dir.dx * w;
-  const leafY = hy;
-  const arcEndX = hx;
-  const arcEndY = hy + dir.dy * w;
+  const { hingeXMm: hx, hingeYMm: hy, widthMm: w, swing, wallAxis } = el;
+  let leafX: number, leafY: number, arcEndX: number, arcEndY: number;
+  let sweepFlag: 0 | 1;
+
+  if (wallAxis === "horizontal") {
+    const dx = swing === "NE" || swing === "SE" ? 1 : -1;
+    const dy = swing === "SE" || swing === "SW" ? 1 : -1;
+    leafX = hx + dx * w;
+    leafY = hy;
+    arcEndX = hx;
+    arcEndY = hy + dy * w;
+    sweepFlag = dx === 1 ? (dy === 1 ? 0 : 1) : (dy === 1 ? 1 : 0);
+  } else {
+    const dx = swing === "NE" || swing === "SE" ? 1 : -1;
+    const dy = swing === "SE" || swing === "SW" ? 1 : -1;
+    leafX = hx;
+    leafY = hy + dy * w;
+    arcEndX = hx + dx * w;
+    arcEndY = hy;
+    sweepFlag = dy === 1 ? (dx === 1 ? 1 : 0) : (dx === 1 ? 0 : 1);
+  }
+
   return (
     <g>
-      {/* leaf */}
       <line
-        x1={hx}
-        y1={hy}
-        x2={leafX}
-        y2={leafY}
+        x1={hx} y1={hy} x2={leafX} y2={leafY}
         stroke={COLOURS.door}
         strokeWidth={30}
         strokeLinecap="round"
       />
-      {/* swing arc */}
       <path
-        d={`M ${leafX} ${leafY} A ${w} ${w} 0 ${dir.large} ${dir.sweep} ${arcEndX} ${arcEndY}`}
+        d={`M ${leafX} ${leafY} A ${w} ${w} 0 0 ${sweepFlag} ${arcEndX} ${arcEndY}`}
         stroke={COLOURS.door}
         strokeWidth={12}
         strokeDasharray="40 40"

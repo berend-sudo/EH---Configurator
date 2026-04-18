@@ -184,6 +184,7 @@ export function EditorCanvas({
           hingeYMm: hit.projection[1],
           widthMm: 800,
           swing: "NE",
+          wallAxis: "horizontal",
         };
         onUpdateModel({ ...model, elements: [...model.elements, door] });
       } else {
