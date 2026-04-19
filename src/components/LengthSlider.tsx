@@ -65,9 +65,9 @@ export function LengthSlider({
         className="w-full accent-eh-forest"
       />
       <div className="flex justify-between text-xs text-eh-charcoal/60 font-mono">
-        <span>{minLengthMm} mm · {minJumps} jumps</span>
-        <span>{currentJumps} of {maxJumps} jumps</span>
-        <span>{maxLengthMm} mm · {maxJumps} jumps</span>
+        <span>{minLengthMm} mm</span>
+        <span>{snapped} mm</span>
+        <span>{maxLengthMm} mm</span>
       </div>
     </div>
   );

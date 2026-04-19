@@ -71,6 +71,7 @@ export const MONO_PITCH_STUDIO_FLOOR_PLAN: FloorPlanModel = {
         "fill-studio-west",
         "partition-bathroom-south",
         "window-bathroom-north",
+        "window-studio-south",
       ],
     },
     {
@@ -81,8 +82,6 @@ export const MONO_PITCH_STUDIO_FLOOR_PLAN: FloorPlanModel = {
       minWidthMm: 2400,
       maxWidthMm: 10000,
       movingElementIds: [
-        "f-veranda-chair-1",
-        "f-veranda-chair-2",
         "label-veranda-entrance-arrow",
       ],
       stretchingElementIds: [
@@ -94,6 +93,8 @@ export const MONO_PITCH_STUDIO_FLOOR_PLAN: FloorPlanModel = {
         "partition-veranda-west",
         "window-studio-north",
         "window-studio-east",
+        "f-veranda-chair-1",
+        "f-veranda-chair-2",
       ],
     },
   ],
@@ -104,7 +105,7 @@ export const MONO_PITCH_STUDIO_FLOOR_PLAN: FloorPlanModel = {
       id: "fill-bathroom",
       type: "room-fill",
       zoneId: "zone-wet-core",
-      fill: "#ffffff",
+      fill: "#f0efec",
       points: [
         [INNER_X0, INNER_Y0],
         [P_BATHROOM_EAST, INNER_Y0],
@@ -119,8 +120,8 @@ export const MONO_PITCH_STUDIO_FLOOR_PLAN: FloorPlanModel = {
       zoneId: "zone-wet-core",
       fill: "#efe2c6",
       points: [
-        [INNER_X0, P_BATHROOM_SOUTH],
-        [P_BATHROOM_EAST, P_BATHROOM_SOUTH],
+        [INNER_X0, INNER_Y0],
+        [P_BATHROOM_EAST, INNER_Y0],
         [P_BATHROOM_EAST, INNER_Y1],
         [INNER_X0, INNER_Y1],
       ],
@@ -175,12 +176,12 @@ export const MONO_PITCH_STUDIO_FLOOR_PLAN: FloorPlanModel = {
       ],
     },
     {
-      id: "wall-east",
+      id: "wall-east-north",
       type: "wall",
       thicknessMm: WALL_THK,
       points: [
         [OUTER_WIDTH, 0],
-        [OUTER_WIDTH, OUTER_DEPTH],
+        [OUTER_WIDTH, P_VERANDA_NORTH],
       ],
     },
     {
@@ -304,6 +305,15 @@ export const MONO_PITCH_STUDIO_FLOOR_PLAN: FloorPlanModel = {
       points: [
         [OUTER_WIDTH, 1100],
         [OUTER_WIDTH, 2500],
+      ],
+    },
+    {
+      id: "window-studio-south",
+      type: "window",
+      zoneId: "zone-wet-core",
+      points: [
+        [600, OUTER_DEPTH],
+        [1300, OUTER_DEPTH],
       ],
     },
 
