@@ -87,7 +87,6 @@ export default function FloorPlanPreviewPage() {
   const maxOuter = Math.min(zoneCapacity.max, plan.maxLengthMm + WALL_THK_BOTH);
 
   const [outerLengthMm, setOuterLengthMm] = useState(plan.viewBox.width);
-  const [extraExtWallSteps, setExtraExtWallSteps] = useState(0);
   const [showGrid, setShowGrid] = useState(false);
 
   // Reset slider when the user picks a different plan.
@@ -119,10 +118,10 @@ export default function FloorPlanPreviewPage() {
       partitionsM: costs.partitionsM,
       interiorDoors: costs.interiorDoors,
       aluminiumSqm: costs.aluminiumSqm,
-      extraExtWallSteps,
+      extraExtWallSteps: 0,
       bathrooms: plan.bathrooms,
     });
-  }, [frames, plan, costs, extraExtWallSteps]);
+  }, [frames, plan, costs]);
 
   const price = useMemo(() => {
     if (!derived) return null;
@@ -186,26 +185,6 @@ export default function FloorPlanPreviewPage() {
             onChange={setOuterLengthMm}
             label="Outer length"
           />
-
-          <div className="space-y-1">
-            <div className="flex items-baseline justify-between gap-2">
-              <label className="text-sm font-medium text-eh-forest">
-                Extra exterior-wall grid steps
-              </label>
-              <span className="text-sm font-mono">
-                {extraExtWallSteps} · {extraExtWallSteps * plan.jumpSizeMm} mm
-              </span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={6}
-              step={1}
-              value={extraExtWallSteps}
-              onChange={(e) => setExtraExtWallSteps(Number(e.target.value))}
-              className="w-full accent-eh-forest"
-            />
-          </div>
         </div>
 
         <label className="flex items-center gap-2 self-end text-sm">
@@ -266,12 +245,10 @@ export default function FloorPlanPreviewPage() {
               <dd className="text-right font-mono">
                 {frameComboLengthMm(frames)} mm
               </dd>
-              <dt className="text-eh-charcoal/70">Jumps</dt>
-              <dd className="text-right font-mono">{jumps}</dd>
             </dl>
           ) : (
             <p className="text-sm text-eh-charcoal/60">
-              No valid frame combo for {jumps} jumps.
+              No valid frame combination for this length.
             </p>
           )}
         </aside>
@@ -341,8 +318,6 @@ function ZoneTable({
           <th className="text-right">Order</th>
           <th className="text-right">Base width</th>
           <th className="text-right">Current width</th>
-          <th className="text-right">Shift</th>
-          <th className="text-right">Stretch</th>
         </tr>
       </thead>
       <tbody>
@@ -352,10 +327,6 @@ function ZoneTable({
             <td className="text-right font-mono">{z.order}</td>
             <td className="text-right font-mono">{z.baseWidthMm} mm</td>
             <td className="text-right font-mono">{Math.round(z.widthMm)} mm</td>
-            <td className="text-right font-mono">{Math.round(z.xShiftMm)} mm</td>
-            <td className="text-right font-mono">
-              {z.scaleX.toFixed(3)}×
-            </td>
           </tr>
         ))}
       </tbody>
