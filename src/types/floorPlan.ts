@@ -131,6 +131,8 @@ export type FurnitureSubtype =
   | "bathtub"
   | "shower"
   | "wardrobe"
+  | "nightstand"
+  | "tv"
   | "generic";
 
 export interface FurnitureElement extends BaseElement {

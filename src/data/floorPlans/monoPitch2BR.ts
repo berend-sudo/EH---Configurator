@@ -134,6 +134,7 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
       stretchingElementIds: [
         "fill-living",
         "window-living-north",
+        "f-tv",
       ],
     },
   ],
@@ -431,6 +432,26 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
       heightMm: 2000,
     },
     {
+      id: "f-nightstand1-left",
+      type: "furniture",
+      zoneId: "zone-wet-core",
+      subtype: "nightstand",
+      xMm: 260,
+      yMm: 2000,
+      widthMm: 400,
+      heightMm: 400,
+    },
+    {
+      id: "f-nightstand1-right",
+      type: "furniture",
+      zoneId: "zone-wet-core",
+      subtype: "nightstand",
+      xMm: 1260,
+      yMm: 2000,
+      widthMm: 400,
+      heightMm: 400,
+    },
+    {
       id: "f-wardrobe1",
       type: "furniture",
       zoneId: "zone-wet-core",
@@ -495,6 +516,26 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
       heightMm: 2000,
     },
     {
+      id: "f-nightstand2-left",
+      type: "furniture",
+      zoneId: "zone-bedrooms",
+      subtype: "nightstand",
+      xMm: P_WETCORE_EAST + 950,
+      yMm: 2000,
+      widthMm: 400,
+      heightMm: 400,
+    },
+    {
+      id: "f-nightstand2-right",
+      type: "furniture",
+      zoneId: "zone-bedrooms",
+      subtype: "nightstand",
+      xMm: P_WETCORE_EAST + 950 + 1000,
+      yMm: 2000,
+      widthMm: 400,
+      heightMm: 400,
+    },
+    {
       id: "f-wardrobe2",
       type: "furniture",
       zoneId: "zone-bedrooms",
@@ -503,6 +544,18 @@ export const MONO_PITCH_2BR_FLOOR_PLAN: FloorPlanModel = {
       yMm: 4200,
       widthMm: 2200,
       heightMm: 550,
+    },
+
+    // === Furniture — TV (interior face of bedrooms-east partition, living room side) ===
+    {
+      id: "f-tv",
+      type: "furniture",
+      zoneId: "zone-living",
+      subtype: "tv",
+      xMm: P_BEDROOMS_EAST,
+      yMm: 1700,
+      widthMm: 80,
+      heightMm: 900,
     },
 
     // === Furniture — living room ===

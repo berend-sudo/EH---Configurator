@@ -95,6 +95,7 @@ export const MONO_PITCH_STUDIO_FLOOR_PLAN: FloorPlanModel = {
         "window-studio-east",
         "f-veranda-chair-1",
         "f-veranda-chair-2",
+        "f-tv",
       ],
     },
   ],
@@ -360,6 +361,26 @@ export const MONO_PITCH_STUDIO_FLOOR_PLAN: FloorPlanModel = {
       widthMm: 1400,
       heightMm: 2000,
     },
+    {
+      id: "f-nightstand-left",
+      type: "furniture",
+      zoneId: "zone-wet-core",
+      subtype: "nightstand",
+      xMm: 150,
+      yMm: 2400,
+      widthMm: 400,
+      heightMm: 400,
+    },
+    {
+      id: "f-nightstand-right",
+      type: "furniture",
+      zoneId: "zone-wet-core",
+      subtype: "nightstand",
+      xMm: 1150,
+      yMm: 2400,
+      widthMm: 400,
+      heightMm: 400,
+    },
 
     // === Furniture — kitchen (compact, anchored at left edge of zone-living) ===
     {
@@ -401,6 +422,18 @@ export const MONO_PITCH_STUDIO_FLOOR_PLAN: FloorPlanModel = {
       yMm: INNER_Y0,
       widthMm: 600,
       heightMm: 450,
+    },
+
+    // === Furniture — TV (wall-mounted on studio side of veranda-north partition) ===
+    {
+      id: "f-tv",
+      type: "furniture",
+      zoneId: "zone-living",
+      subtype: "tv",
+      xMm: P_VERANDA_WEST + 300,
+      yMm: P_VERANDA_NORTH - 80,
+      widthMm: 900,
+      heightMm: 80,
     },
 
     // === Furniture — living/veranda ===

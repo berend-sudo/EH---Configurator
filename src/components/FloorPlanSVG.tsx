@@ -4,7 +4,6 @@ import type {
   FloorPlanElement,
   FloorPlanModel,
   FurnitureElement,
-  FurnitureSubtype,
   RoomFillElement,
   RoomLabelElement,
   TerraceElement,
@@ -379,14 +378,13 @@ function Door({ el }: { el: DoorElement }) {
       <line
         x1={hx} y1={hy} x2={leafX} y2={leafY}
         stroke={COLOURS.door}
-        strokeWidth={30}
+        strokeWidth={40}
         strokeLinecap="round"
       />
       <path
         d={`M ${leafX} ${leafY} A ${w} ${w} 0 0 ${sweepFlag} ${arcEndX} ${arcEndY}`}
         stroke={COLOURS.door}
-        strokeWidth={12}
-        strokeDasharray="40 40"
+        strokeWidth={18}
         fill="none"
       />
     </g>
@@ -397,6 +395,14 @@ function Furniture({ el }: { el: FurnitureElement }) {
   const { xMm: x, yMm: y, widthMm: w, heightMm: h, rotationDeg = 0, subtype } = el;
   const cx = x + w / 2;
   const cy = y + h / 2;
+
+  if (subtype === "wardrobe") return <WardrobeRenderer el={el} />;
+  if (subtype === "tv") return <TvRenderer el={el} />;
+  if (subtype === "toilet") return <ToiletRenderer el={el} />;
+  if (subtype === "kitchen-counter") return <KitchenCounterRenderer el={el} />;
+  if (subtype === "dining-chair") return <DiningChairRenderer el={el} />;
+  if (subtype === "armchair") return <ArmchairRenderer el={el} />;
+
   return (
     <g transform={`rotate(${rotationDeg} ${cx} ${cy})`}>
       <rect
@@ -410,39 +416,51 @@ function Furniture({ el }: { el: FurnitureElement }) {
         rx={30}
       />
       <FurnitureMarkings el={el} />
-      {/* subtype hint in small grey text — helps verify the trace */}
-      <text
-        x={cx}
-        y={cy + 6}
-        textAnchor="middle"
-        fontSize={90}
-        fill={COLOURS.furnitureStroke}
-        opacity={0.5}
-      >
-        {glyphFor(subtype)}
-      </text>
     </g>
   );
 }
 
-/** Per-subtype inner marks (pillows on beds, hobs on stove, basin on sink). */
+/** Per-subtype inner marks for subtypes that use the default outer rect. */
 function FurnitureMarkings({ el }: { el: FurnitureElement }) {
   const { xMm: x, yMm: y, widthMm: w, heightMm: h, subtype } = el;
   const stroke = COLOURS.furnitureStroke;
   switch (subtype) {
     case "bed-double":
     case "bed-single": {
-      // pillow strip along the shorter edge
+      const pillowH = Math.min(280, h * 0.15);
       return (
-        <rect
-          x={x + 40}
-          y={y + 40}
-          width={w - 80}
-          height={Math.min(350, h * 0.18)}
+        <>
+          <rect
+            x={x + 60}
+            y={y + 50}
+            width={w - 120}
+            height={pillowH}
+            fill="none"
+            stroke={stroke}
+            strokeWidth={14}
+            rx={30}
+          />
+          <line
+            x1={x + w - 200}
+            y1={y + h}
+            x2={x + w}
+            y2={y + h - 200}
+            stroke={stroke}
+            strokeWidth={14}
+          />
+        </>
+      );
+    }
+    case "nightstand": {
+      const r = Math.min(w, h) * 0.15;
+      return (
+        <circle
+          cx={x + w / 2}
+          cy={y + h / 2}
+          r={r}
           fill="none"
           stroke={stroke}
           strokeWidth={14}
-          rx={20}
         />
       );
     }
@@ -479,7 +497,6 @@ function FurnitureMarkings({ el }: { el: FurnitureElement }) {
       );
     }
     case "stove": {
-      // four burner circles
       const rx = w / 4;
       const ry = h / 3;
       const r = Math.min(rx, ry) * 0.6;
@@ -501,80 +518,188 @@ function FurnitureMarkings({ el }: { el: FurnitureElement }) {
         </>
       );
     }
-    case "sink-kitchen":
-    case "sink-bathroom": {
+    case "sink-kitchen": {
       return (
-        <rect
-          x={x + 40}
-          y={y + 40}
-          width={w - 80}
-          height={h - 80}
-          fill="none"
-          stroke={stroke}
-          strokeWidth={14}
-          rx={40}
-        />
+        <>
+          <rect
+            x={x + 40}
+            y={y + 40}
+            width={w - 80}
+            height={h - 80}
+            fill="none"
+            stroke={stroke}
+            strokeWidth={14}
+            rx={30}
+          />
+          <circle
+            cx={x + w / 2}
+            cy={y + 30}
+            r={30}
+            fill={COLOURS.furnitureStroke}
+            stroke="none"
+          />
+        </>
       );
     }
-    case "toilet": {
+    case "sink-bathroom": {
       return (
-        <ellipse
-          cx={x + w / 2}
-          cy={y + h * 0.6}
-          rx={w * 0.35}
-          ry={h * 0.3}
-          fill="none"
-          stroke={stroke}
-          strokeWidth={14}
-        />
+        <>
+          <ellipse
+            cx={x + w / 2}
+            cy={y + h * 0.6}
+            rx={w / 2 - 40}
+            ry={h * 0.35}
+            fill="none"
+            stroke={stroke}
+            strokeWidth={14}
+          />
+          <circle
+            cx={x + w / 2}
+            cy={y + h * 0.25}
+            r={35}
+            fill={COLOURS.furnitureStroke}
+            stroke="none"
+          />
+        </>
       );
     }
     case "bathtub": {
       return (
-        <rect
-          x={x + 80}
-          y={y + 80}
-          width={w - 160}
-          height={h - 160}
-          fill="none"
-          stroke={stroke}
-          strokeWidth={14}
-          rx={80}
-        />
+        <>
+          <rect
+            x={x + 60}
+            y={y + 60}
+            width={w - 120}
+            height={h - 120}
+            fill="none"
+            stroke={stroke}
+            strokeWidth={14}
+            rx={60}
+          />
+          <line
+            x1={x + 80}
+            y1={y + 80}
+            x2={x + w - 80}
+            y2={y + h - 80}
+            stroke={stroke}
+            strokeWidth={12}
+          />
+          <circle
+            cx={x + w / 2}
+            cy={y + h - 120}
+            r={40}
+            fill="none"
+            stroke={stroke}
+            strokeWidth={14}
+          />
+        </>
       );
     }
     case "dining-table":
-    case "wardrobe":
-    case "dining-chair":
-    case "armchair":
-    case "kitchen-counter":
     case "fridge":
     case "shower":
     case "generic":
+    // Handled by custom renderers — never reaches here:
+    case "wardrobe":
+    case "tv":
+    case "toilet":
+    case "kitchen-counter":
+    case "dining-chair":
+    case "armchair":
       return null;
   }
 }
 
-function glyphFor(subtype: FurnitureSubtype): string {
-  switch (subtype) {
-    case "fridge": return "F";
-    case "wardrobe": return "W";
-    case "kitchen-counter": return "";
-    case "dining-table": return "";
-    case "dining-chair": return "";
-    case "armchair": return "";
-    case "sofa": return "";
-    case "bed-double": return "";
-    case "bed-single": return "";
-    case "sink-kitchen": return "";
-    case "sink-bathroom": return "";
-    case "stove": return "";
-    case "toilet": return "";
-    case "bathtub": return "";
-    case "shower": return "";
-    default: return "";
-  }
+function WardrobeRenderer({ el }: { el: FurnitureElement }) {
+  const { xMm: x, yMm: y, widthMm: w, heightMm: h, rotationDeg = 0 } = el;
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  const stroke = COLOURS.furnitureStroke;
+  const railY = y + 80;
+  const hangerSpacing = (w - 80) / 10;
+  return (
+    <g transform={`rotate(${rotationDeg} ${cx} ${cy})`}>
+      <rect x={x} y={y} width={w} height={h} fill={COLOURS.furnitureFill} stroke={stroke} strokeWidth={20} />
+      <line x1={x + 40} y1={railY} x2={x + w - 40} y2={railY} stroke={stroke} strokeWidth={18} />
+      {Array.from({ length: 10 }, (_, i) => {
+        const xPos = x + 40 + i * hangerSpacing + hangerSpacing / 2;
+        return (
+          <line key={i} x1={xPos} y1={railY} x2={xPos} y2={y + h * 0.55} stroke={stroke} strokeWidth={12} />
+        );
+      })}
+    </g>
+  );
 }
+
+function TvRenderer({ el }: { el: FurnitureElement }) {
+  const { xMm: x, yMm: y, widthMm: w, heightMm: h, rotationDeg = 0 } = el;
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  const stroke = COLOURS.furnitureStroke;
+  return (
+    <g transform={`rotate(${rotationDeg} ${cx} ${cy})`}>
+      <rect x={x + 30} y={y + 20} width={w - 60} height={h - 80} fill="#1a1a1a" stroke={stroke} strokeWidth={14} rx={10} />
+      <line x1={x + w / 2 - 60} y1={y + h - 60} x2={x + w / 2 - 60} y2={y + h - 20} stroke={stroke} strokeWidth={18} />
+      <line x1={x + w / 2 + 60} y1={y + h - 60} x2={x + w / 2 + 60} y2={y + h - 20} stroke={stroke} strokeWidth={18} />
+    </g>
+  );
+}
+
+function ToiletRenderer({ el }: { el: FurnitureElement }) {
+  const { xMm: x, yMm: y, widthMm: w, heightMm: h, rotationDeg = 0 } = el;
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  const stroke = COLOURS.furnitureStroke;
+  const seatRx = Math.min(w, h) * 0.4;
+  const bowlCy = y + 150 + (h - 170) * 0.55;
+  const bowlRx = w / 2 - 60;
+  const bowlRy = (h - 170) * 0.35;
+  return (
+    <g transform={`rotate(${rotationDeg} ${cx} ${cy})`}>
+      <rect x={x + 20} y={y + 150} width={w - 40} height={h - 170} fill={COLOURS.furnitureFill} stroke={stroke} strokeWidth={20} rx={seatRx} />
+      <ellipse cx={x + w / 2} cy={bowlCy} rx={bowlRx} ry={bowlRy} fill="none" stroke={stroke} strokeWidth={14} />
+      <line x1={x + 20} y1={y + 150} x2={x + w - 20} y2={y + 150} stroke={stroke} strokeWidth={14} />
+    </g>
+  );
+}
+
+function KitchenCounterRenderer({ el }: { el: FurnitureElement }) {
+  const { xMm: x, yMm: y, widthMm: w, heightMm: h, rotationDeg = 0 } = el;
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  return (
+    <g transform={`rotate(${rotationDeg} ${cx} ${cy})`}>
+      <rect x={x} y={y} width={w} height={h} fill="none" stroke={COLOURS.furnitureStroke} strokeWidth={14} strokeDasharray="60 30" />
+    </g>
+  );
+}
+
+function DiningChairRenderer({ el }: { el: FurnitureElement }) {
+  const { xMm: x, yMm: y, widthMm: w, heightMm: h, rotationDeg = 0 } = el;
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  return (
+    <g transform={`rotate(${rotationDeg} ${cx} ${cy})`}>
+      <ellipse cx={cx} cy={cy} rx={w / 2 - 20} ry={h / 2 - 20} fill={COLOURS.furnitureFill} stroke={COLOURS.furnitureStroke} strokeWidth={20} />
+    </g>
+  );
+}
+
+function ArmchairRenderer({ el }: { el: FurnitureElement }) {
+  const { xMm: x, yMm: y, widthMm: w, heightMm: h, rotationDeg = 0 } = el;
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  const stroke = COLOURS.furnitureStroke;
+  const outerPath = `M ${x + 30} ${y + h} L ${x + 30} ${y + h / 2} A ${w / 2 - 30} ${h / 2} 0 0 1 ${x + w - 30} ${y + h / 2} L ${x + w - 30} ${y + h} Z`;
+  const innerPath = `M ${x + 90} ${y + h - 40} L ${x + 90} ${y + h / 2 + 30} A ${w / 2 - 90} ${h / 2 - 30} 0 0 1 ${x + w - 90} ${y + h / 2 + 30} L ${x + w - 90} ${y + h - 40} Z`;
+  return (
+    <g transform={`rotate(${rotationDeg} ${cx} ${cy})`}>
+      <path d={outerPath} fill={COLOURS.furnitureFill} stroke={stroke} strokeWidth={20} />
+      <path d={innerPath} fill="none" stroke={stroke} strokeWidth={14} />
+    </g>
+  );
+}
+
 
 function RoomLabel({ el }: { el: RoomLabelElement }) {
   return (

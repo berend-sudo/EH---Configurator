@@ -126,6 +126,7 @@ export const MONO_PITCH_3BR_FLOOR_PLAN: FloorPlanModel = {
         "window-kitchen",
         "window-living-north",
         "f-kitchen-counter",
+        "f-tv",
       ],
     },
     {
@@ -539,6 +540,26 @@ export const MONO_PITCH_3BR_FLOOR_PLAN: FloorPlanModel = {
       heightMm: 2000,
     },
     {
+      id: "f-nightstand1-left",
+      type: "furniture",
+      zoneId: "zone-wet-core",
+      subtype: "nightstand",
+      xMm: 220,
+      yMm: 2600,
+      widthMm: 400,
+      heightMm: 400,
+    },
+    {
+      id: "f-nightstand1-right",
+      type: "furniture",
+      zoneId: "zone-wet-core",
+      subtype: "nightstand",
+      xMm: 1220,
+      yMm: 2600,
+      widthMm: 400,
+      heightMm: 400,
+    },
+    {
       id: "f-wardrobe1",
       type: "furniture",
       zoneId: "zone-wet-core",
@@ -593,6 +614,20 @@ export const MONO_PITCH_3BR_FLOOR_PLAN: FloorPlanModel = {
       yMm: INNER_Y0 + 180,
       widthMm: 600,
       heightMm: 550,
+    },
+
+    // ==================================================================
+    // Furniture — TV (interior face of living-east partition, living room side)
+    // ==================================================================
+    {
+      id: "f-tv",
+      type: "furniture",
+      zoneId: "zone-centre",
+      subtype: "tv",
+      xMm: P_LIVING_EAST - 80,
+      yMm: 2000,
+      widthMm: 80,
+      heightMm: 900,
     },
 
     // ==================================================================
@@ -717,6 +752,26 @@ export const MONO_PITCH_3BR_FLOOR_PLAN: FloorPlanModel = {
       heightMm: 2000,
     },
     {
+      id: "f-nightstand2-left",
+      type: "furniture",
+      zoneId: "zone-right-bedrooms",
+      subtype: "nightstand",
+      xMm: INNER_X1 - 1000,
+      yMm: 250,
+      widthMm: 400,
+      heightMm: 400,
+    },
+    {
+      id: "f-nightstand2-right",
+      type: "furniture",
+      zoneId: "zone-right-bedrooms",
+      subtype: "nightstand",
+      xMm: INNER_X1 - 500,
+      yMm: 250,
+      widthMm: 400,
+      heightMm: 400,
+    },
+    {
       id: "f-wardrobe2",
       type: "furniture",
       zoneId: "zone-right-bedrooms",
@@ -739,6 +794,26 @@ export const MONO_PITCH_3BR_FLOOR_PLAN: FloorPlanModel = {
       yMm: P_BR2_SOUTH + 300,
       widthMm: 900,
       heightMm: 2000,
+    },
+    {
+      id: "f-nightstand3-left",
+      type: "furniture",
+      zoneId: "zone-right-bedrooms",
+      subtype: "nightstand",
+      xMm: INNER_X1 - 1000,
+      yMm: P_BR2_SOUTH + 300,
+      widthMm: 400,
+      heightMm: 400,
+    },
+    {
+      id: "f-nightstand3-right",
+      type: "furniture",
+      zoneId: "zone-right-bedrooms",
+      subtype: "nightstand",
+      xMm: INNER_X1 - 500,
+      yMm: P_BR2_SOUTH + 300,
+      widthMm: 400,
+      heightMm: 400,
     },
     {
       id: "f-wardrobe3",

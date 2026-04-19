@@ -124,6 +124,7 @@ export const MONO_PITCH_1BR_FLOOR_PLAN: FloorPlanModel = {
         "window-kitchen-center",
         "window-kitchen-east",
         "window-living-east",
+        "f-tv",
       ],
     },
   ],
@@ -462,6 +463,26 @@ export const MONO_PITCH_1BR_FLOOR_PLAN: FloorPlanModel = {
       heightMm: 2000,
     },
     {
+      id: "f-nightstand-left",
+      type: "furniture",
+      zoneId: "zone-wet-core",
+      subtype: "nightstand",
+      xMm: 200,
+      yMm: 2400,
+      widthMm: 400,
+      heightMm: 400,
+    },
+    {
+      id: "f-nightstand-right",
+      type: "furniture",
+      zoneId: "zone-wet-core",
+      subtype: "nightstand",
+      xMm: 1200,
+      yMm: 2400,
+      widthMm: 400,
+      heightMm: 400,
+    },
+    {
       id: "f-wardrobe",
       type: "furniture",
       zoneId: "zone-wet-core",
@@ -470,6 +491,18 @@ export const MONO_PITCH_1BR_FLOOR_PLAN: FloorPlanModel = {
       yMm: 2050,
       widthMm: 600,
       heightMm: 300,
+    },
+
+    // === Furniture — TV (interior face of bedroom-east partition, living room side) ===
+    {
+      id: "f-tv",
+      type: "furniture",
+      zoneId: "zone-living",
+      subtype: "tv",
+      xMm: P_BEDROOM_EAST,
+      yMm: 1700,
+      widthMm: 80,
+      heightMm: 900,
     },
 
     // === Furniture — kitchen strip (in living zone) ===
