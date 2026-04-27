@@ -1,677 +1,271 @@
 {
   "meta": {
-    "variant": "Mono Pitch Studio",
-    "source_file": "250625 MonoPitch Homes BvD.pln",
-    "extraction": "ArchiCAD 29 via Tapir MCP, April 2026",
+    "unit_type": "Mono Pitch Studio",
+    "source": "ArchiCAD 29 .pln (250625 MonoPitch Homes BvD) via Tapir, April 2026",
     "units": "mm",
-    "coordinate_system": {
-      "origin": "outer bottom-left corner (front-face \u00d7 left-face intersection)",
-      "origin_world_m": {
-        "x": 16.213354944,
-        "y": 36.659743697
-      },
-      "x_axis": "right \u2014 toward right facade",
-      "y_axis": "back \u2014 away from street, toward back facade",
-      "z_axis": "up",
-      "note": "y=0 is the street-facing front outer wall face. y increases into the building."
+    "origin": "outer bottom-left corner of unit footprint",
+    "coord_system": "X = right (width), Y = up (depth)",
+    "facade_orientation": {
+      "front_facing_side": "y=0",
+      "veranda_corner": "front_right",
+      "note": "Veranda is on the FRONT (street-facing) side of the unit."
     }
   },
   "envelope": {
-    "outer_width_mm": 4884.0,
-    "outer_depth_mm": 4884.0,
-    "outer_wall_thickness_mm": 83,
-    "inner_clear_width_mm": 4718,
-    "inner_clear_depth_mm": 4718,
-    "veranda": {
-      "x_start_outer_mm": 3077.5,
-      "x_start_inner_mm": 3160.5,
-      "depth_outer_mm": 1199.0,
-      "depth_inner_mm": 1116,
-      "back_wall_outer_y_mm": 1199.0,
-      "back_wall_inner_y_mm": 1282.0,
-      "width_outer_mm": 1806.5,
-      "width_inner_mm": 1640.5
-    }
+    "grid_depth_mm": 4884,
+    "outer_depth_mm": 4972,
+    "wall_offset_mm": 44,
+    "note": "depth is fixed for all Mono Pitch typologies"
   },
-  "heights": {
-    "front_facade_mm": 3407.8,
-    "back_facade_mm": 3235.8,
-    "right_facade_studio_mm": 3407.8,
-    "left_facade_mm": 3235.8,
-    "veranda_left_wall_lower_mm": 3933.0,
-    "veranda_back_wall_mm": 3235.8,
-    "bathroom_partition_mm": 3235.8,
-    "z_bottom_foundation_mm": -172.0,
-    "z_bottom_ground_level_mm": 0.0,
-    "interpretation": "Mono pitch: front/right facade taller (3407.8mm) than back/left (3235.8mm). Low eave at back, high eave at front-right. Veranda left wall tallest (3933mm) \u2014 carries the ridge. Facades with z_bottom=-172mm sit on slab/foundation. Veranda walls start at z=0 (finished floor level)."
+  "parametric": {
+    "step_mm": 610,
+    "min_step": 6,
+    "max_step": 10,
+    "base_step": 8,
+    "note_on_steps": "Slider snaps to discrete steps. Step = one structural frame bay (610mm).",
+    "phase_1": {
+      "steps": "6 \u2192 10",
+      "rule": "studio open area grows +610mm per step. Bathroom (2442mm wide) and veranda (1807mm wide) are FIXED. Veranda anchors to right outer wall and shifts as unit widens."
+    },
+    "fixed_zones": {
+      "bathroom_w_mm": 2442,
+      "veranda_w_mm": 1807,
+      "veranda_h_mm": 1199,
+      "note": "bathroom and veranda widths/depths never change"
+    },
+    "positions": [
+      {
+        "step": 6,
+        "grid_width_mm": 3660,
+        "outer_width_mm": 3748,
+        "outer_width_m": 3.748,
+        "zones": {
+          "studio_w": 3660,
+          "bathroom_w": 2442,
+          "veranda_w": 1807
+        }
+      },
+      {
+        "step": 7,
+        "grid_width_mm": 4270,
+        "outer_width_mm": 4358,
+        "outer_width_m": 4.358,
+        "zones": {
+          "studio_w": 4270,
+          "bathroom_w": 2442,
+          "veranda_w": 1807
+        }
+      },
+      {
+        "step": 8,
+        "grid_width_mm": 4880,
+        "outer_width_mm": 4968,
+        "outer_width_m": 4.968,
+        "zones": {
+          "studio_w": 4880,
+          "bathroom_w": 2442,
+          "veranda_w": 1807
+        }
+      },
+      {
+        "step": 9,
+        "grid_width_mm": 5490,
+        "outer_width_mm": 5578,
+        "outer_width_m": 5.578,
+        "zones": {
+          "studio_w": 5490,
+          "bathroom_w": 2442,
+          "veranda_w": 1807
+        }
+      },
+      {
+        "step": 10,
+        "grid_width_mm": 6100,
+        "outer_width_mm": 6188,
+        "outer_width_m": 6.188,
+        "zones": {
+          "studio_w": 6100,
+          "bathroom_w": 2442,
+          "veranda_w": 1807
+        }
+      }
+    ],
+    "PROPOSAL_NOTE": "Proposed range step 6\u201310 (base 8). Confirm or adjust the actual catalogue range."
   },
-  "walls": [
+  "zones_at_base": [
     {
-      "guid": "SW-003",
-      "id_label": "SW-003",
-      "type": "outer_facade",
-      "role": "left_facade",
-      "layer": 33,
-      "beg_mm": {
-        "x": 0.0,
-        "y": 0.0
-      },
-      "end_mm": {
-        "x": 0.0,
-        "y": 4884.0
-      },
-      "length_mm": 4884.0,
-      "height_mm": 3235.8,
-      "z_bottom_mm": -172.0,
-      "outer_face_x": 0.0,
-      "inner_face_x": 83.0,
-      "thickness_mm": 83
+      "id": "zone_bathroom",
+      "type": "Bathroom",
+      "x": 0,
+      "y": 3299,
+      "w": 2442,
+      "h": 1585,
+      "area_m2": 3.871,
+      "stretch_axis": "none",
+      "anchor": "back_left"
     },
     {
-      "guid": "SW-004",
-      "id_label": "SW-004",
-      "type": "outer_facade",
-      "role": "back_facade",
-      "layer": 33,
-      "beg_mm": {
-        "x": 0.0,
-        "y": 4884.0
-      },
-      "end_mm": {
-        "x": 4884.0,
-        "y": 4884.0
-      },
-      "length_mm": 4884.0,
-      "height_mm": 3235.8,
-      "z_bottom_mm": -172.0,
-      "outer_face_y": 4884.0,
-      "inner_face_y": 4801.0,
-      "thickness_mm": 83
+      "id": "zone_studio_front",
+      "type": "Studio",
+      "x": 0,
+      "y": 1199,
+      "w": 3161,
+      "h": 2100,
+      "area_m2": 6.638,
+      "stretch_axis": "x",
+      "stretch_phase": 1,
+      "anchor": "front_left",
+      "note": "Front-left portion of studio. Width = outer_w - veranda_w; stretches when overall unit width grows."
     },
     {
-      "guid": "SW-005d",
-      "id_label": "SW-005d",
-      "type": "outer_facade",
-      "role": "right_facade_studio_section",
-      "layer": 33,
-      "beg_mm": {
-        "x": 4884.0,
-        "y": 4884.0
-      },
-      "end_mm": {
-        "x": 4884.0,
-        "y": 1199.0
-      },
-      "length_mm": 3685.0,
-      "height_mm": 3407.8,
-      "z_bottom_mm": -172.0,
-      "outer_face_x": 4884.0,
-      "inner_face_x": 4801.0,
-      "thickness_mm": 83,
-      "note": "Right facade from back wall down to veranda back wall level. Continues as veranda right wall below y=1199 (same outer face x=4884)."
+      "id": "zone_studio_middle",
+      "type": "Studio",
+      "x": 0,
+      "y": 0,
+      "w": 3161,
+      "h": 1199,
+      "area_m2": 3.79,
+      "stretch_axis": "x",
+      "stretch_phase": 1,
+      "anchor": "front_left",
+      "note": "Studio area at front, left of veranda. Front facade wall and studio entry door cut through this from the veranda side."
     },
     {
-      "guid": "SW-002",
-      "id_label": "SW-002",
-      "type": "outer_facade",
-      "role": "front_facade",
-      "layer": 33,
-      "beg_mm": {
-        "x": 3077.5,
-        "y": 0.0
-      },
-      "end_mm": {
-        "x": 0.0,
-        "y": 0.0
-      },
-      "length_mm": 3077.5,
-      "height_mm": 3407.8,
-      "z_bottom_mm": -172.0,
-      "outer_face_y": 0.0,
-      "inner_face_y": 83.0,
-      "thickness_mm": 83,
-      "note": "Front facade left of veranda opening (x=0 to x=3077.5). Contains front studio window (aba1d301). Right end of facade meets veranda left wall at x=3077.5."
+      "id": "zone_studio_back_right",
+      "type": "Studio",
+      "x": 2442,
+      "y": 3299,
+      "w": 2526,
+      "h": 1585,
+      "area_m2": 4.004,
+      "stretch_axis": "x",
+      "stretch_phase": 1,
+      "anchor": "back_right",
+      "note": "Back-right strip of studio, beside bathroom. Width = outer_w - bath_w."
     },
     {
-      "guid": "SW-005a",
-      "id_label": "SW-005a",
-      "type": "outer_facade",
-      "role": "veranda_left_wall",
-      "layer": 33,
-      "beg_mm": {
-        "x": 3077.5,
-        "y": 0.0
-      },
-      "end_mm": {
-        "x": 3077.5,
-        "y": 1199.0
-      },
-      "length_mm": 1199.0,
-      "height_mm": 3933.0,
-      "z_bottom_mm": 0.0,
-      "outer_face_x": 3077.5,
-      "inner_face_x": 3160.5,
-      "thickness_mm": 83,
-      "note": "Full-depth left wall of veranda. Taller than studio walls (3933mm) consistent with mono-pitch high-eave side. No openings."
-    },
-    {
-      "guid": "SW-005b",
-      "id_label": "SW-005b",
-      "type": "outer_facade",
-      "role": "veranda_left_wall_extension",
-      "layer": 33,
-      "beg_mm": {
-        "x": 3077.5,
-        "y": 1199.0
-      },
-      "end_mm": {
-        "x": 3077.5,
-        "y": 1886.0
-      },
-      "length_mm": 687.0,
-      "height_mm": 3235.8,
-      "z_bottom_mm": 0.0,
-      "outer_face_x": 3077.5,
-      "inner_face_x": 3160.5,
-      "thickness_mm": 83,
-      "note": "Continuation of veranda left wall above veranda depth, from y=1199 to y=1886. Lower height (3235.8mm) follows studio roof plane. This short segment + SW-005a form the complete veranda/studio left divide."
-    },
-    {
-      "guid": "SW-005c",
-      "id_label": "SW-005c",
-      "type": "outer_facade",
-      "role": "veranda_back_wall",
-      "layer": 33,
-      "beg_mm": {
-        "x": 3077.5,
-        "y": 1199.0
-      },
-      "end_mm": {
-        "x": 4884.0,
-        "y": 1199.0
-      },
-      "length_mm": 1806.5,
-      "height_mm": 3235.8,
-      "z_bottom_mm": 0.0,
-      "outer_face_y": 1199.0,
-      "inner_face_y": 1282.0,
-      "thickness_mm": 83,
-      "note": "Interior facade wall separating veranda from studio. Full structural build-up (same as exterior facades). Contains entry door cce4d144 (Dh1, 950mm opening at x=3171.5\u20134121.5)."
-    },
-    {
-      "guid": "SW-006h",
-      "id_label": "SW-006",
-      "type": "structural_partition",
-      "role": "bathroom_bottom_wall",
-      "layer": 33,
-      "beg_mm": {
-        "x": 2442.0,
-        "y": 3298.6
-      },
-      "end_mm": {
-        "x": 0.0,
-        "y": 3298.6
-      },
-      "length_mm": 2442.0,
-      "height_mm": 3235.8,
-      "z_bottom_mm": 0.0,
-      "reference_y": 3298.6,
-      "studio_face_y": 3251.1,
-      "bathroom_face_y": 3347.1,
-      "thickness_mm": 96,
-      "note": "Horizontal wall forming the 'bottom' of bathroom (faces studio open area). Contains bathroom door 5ded1fb1 (Dh2, 800mm opening at x=1544.5\u20132344.5)."
-    },
-    {
-      "guid": "SW-006v",
-      "id_label": "SW-006",
-      "type": "structural_partition",
-      "role": "bathroom_right_wall",
-      "layer": 33,
-      "beg_mm": {
-        "x": 2442.0,
-        "y": 3298.6
-      },
-      "end_mm": {
-        "x": 2442.0,
-        "y": 4884.0
-      },
-      "length_mm": 1585.4,
-      "height_mm": 3235.8,
-      "z_bottom_mm": 0.0,
-      "reference_x": 2442.0,
-      "studio_face_x": 2396.1,
-      "bathroom_face_x": 2442.0,
-      "thickness_mm": 46,
-      "note": "Vertical wall forming the right side of bathroom (faces studio open area). Runs from bathroom bottom wall up to back facade."
-    },
-    {
-      "guid": "W01-b",
-      "id_label": "W01",
-      "type": "inner_face_finish",
-      "role": "bathroom_bottom_wall_studio_face",
-      "layer": 499,
-      "beg_mm": {
-        "x": 1584.5,
-        "y": 3251.1
-      },
-      "end_mm": {
-        "x": 83.0,
-        "y": 3251.1
-      },
-      "length_mm": 1501.5,
-      "height_mm": 100.0,
-      "z_bottom_mm": 0.0,
-      "face_y": 3251.1,
-      "note": "Finished face of bathroom bottom wall as seen from studio. y=3251.1mm."
-    },
-    {
-      "guid": "W01-g",
-      "id_label": "W01",
-      "type": "inner_face_finish",
-      "role": "left_facade_inner_face",
-      "layer": 499,
-      "beg_mm": {
-        "x": 83.0,
-        "y": 3251.1
-      },
-      "end_mm": {
-        "x": 83.0,
-        "y": 83.0
-      },
-      "length_mm": 3168.1,
-      "height_mm": 100.0,
-      "z_bottom_mm": 0.0,
-      "face_x": 83.0,
-      "note": "Inner finish face of left facade, x=83mm. Runs y=3251\u219283."
-    },
-    {
-      "guid": "W01-h",
-      "id_label": "W01",
-      "type": "inner_face_finish",
-      "role": "veranda_left_wall_studio_face",
-      "layer": 499,
-      "beg_mm": {
-        "x": 2994.5,
-        "y": 1886.0
-      },
-      "end_mm": {
-        "x": 2994.5,
-        "y": 83.0
-      },
-      "length_mm": 1803.0,
-      "height_mm": 100.0,
-      "z_bottom_mm": 0.0,
-      "face_x": 2994.5,
-      "note": "Inner finish face of veranda left wall (studio side). x=2994.5mm. Runs y=1886\u219283 (gap at y=1886 corresponds to entry door swing zone)."
-    },
-    {
-      "guid": "W01-f",
-      "id_label": "W01",
-      "type": "inner_face_finish",
-      "role": "back_facade_inner_face",
-      "layer": 499,
-      "beg_mm": {
-        "x": 4801.0,
-        "y": 4801.0
-      },
-      "end_mm": {
-        "x": 2400.9,
-        "y": 4801.0
-      },
-      "length_mm": 2400.1,
-      "height_mm": 100.0,
-      "z_bottom_mm": 0.0,
-      "face_y": 4801.0,
-      "note": "Inner finish face of back facade. y=4801mm. Partial segment x=2401\u20134801."
-    },
-    {
-      "guid": "W01-k",
-      "id_label": "W01",
-      "type": "inner_face_finish",
-      "role": "right_facade_inner_face",
-      "layer": 499,
-      "beg_mm": {
-        "x": 4801.0,
-        "y": 1282.0
-      },
-      "end_mm": {
-        "x": 4801.0,
-        "y": 4801.0
-      },
-      "length_mm": 3519.0,
-      "height_mm": 100.0,
-      "z_bottom_mm": 0.0,
-      "face_x": 4801.0,
-      "note": "Inner finish face of right facade. x=4801mm. Runs y=1282\u21924801."
-    },
-    {
-      "guid": "W01-i",
-      "id_label": "W01",
-      "type": "inner_face_finish",
-      "role": "veranda_back_wall_inner_face_corner_left",
-      "layer": 499,
-      "beg_mm": {
-        "x": 3171.5,
-        "y": 1282.0
-      },
-      "end_mm": {
-        "x": 3089.5,
-        "y": 1282.0
-      },
-      "length_mm": 82.0,
-      "height_mm": 100.0,
-      "z_bottom_mm": 0.0,
-      "face_y": 1282.0,
-      "note": "Inner finish face of veranda back wall, left corner junction. y=1282mm."
-    },
-    {
-      "guid": "W01-j",
-      "id_label": "W01",
-      "type": "inner_face_finish",
-      "role": "veranda_back_wall_inner_face_right",
-      "layer": 499,
-      "beg_mm": {
-        "x": 4801.0,
-        "y": 1282.0
-      },
-      "end_mm": {
-        "x": 4106.5,
-        "y": 1282.0
-      },
-      "length_mm": 694.5,
-      "height_mm": 100.0,
-      "z_bottom_mm": 0.0,
-      "face_y": 1282.0,
-      "note": "Inner finish face of veranda back wall, right segment. y=1282mm."
-    },
-    {
-      "guid": "W01-a",
-      "id_label": "W01",
-      "type": "internal_partition",
-      "role": "bathroom_interior_wet_cell_wall",
-      "layer": 33,
-      "beg_mm": {
-        "x": 83.0,
-        "y": 3346.1
-      },
-      "end_mm": {
-        "x": 1544.5,
-        "y": 3346.1
-      },
-      "length_mm": 1461.5,
-      "height_mm": 2250.0,
-      "z_bottom_mm": 25.0,
-      "note": "Interior partition within bathroom, x=83\u20131544.5, y=3346.1. h=2250mm from z=25mm. Likely shower/wet cell partition."
-    },
-    {
-      "guid": "W01-d",
-      "id_label": "W01",
-      "type": "internal_partition",
-      "role": "bathroom_back_wall_finish_left",
-      "layer": 33,
-      "beg_mm": {
-        "x": 82.9,
-        "y": 4801.0
-      },
-      "end_mm": {
-        "x": 907.0,
-        "y": 4801.0
-      },
-      "length_mm": 824.1,
-      "height_mm": 2400.0,
-      "z_bottom_mm": 25.0,
-      "note": "Bathroom finish on back wall inner face, left section. x=83\u2013907, y=4801. h=2400mm \u2014 wet zone full height finish."
-    },
-    {
-      "guid": "W01-e",
-      "id_label": "W01",
-      "type": "internal_partition",
-      "role": "bathroom_back_wall_finish_right",
-      "layer": 33,
-      "beg_mm": {
-        "x": 907.0,
-        "y": 4801.0
-      },
-      "end_mm": {
-        "x": 2442.0,
-        "y": 4801.0
-      },
-      "length_mm": 1535.0,
-      "height_mm": 1050.0,
-      "z_bottom_mm": 25.0,
-      "note": "Partial-height finish on back wall within bathroom right section. x=907\u20132442, y=4801. h=1050mm \u2014 low panel below bathroom window W1 (0563284c)."
+      "id": "zone_veranda",
+      "type": "Veranda",
+      "x": 3161,
+      "y": 0,
+      "w": 1807,
+      "h": 1199,
+      "area_m2": 2.167,
+      "stretch_axis": "none",
+      "anchor": "front_right",
+      "note": "Anchored to right outer wall \u2014 moves right as unit width grows."
     }
   ],
-  "zones": {
-    "studio_gross": {
-      "description": "Full studio zone bounding box (includes bathroom footprint)",
-      "inner_xMin": 83.0,
-      "inner_yMin": 83.0,
-      "inner_xMax": 4801.0,
-      "inner_yMax": 4801.0,
-      "width_mm": 4718.0,
-      "depth_mm": 4718.0,
-      "area_m2": 22.26
-    },
-    "bathroom": {
-      "description": "Enclosed wet cell \u2014 back-left corner",
-      "inner_xMin": 83.0,
-      "inner_yMin": 3251.1,
-      "inner_xMax": 2396.1,
-      "inner_yMax": 4801.0,
-      "width_mm": 2313.1,
-      "depth_mm": 1549.9,
-      "area_m2": 3.585,
-      "bounding_walls": {
-        "left": "SW-003 (left outer facade, inner face x=83)",
-        "back": "SW-004 (back facade, inner face y=4801)",
-        "right": "SW-006v (partition ref x=2442, studio face x=2396)",
-        "bottom": "SW-006h (partition ref y=3298.6, studio face y=3251)"
-      }
-    },
-    "studio_net": {
-      "description": "Open-plan living/sleeping L-shape (studio_gross minus bathroom)",
-      "shape": "L-shape",
-      "band_A": {
-        "role": "Main open area from front to bathroom bottom wall",
-        "xMin_mm": 83,
-        "yMin_mm": 83,
-        "xMax_mm": 4801,
-        "yMax_mm": 3251,
-        "width_mm": 4718,
-        "depth_mm": 3168,
-        "area_m2": 14.947
-      },
-      "strip_B": {
-        "role": "Right strip beside bathroom, back section",
-        "xMin_mm": 2396,
-        "yMin_mm": 3251,
-        "xMax_mm": 4801,
-        "yMax_mm": 4801,
-        "width_mm": 2405,
-        "depth_mm": 1550,
-        "area_m2": 3.728
-      },
-      "total_area_m2": 18.674
-    },
-    "veranda": {
-      "description": "Covered outdoor area \u2014 front-right corner",
-      "inner_xMin": 3121.5,
-      "inner_yMin": -22.0,
-      "inner_xMax": 4906.0,
-      "inner_yMax": 1177.0,
-      "outer_xMin": 3077.5,
-      "outer_yMin": 0.0,
-      "outer_xMax": 4884.0,
-      "outer_yMax": 1199.0,
-      "width_mm": 1784.5,
-      "depth_mm": 1199.0,
-      "area_m2": 2.14,
-      "bounding_walls": {
-        "left": "SW-005a (outer facade, inner face x=3160.5)",
-        "front": "open \u2014 no wall on street side",
-        "right": "SW-005d (right outer facade, inner face x=4801)",
-        "back": "SW-005c (interior facade, outer face y=1199, inner face y=1282)"
-      }
-    }
-  },
   "doors": [
     {
-      "guid": "5ded1fb1-0ea0-9c6a-5a1f-393928f20bfd",
-      "id_label": "Dh2",
-      "role": "bathroom_door",
-      "lib_part": "Door with Transom 26",
-      "owner_wall_guid": "37c6f114-3846-30dc-2b3a-3709b3d76d40",
-      "owner_wall_role": "SW-006h \u2014 bathroom_bottom_wall",
-      "zones_linked": [
-        "bathroom",
-        "studio_net"
-      ],
-      "bbox_mm": {
-        "xMin": 1544.5,
-        "yMin": 3241.1,
-        "xMax": 2344.5,
-        "yMax": 4090.1
-      },
-      "opening_width_mm": 800.0,
-      "opening_x_start_mm": 1544.5,
-      "opening_x_end_mm": 2344.5,
-      "wall_y_mm": 3251.1,
-      "hinge_x_mm": 1544.5,
-      "swing_direction": "into_bathroom (y increasing)",
+      "id": "Door with Transom 26 (bathroom)",
+      "owner_wall": "bathroom_bottom_wall",
       "swing_radius_mm": 800,
-      "note": "Hinge at x=1544.5 (where W01-a interior partition terminates). Door swings into bathroom toward back wall."
+      "swing_from_deg": 0,
+      "swing_to_deg": 90,
+      "hinge_local_mm": [
+        1545,
+        3299
+      ],
+      "leads_to": "bathroom",
+      "note": "Hinge at left edge of opening (where W01-a interior partition terminates). Swings into bathroom toward back-right."
     },
     {
-      "guid": "cce4d144-ddce-c99d-0c7b-5c3a3394a318",
-      "id_label": "Dh1",
-      "role": "studio_entry_door",
-      "lib_part": "Door with Transom 26",
-      "owner_wall_guid": "57c703de-8a6c-464c-9082-4b516591c336",
-      "owner_wall_role": "SW-005c \u2014 veranda_back_wall",
-      "zones_linked": [
-        "studio_net",
-        "veranda"
-      ],
-      "bbox_mm": {
-        "xMin": 3171.5,
-        "yMin": 307.0,
-        "xMax": 4121.5,
-        "yMax": 1286.0
-      },
-      "opening_width_mm": 950.0,
-      "opening_x_start_mm": 3171.5,
-      "opening_x_end_mm": 4121.5,
-      "wall_y_mm": 1199.0,
-      "hinge_x_mm": 3171.5,
-      "swing_direction": "into_veranda (y decreasing, toward street)",
+      "id": "Door with Transom 26 (entry)",
+      "owner_wall": "veranda_back_wall",
       "swing_radius_mm": 950,
-      "note": "Entry from veranda into studio. Hinge at x=3171.5 (veranda left side). Door swings outward into veranda. Wall (SW-005c) is a full facade-grade structural wall \u2014 not a lightweight partition."
+      "swing_from_deg": 270,
+      "swing_to_deg": 360,
+      "hinge_local_mm": [
+        3171,
+        1199
+      ],
+      "leads_to": "veranda",
+      "note": "Hinge at left edge of opening (against veranda left wall side). Swings outward into veranda. SW-005c is a full facade-grade structural wall \u2014 not a lightweight partition (always present when veranda exists)."
     }
   ],
   "windows": [
     {
-      "guid": "aba1d301-43ac-52ad-10e4-6c432a8d4cf2",
-      "id_label": "Ws2",
-      "role": "studio_front_window",
-      "lib_part": "Window 26",
-      "owner_wall_guid": "9f09a340-691c-cb6f-8b5e-8d7dc0c42f44",
-      "owner_wall_role": "SW-002 \u2014 front_facade",
-      "face": "front (y=0 outer / y=83 inner)",
-      "bbox_mm": {
-        "xMin": 667.9,
-        "yMin": -66.0,
-        "xMax": 1773.9,
-        "yMax": 83.0
-      },
-      "opening_width_mm": 1106.0,
-      "opening_x_start_mm": 667.9,
-      "opening_x_end_mm": 1773.9,
-      "wall_face_y": 0.0,
-      "zone": "studio_net"
+      "id": "Window 26 (front)",
+      "wall": "front_facade",
+      "x": 668,
+      "y": 0,
+      "w": 1106,
+      "sill_mm": 900,
+      "head_mm": 2400,
+      "note": "In SW-002 left of veranda opening."
     },
     {
-      "guid": "0563284c-7f9c-79f8-ed9d-18ae1fd6c4bb",
-      "id_label": "W1",
-      "role": "bathroom_rear_window",
-      "lib_part": "Simple Window Opening",
-      "owner_wall_guid": "1bd471f3-9c9d-1759-63dd-aebd5c0737e3",
-      "owner_wall_role": "W01-e \u2014 bathroom_back_wall_finish_right",
-      "face": "back (y=4801 inner face of SW-004)",
-      "bbox_mm": {
-        "xMin": 1567.0,
-        "yMin": 4781.0,
-        "xMax": 2067.0,
-        "yMax": 4801.0
-      },
-      "opening_width_mm": 500.0,
-      "opening_x_start_mm": 1567.0,
-      "opening_x_end_mm": 2067.0,
-      "wall_face_y": 4801.0,
+      "id": "Window 26 (back left)",
+      "wall": "back_facade",
+      "x": 1102,
+      "y": 4972,
+      "w": 581,
+      "sill_mm": 900,
+      "head_mm": 2400,
+      "note": "In SW-004 (back facade), left-of-centre. Above bathroom rear wall, in studio space."
+    },
+    {
+      "id": "Window 26 (back right)",
+      "wall": "back_facade",
+      "x": 3086,
+      "y": 4972,
+      "w": 1106,
+      "sill_mm": 900,
+      "head_mm": 2400,
+      "note": "In SW-004, right-of-centre. Studio back."
+    },
+    {
+      "id": "Simple Window Opening (bathroom rear)",
+      "wall": "back_facade",
+      "x": 1567,
+      "y": 4972,
+      "w": 500,
+      "sill_mm": 1500,
+      "head_mm": 2100,
       "zone": "bathroom",
-      "note": "Small bathroom window (500mm). Sits above W01-e partial-height panel (1050mm). lib_part 'Simple Window Opening' \u2014 plain opening without frame object."
+      "note": "Small high window in W01-e back panel of bathroom. Plain opening (no frame object)."
     },
     {
-      "guid": "b41c344d-d2aa-6b26-22f8-ff891a168495",
-      "id_label": "Wt1",
-      "role": "studio_back_window_left",
-      "lib_part": "Window 26",
-      "owner_wall_guid": "a177ac75-2a5b-97ef-2a00-b2e436ac2af7",
-      "owner_wall_role": "SW-004 \u2014 back_facade",
-      "face": "back (y=4884 outer / y=4801 inner)",
-      "bbox_mm": {
-        "xMin": 1101.6,
-        "yMin": 4801.0,
-        "xMax": 1682.6,
-        "yMax": 4950.0
-      },
-      "opening_width_mm": 581.0,
-      "opening_x_start_mm": 1101.6,
-      "opening_x_end_mm": 1682.6,
-      "wall_face_y": 4801.0,
-      "zone": "studio_net",
-      "note": "581mm window in back facade, left-of-centre. ID 'Wt1' may indicate transom type."
-    },
-    {
-      "guid": "c0d99623-4e95-fe0d-81d9-bfeca20ea44e",
-      "id_label": "Ws2",
-      "role": "studio_back_window_right",
-      "lib_part": "Window 26",
-      "owner_wall_guid": "a177ac75-2a5b-97ef-2a00-b2e436ac2af7",
-      "owner_wall_role": "SW-004 \u2014 back_facade",
-      "face": "back (y=4884 outer / y=4801 inner)",
-      "bbox_mm": {
-        "xMin": 3085.4,
-        "yMin": 4801.0,
-        "xMax": 4191.4,
-        "yMax": 4950.0
-      },
-      "opening_width_mm": 1106.0,
-      "opening_x_start_mm": 3085.4,
-      "opening_x_end_mm": 4191.4,
-      "wall_face_y": 4801.0,
-      "zone": "studio_net"
-    },
-    {
-      "guid": "d88b8139-98a1-4e94-9273-9816406ccc04",
-      "id_label": "Ws3",
-      "role": "studio_right_window",
-      "lib_part": "Window 26",
-      "owner_wall_guid": "36c04d3e-f427-651d-e2bf-7ed858b3c835",
-      "owner_wall_role": "SW-005d \u2014 right_facade_studio_section",
-      "face": "right (x=4884 outer / x=4801 inner)",
-      "bbox_mm": {
-        "xMin": 4801.0,
-        "yMin": 1390.0,
-        "xMax": 4950.0,
-        "yMax": 2296.0
-      },
-      "opening_width_mm": 906.0,
-      "opening_y_start_mm": 1390.0,
-      "opening_y_end_mm": 2296.0,
-      "wall_face_x": 4801.0,
-      "zone": "studio_net",
-      "note": "906mm horizontal window in right facade, y=1390\u20132296mm. Positioned in studio section above veranda back wall."
+      "id": "Window 26 (right)",
+      "wall": "right_facade",
+      "x": 4968,
+      "y": 1390,
+      "w": 906,
+      "sill_mm": 900,
+      "head_mm": 2400,
+      "anchor": "right",
+      "note": "In SW-005d, in studio section above veranda back wall."
     }
-  ]
+  ],
+  "furniture": [],
+  "construction": {
+    "wall_thickness_outer_mm": 83,
+    "bathroom_partition_thickness_mm": 96,
+    "veranda_back_wall_thickness_mm": 83,
+    "interior_facade_walls": [
+      {
+        "id": "SW-005c",
+        "role": "veranda_back_wall",
+        "type": "outer_facade",
+        "rationale": "Full facade-grade structural wall \u2014 not a lightweight partition. Same build-up as exterior facades. ALWAYS present where a veranda exists.",
+        "outer_face_y": 1199,
+        "inner_face_y": 1282,
+        "thickness_mm": 83,
+        "height_mm": 3235.8
+      }
+    ],
+    "heights": {
+      "front_facade_mm": 3407.8,
+      "back_facade_mm": 3235.8,
+      "right_facade_studio_mm": 3407.8,
+      "left_facade_mm": 3235.8,
+      "veranda_left_wall_lower_mm": 3933.0,
+      "veranda_back_wall_mm": 3235.8,
+      "z_bottom_foundation_mm": -172.0,
+      "z_bottom_ground_level_mm": 0.0,
+      "interpretation": "Mono pitch: front taller than back (3407.8 vs 3235.8mm). Veranda left wall tallest (3933mm) carries ridge."
+    },
+    "walls_detailed_archicad": "See separate mono_pitch_studio_walls_full.json for all 19 walls with begin/end coordinates, layer indices, z-bottoms, and inner-face finish lines."
+  }
 }
