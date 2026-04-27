@@ -69,25 +69,33 @@ Three tools are available via the `ArchicadTapir` MCP server:
 
 **Key Tapir commands used so far:**
 
+Replace `ACTIVE_PORT` in all examples below with the port returned by `discovery_list_active_archicads`.
+
 ```python
+# Step 0 — always do this first to get the active port
+discovery_list_active_archicads()
+# → returns e.g. port 19723 or 19724; use that value as ACTIVE_PORT throughout the session
+
 # List all zones
-archicad_call_tool(name="elements_get_elements_by_type", arguments={"port": 19724, "params": {"elementType": "Zone"}})
+archicad_call_tool(name="elements_get_elements_by_type", arguments={"port": ACTIVE_PORT, "params": {"elementType": "Zone"}})
 
 # Get zone bounding boxes / details
-archicad_call_tool(name="elements_get_element_bounding_boxes", arguments={"port": 19724, "params": {"elements": [...guids...]}})
+archicad_call_tool(name="elements_get_element_bounding_boxes", arguments={"port": ACTIVE_PORT, "params": {"elements": [...guids...]}})
 
 # Get zone properties (name, number, area)
-archicad_call_tool(name="elements_get_element_properties", arguments={"port": 19724, "params": {"elements": [...guids...], "propertyIds": [...]}})
+archicad_call_tool(name="elements_get_element_properties", arguments={"port": ACTIVE_PORT, "params": {"elements": [...guids...], "propertyIds": [...]}})
 
 # Get elements related to zones (doors + windows) — NOTE: timed out in previous session
-archicad_call_tool(name="elements_get_elements_related_to_zones", arguments={"port": 19724, "params": {"zones": [...], "elementTypes": ["Door", "Window"]}})
+archicad_call_tool(name="elements_get_elements_related_to_zones", arguments={"port": ACTIVE_PORT, "params": {"zones": [...], "elementTypes": ["Door", "Window"]}})
 ```
 
-**Tip:** Always call `discovery_list_active_archicads` first to confirm the active port. The port can vary between sessions.
+**When to use MCP vs HTTP:**
+- **Interactive Claude Code sessions** → use `ArchicadTapir` MCP tools (`archicad_call_tool` etc.). These are available natively and are the preferred route when working interactively.
+- **Python scripts** (`extract_mono_pitch.py` and any new scripts) → use direct HTTP calls to the Tapir JSON API (see Extraction Script section). The `archicad` package's `Types.ElementType` is broken; HTTP is the reliable alternative for scripted use.
+
+The Tapir command names are identical in both approaches — only the call mechanism differs.
 
 ---
-
-## Target JSON Structure
 
 Every variant produces one parametric JSON file. The canonical reference is `mono_pitch_1br_parametric.json`. Its structure:
 
@@ -127,7 +135,30 @@ Every variant produces one parametric JSON file. The canonical reference is `mon
       "veranda_h_mm": 1221
     },
     "positions": [
-      { "step": 10, "grid_width_mm": 6100, "outer_width_mm": 6188, "zones": { ... } }
+      {
+        "step": 10,
+        "grid_width_mm": 6100,
+        "outer_width_mm": 6188,
+        "outer_width_m": 6.188,
+        "zones": {
+          "bedroom_w": 2887,
+          "bathroom_w": 1880,
+          "living_w": 4059,
+          "veranda_w": 3074
+        }
+      },
+      {
+        "step": 11,
+        "grid_width_mm": 6710,
+        "outer_width_mm": 6798,
+        "outer_width_m": 6.798,
+        "zones": {
+          "bedroom_w": 2887,
+          "bathroom_w": 1880,
+          "living_w": 4669,
+          "veranda_w": 3074
+        }
+      }
     ]
   },
   "zones_at_base": [
@@ -160,6 +191,8 @@ Every variant produces one parametric JSON file. The canonical reference is `mon
 - Zone `x, y` = inner bottom-left of zone bounding box
 - Zone `w, h` = inner width and height
 
+**`parametric.positions[n].zones` keys:** Each entry lists the **widths of every zone at that step**. The key names are snake_case zone type names suffixed with `_w` (e.g. `bedroom_w`, `living_w`, `bathroom_w`, `veranda_w`). For multi-bedroom variants, use `bedroom_1_w`, `bedroom_2_w`, etc. Fixed zones (bathroom, veranda) repeat the same value across all steps. Variable zones change value per phase.
+
 ---
 
 ## Completed Work
@@ -181,7 +214,8 @@ All four variants are extracted. 22 zones were pulled and clustered by X-gap (>1
 
 **Studio** (outer W = 4.82 m, D = 4.82 m)
 - Single open-plan room + bathroom nook + veranda (1784 mm wide)
-- Veranda is fixed; studio space is the parametric zone
+- **Parametric steps: unknown — to be determined from the calculation template.** The studio is a single open-plan space so it likely has a very limited step range (possibly a single fixed size, or 1–2 steps). Check `Copy_Berend_of_Easy_Housing__Calculation_Template_2026.xlsx` for the Studio row before populating `parametric.min_step`, `max_step`, and `positions`.
+- Veranda is fixed; the studio/living space is the parametric zone (stretch_axis: x)
 
 **1BR** (base outer W = 6.19 m, range steps 10–14)
 - Layout: `[Bed1 | Bath] [Living (stretches phase 1)] [Veranda (fixed, anchored right)]`
@@ -220,7 +254,7 @@ Each typology is a separate `.pln` file. Open each in ArchiCAD 29, then run the 
 | Large Gable | 3BR | ❌ Not started |
 | Clerestory | 2BR, 4BR | ❌ Not started |
 
-**Note:** A-Frame variants (Compact, Standard, Large) exist in the calculation template but are **not part of the standard catalogue** — do not extract these unless explicitly requested.
+**Note:** **A-Frame** is a distinct roof typology (steep triangular cross-section, different from all Gable variants). A-Frame Compact, Standard, and Large exist in the calculation template but are **not part of the standard catalogue** — do not extract these unless explicitly requested. The Compact Gable, Standard Gable, and Large Gable in the table above are separate typologies with a conventional gable roof form and are all in scope.
 
 ### 3. Add parametric step data to Studio, 2BR, 3BR JSONs
 
@@ -256,15 +290,17 @@ zones_response = tapir_call("elements_get_elements_by_type", {"elementType": "Zo
 
 ## Project Files
 
+The `outputs/` path below refers to **`./outputs/` at the repo root** — a local folder used as a working drop zone during Claude Code sessions. Files there are not yet integrated into the main codebase; once validated they should be moved to their final location alongside `mono_pitch_1br_parametric.json`.
+
 | File | Location | Purpose |
 |------|----------|---------|
-| `mono_pitch_1br_parametric.json` | repo root / project | Reference canonical JSON (complete) |
-| `mono_pitch_studio_parametric.json` | outputs | Studio JSON (zones only) |
-| `mono_pitch_2br_parametric.json` | outputs | 2BR JSON (zones only) |
-| `mono_pitch_3br_parametric.json` | outputs | 3BR JSON (zones only) |
-| `extract_mono_pitch.py` | outputs | Extraction script (needs fix — see above) |
-| `260416__Overview_Typologies_for_Claude.xlsx` | `/mnt/project/` | Catalogue overview (typologies + bedroom counts) |
-| `Copy_Berend_of_Easy_Housing__Calculation_Template_2026.xlsx` | `/mnt/project/` | Backend calculation template (parametric step data) |
+| `mono_pitch_1br_parametric.json` | repo root | Reference canonical JSON (complete) |
+| `mono_pitch_studio_parametric.json` | `./outputs/` | Studio JSON (zones only, needs doors/windows + parametric steps) |
+| `mono_pitch_2br_parametric.json` | `./outputs/` | 2BR JSON (zones only, needs doors/windows + parametric steps) |
+| `mono_pitch_3br_parametric.json` | `./outputs/` | 3BR JSON (zones only, needs doors/windows + parametric steps) |
+| `extract_mono_pitch.py` | `./outputs/` | Extraction script (needs fix — see above) |
+| `260416__Overview_Typologies_for_Claude.xlsx` | `./project/` | Catalogue overview (typologies + bedroom counts) |
+| `Copy_Berend_of_Easy_Housing__Calculation_Template_2026.xlsx` | `./project/` | Backend calculation template (parametric step data) |
 
 ---
 
@@ -278,7 +314,157 @@ zones_response = tapir_call("elements_get_elements_by_type", {"elementType": "Zo
 
 ---
 
-## Building System & Materials Reference
+## Performance & Timeout Troubleshooting
+
+This section documents observed bottlenecks and the strategies that work around them. The file `250625 MonoPitch Homes BvD.pln` contains **5,671 elements total** — most calls become slow or time out if they are not scoped tightly before execution.
+
+### Root causes of slowness
+
+**1. Fetching all elements before filtering**
+Calling `GetAllElements()` returns all 5,671 elements. Subsequent calls to `GetTypesOfElements()` on all 5,671 IDs is the first major bottleneck. Then requesting bounding boxes for all 5,671 at once caused a crash (`BoundingBox2DWrapper` error).
+
+**2. `elements_get_elements_related_to_zones` with multiple zones**
+This command timed out when called with 6+ zones and multiple element types in one request. It appears to do a spatial intersection check per zone per element type, which is expensive in larger files.
+
+**3. Detail calls in batches of 5**
+When door/object names could not be resolved any other way, 5-element batches of `elements_get_details_of_elements` were used. At 5 items per MCP round-trip this means 20–30 calls just to identify furniture in one zone.
+
+---
+
+### Rules for fast extraction
+
+#### Rule 1 — Always filter by type before fetching anything else
+
+```python
+# GOOD — fetch only zones (22 elements)
+archicad_call_tool("elements_get_elements_by_type", {"elementType": "Zone"})
+
+# GOOD — fetch only walls (166 elements)
+archicad_call_tool("elements_get_elements_by_type", {"elementType": "Wall"})
+
+# BAD — returns 5671 elements then requires type filtering in a second pass
+GetAllElements()
+```
+
+The file has: Wall 166, Door 17, Window 37, Zone 22, Object 1122. Always start from the type-filtered list.
+
+#### Rule 2 — Batch bounding box calls at 20–50 elements, not all at once and not one at a time
+
+```python
+# GOOD — 20 elements per bounding box call
+def fetch_bboxes_batched(guids, port, batch_size=20):
+    results = {}
+    for i in range(0, len(guids), batch_size):
+        batch = guids[i:i+batch_size]
+        r = archicad_call_tool("elements_get_element_bounding_boxes", {"elements": batch})
+        results.update(parse_bbox_response(r))
+    return results
+
+# BAD — all 166 walls at once (may crash or time out)
+archicad_call_tool("elements_get_element_bounding_boxes", {"elements": all_166_walls})
+
+# BAD — 5 at a time for 37 windows = 8 separate round-trips
+```
+
+#### Rule 3 — Do NOT use `elements_get_elements_related_to_zones` for door/window discovery
+
+This command timed out in testing. Instead, fetch doors and windows by type first, get their bounding boxes, then do a spatial overlap check in Python to assign them to zones:
+
+```python
+# Step 1 — get all doors as a type-filtered list (fast, 17 elements)
+doors = archicad_call_tool("elements_get_elements_by_type", {"elementType": "Door"})
+
+# Step 2 — get bounding boxes for all 17 doors in one call (fast, small list)
+door_bboxes = archicad_call_tool("elements_get_element_bounding_boxes", {"elements": door_guids})
+
+# Step 3 — spatial match in Python (no ArchiCAD call needed)
+def assign_to_zone(element_bbox, zone_bboxes):
+    for zone_id, zone_bbox in zone_bboxes.items():
+        if overlaps(element_bbox, zone_bbox):
+            return zone_id
+    return None
+```
+
+#### Rule 4 — Get door/window details in one batch, not one at a time
+
+```python
+# GOOD — all 17 doors in a single call
+archicad_call_tool("elements_get_details_of_elements", {"elements": all_17_door_guids})
+
+# BAD — 5 at a time = 4 round-trips for 17 doors
+```
+
+For objects (1,122 elements), filter first by zone assignment (spatial match) before calling details. Never call details on all 1,122 objects.
+
+#### Rule 5 — Restart Tapir between typologies
+
+After a timeout, the Tapir MCP server can enter a degraded state where subsequent calls are slow even for small payloads. **Restart Tapir before starting each new `.pln` file.** In Claude Desktop: Settings → Developer → MCP Servers → restart Tapir. Alternatively, close and reopen ArchiCAD.
+
+After restart the port may change (was 19724 before restart, 19723 after). Always call `discovery_list_active_archicads` after any restart.
+
+#### Rule 6 — Extract one element type completely before moving to the next
+
+Interleaving type queries adds overhead. The recommended call sequence per file is:
+
+1. `discovery_list_active_archicads` → confirm port
+2. `elements_get_elements_by_type` Zone → get all 22 zone GUIDs
+3. `elements_get_element_bounding_boxes` (zones) → all in one call
+4. `elements_get_element_properties` (zones) → names, areas
+5. Cluster zones by X-gap in Python → no ArchiCAD call
+6. `elements_get_elements_by_type` Wall → 166 GUIDs
+7. `elements_get_element_bounding_boxes` (walls, batch 50) → 4 calls
+8. `elements_get_elements_by_type` Door → 17 GUIDs
+9. `elements_get_element_bounding_boxes` (doors) → 1 call
+10. `elements_get_details_of_elements` (doors) → 1 call for all 17
+11. `elements_get_elements_by_type` Window → 37 GUIDs
+12. `elements_get_element_bounding_boxes` (windows) → 1–2 calls
+13. `elements_get_details_of_elements` (windows) → 2 calls max
+14. Spatial matching and JSON assembly in Python → no ArchiCAD calls
+
+This order avoids all known timeout triggers and keeps the total ArchiCAD round-trips under 20 for a full Mono Pitch extraction.
+
+---
+
+#### Rule 7 — Ignore ArchiCAD layers entirely
+
+Layers in the ArchiCAD file are **not a reliable classification signal** and should be ignored. Layer names vary between files, change during modelling, and do not consistently distinguish structural walls from partitions, facade cladding from structural skin, or furniture from equipment.
+
+**Classify everything from geometry and spatial relationships instead:**
+
+| What you need to know | How to determine it (not from layers) |
+|-----------------------|---------------------------------------|
+| Exterior vs partition wall | Thickness — see wall buildup table below |
+| Which zone a wall belongs to | Spatial overlap: wall centre-line intersects or abuts zone bounding box |
+| Door is interior vs exterior | Which wall it sits in (partition = interior; outer wall = exterior) |
+| Furniture vs equipment | ArchiCAD object name prefix — extract the name string and match against known lists |
+| Zone type (Bedroom, Bathroom, etc.) | Zone name string from `elements_get_element_properties` |
+
+Never use layer name as a filter condition in any extraction script or MCP call.
+
+**Wall buildup (inside → outside):**
+
+| Wall type | Layers | Total thickness |
+|-----------|--------|----------------|
+| **Structural / facade / outer wall** | 12 mm plywood + 70 mm timber frame + 22 mm + 22 mm cladding | **126 mm** |
+| **Partition wall** | 12 mm plywood + 70 mm timber stud + 12 mm plywood | **94 mm** |
+| **Bathroom wet wall** (structural) | 126 mm outer wall + cement board layer on bathroom-facing side | **>126 mm** |
+| **Bathroom wet wall** (partition) | 94 mm partition + cement board layer on bathroom-facing side | **>94 mm** |
+
+**Grid line position:** The structural grid sits at the **outside face of the 70 mm frame** — i.e. 12 mm inward from the outer face of the frame, but 44 mm inward from the outermost face of the wall (22 + 22 mm cladding layers). This is why `wall_offset_mm = 44` in the JSON: it is the distance from the grid line to the outer wall face. `outer_width = grid_width + 2 × 44`.
+
+When extracting bounding boxes, expect outer walls to measure ~126 mm thick and partitions ~94 mm thick. Walls thicker than 126 mm are bathroom wet walls (cement board added). Use these thresholds to classify, not layer names.
+
+---
+
+
+1. **Claude Desktop**: Settings → Developer → MCP Servers → find Tapir → restart/toggle
+2. **Task Manager**: find the Python process running the Tapir MCP server, end it, relaunch from the original terminal
+3. **Last resort**: close and reopen ArchiCAD 29 — this resets the JSON API server entirely
+
+After restart, always verify with `discovery_list_active_archicads` before proceeding.
+
+---
+
 
 Understanding the physical building system is essential for correctly classifying elements extracted from ArchiCAD. All homes are prefabricated **FSC-certified pine timber** construction on prefab concrete or recycled plastic foundation blocks.
 
@@ -288,11 +474,15 @@ The structural system is a **timber frame on a 610 mm bay grid**. Every parametr
 
 ### Wall Types
 
-| Wall type | Role | Parametric behaviour |
-|-----------|------|----------------------|
-| **Structural / exterior walls** | Load-bearing perimeter frame | Moves with the envelope; defines `outer_width` and `outer_depth` |
-| **Partition walls** | Internal room dividers (non-structural) | Anchored to a zone boundary; move with their zone during stretching |
-| **Bathroom wet wall** | Partition between bathroom and adjacent room | Fixed — bathroom never stretches |
+| Wall type | Buildup (inside → outside) | Total thickness |
+|-----------|----------------------------|----------------|
+| **Structural / facade / outer wall** | 12 mm plywood + 70 mm timber frame + 22 mm + 22 mm shiplap cladding | 126 mm |
+| **Partition wall** | 12 mm plywood + 70 mm timber stud + 12 mm plywood | 94 mm |
+| **Bathroom wet wall** | Either outer or partition buildup + cement board on the bathroom-facing side | >126 mm or >94 mm |
+
+The structural grid line sits at the **outside face of the 70 mm frame** — 44 mm inward from the outermost wall face (the 22 + 22 mm cladding layers). This is the meaning of `wall_offset_mm = 44` in the JSON.
+
+Parametric behaviour: outer walls move with the envelope. Partition walls are anchored to a zone boundary and move with their zone during stretching. The bathroom wet wall is always fixed (the bathroom zone never stretches).
 
 Interior wall finishing: **12 mm pine plywood**. Ceiling: **9 mm pine plywood** at 260–386 cm height.
 
@@ -360,6 +550,117 @@ Additional veranda upgrades: pergola, railings, sliding door connection to inter
 Both are included in the base price at standard fixture counts. The electrical installation covers wiring, light points (fittings only, not bulbs), switches, sockets, and a distribution board with capacity for a washing machine. Empty conduit runs to the roof are included for future solar PV. Plumbing covers all water and sewerage piping up to the external manhole — not the septic tank.
 
 These systems do not appear as geometric elements in the parametric JSON but are relevant background for understanding why bathroom zone placement and kitchen zone placement matter.
+
+---
+
+## Floor Plan Drawing Style
+
+The configurator floor plan must visually match the ArchiCAD drawings used in the Easy Housing catalogue. The reference drawings are the authoritative style guide — all SVG/canvas rendering should aim to reproduce them as closely as possible. The catalogue PDF (`Easy_Housing__Catalogue_2026.pdf`) contains reference floor plans for every typology.
+
+### Colours
+
+| Element | Fill | Stroke |
+|---------|------|--------|
+| Habitable rooms (bedroom, living, kitchen) | `#C8B88A` (warm tan) | — |
+| Bathroom / wet room | `#E0D9C8` (pale warm grey) | — |
+| Veranda / porch | `#D6D0C0` (slightly cooler grey-tan) | — |
+| Walls (all types) | `#1A1A1A` (near-black) | — |
+| Furniture & equipment outlines | `#FFFFFF` fill, `#1A1A1A` stroke | 0.5–1 pt |
+| Window glazing lines | `#1A1A1A` | 0.5 pt |
+| Door arc | `#1A1A1A` | 0.5 pt |
+| Background / exterior | `#FFFFFF` | — |
+| Dimension lines | `#1A1A1A` | 0.5 pt |
+
+The tan room fill is the dominant visual. Bathrooms are noticeably lighter. The veranda sits between the two. Do not use saturated colours anywhere in the floor plan itself.
+
+### Wall rendering
+
+Draw walls as filled black polygons, not as stroked centre-lines. The outer wall (126 mm) should read visibly heavier than partitions (94 mm) at any zoom level.
+
+- **Outer wall**: full 126 mm thickness, filled solid `#1A1A1A`
+- **Partition wall**: full 94 mm thickness, filled solid `#1A1A1A`
+- **Bathroom wet wall**: same as the base wall type, plus an additional ~10 mm cement board layer on the bathroom-facing side rendered in `#888888` (mid grey)
+
+Wall junctions (T-intersections, corners) should be mitered cleanly — no gaps or overlaps at corners.
+
+### Doors
+
+Draw every door as two elements:
+
+1. **Door leaf**: thin rectangle spanning the opening width, thickness ~20 mm, fill `#FFFFFF`, stroke `#1A1A1A` at 0.5 pt
+2. **Swing arc**: quarter-circle arc from the hinge point, radius = opening width, stroke `#1A1A1A` at 0.5 pt, no fill
+
+Hinge point and swing direction come from `hinge_local_mm`, `swing_from_deg`, `swing_to_deg` in the JSON. Exterior doors: door leaf slightly thicker (~30 mm) to suggest the aluminium frame.
+
+### Windows
+
+Draw every window as three parallel lines spanning the full wall thickness:
+
+- Two outer lines flush with the wall faces (the frame jambs), stroke `#1A1A1A` at 1 pt
+- One centre line (the glazing), stroke `#1A1A1A` at 0.5 pt
+
+Window labels (W1, W2…) in ~7 pt, placed just outside the wall at the window midpoint.
+
+### Furniture & equipment shapes
+
+All furniture drawn as simple 2D plan-view outlines — `#FFFFFF` fill, thin `#1A1A1A` stroke. No hatching, gradients, or shadows.
+
+| Object | Plan-view shape |
+|--------|----------------|
+| Single bed | Rectangle (~900×2000 mm) with a filled semicircle on the headboard end (pillow) |
+| Double bed | Rectangle (~1400×2000 mm) with two adjacent filled semicircles on the headboard end |
+| Wardrobe | Rectangle with two diagonal crossing lines inside (sliding door symbol) |
+| Nightstand | Small square |
+| Dining table | Oval or rounded rectangle |
+| Dining chairs | Circles (~450 mm ø) arranged around the table |
+| Sofa (2-seat) | Rectangle with a thin back line along one long edge |
+| Armchair | Smaller rectangle with a thin back line |
+| Coffee table | Small rectangle or oval |
+| WC / toilet | D-shape: rectangle with rounded front, oval seat inside |
+| Shower cabin | Square with small showerhead circle in one corner |
+| Washbasin / sink | Rounded rectangle with a small circle drain |
+| Kitchen sink | Rectangle subdivided into one or two basins, each with a small circle drain |
+| Stove / hob | Square with 4 small circles as burners |
+| Fridge | Rectangle labelled **F** |
+| Washing machine | Square labelled **W** |
+| TV | Thin rectangle |
+| TV stand | Slightly wider rectangle behind the TV |
+| Mirror | Very thin rectangle flush with the wall |
+| Kitchen base cabinet | Plain rectangle |
+| Kitchen wall cabinet | Same rectangle with dashed outline (overhead = not at floor level) |
+| Bistro / side chair | Circle (~380 mm ø) |
+| Bistro table | Small circle or square |
+
+### Labels
+
+Zone labels centred within their zone fill:
+
+```
+Bedroom
+12 m²
+```
+
+- Font: sans-serif (Inter or similar)
+- Zone name: ~10 pt regular
+- Area: ~9 pt regular, line below the name
+- Colour: `#1A1A1A`
+
+Fridge and washing machine are labelled **F** and **W** inside their rectangle — no separate label needed.
+
+### Dimension lines
+
+Shown above and to the left of the plan only (overall width and depth — not individual zone widths):
+
+- Thin line with tick-mark end stops, `#1A1A1A`, 0.5 pt
+- Value in metres to 3 decimal places (e.g. `7.413`) centred above the line
+
+### Scale bar
+
+Bottom-right, alternating filled/empty segments of 1 m each, range 0–3 m, small text at 0, 1, 2, 3.
+
+### What to omit
+
+Do not render: roof structure, foundation blocks, electrical/plumbing runs, section cut markers, north arrow, structural grid lines, ArchiCAD annotation objects.
 
 ---
 
