@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef } from "react";
 import type { FloorplanJSON } from "@/types/floorplan";
 import FloorplanSVG from "@/components/FloorplanSVG";
+import BudgetPanel from "@/components/BudgetPanel";
 
 export default function Home() {
   const [plan, setPlan] = useState<FloorplanJSON | null>(null);
@@ -128,6 +129,9 @@ export default function Home() {
                 <span>{((plan.baseWidth + plan.maxDelta) / 1000).toFixed(1)} m</span>
               </div>
             </div>
+
+            {/* Budget */}
+            <BudgetPanel plan={plan} delta={delta} />
 
             {/* Floor plan */}
             <FloorplanSVG plan={plan} delta={delta} />
