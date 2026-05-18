@@ -162,6 +162,52 @@ function readBlockDef(pairs: Pair[], start: number): { geom: LocalGeom[]; end: n
       i = end; continue;
     }
 
+    if (code === 0 && value === "HATCH") {
+      // Solid hatches define filled regions whose outline is the *only*
+      // record of certain shapes (e.g. the toilet cistern body has no
+      // LINE/ARC outline; the cistern silhouette lives only in the HATCH
+      // boundary). Extract polyline-type boundary paths as outlines so
+      // they get rendered.
+      let j = i + 1, layer = "", numPaths = 0;
+      while (j < pairs.length && pairs[j].code !== 0) {
+        if (pairs[j].code === 8) layer = pairs[j].value;
+        if (pairs[j].code === 91) { numPaths = parseInt(pairs[j].value, 10); j++; break; }
+        j++;
+      }
+      for (let p = 0; p < numPaths && j < pairs.length && pairs[j].code !== 0; p++) {
+        while (j < pairs.length && pairs[j].code !== 0 && pairs[j].code !== 92) j++;
+        if (j >= pairs.length || pairs[j].code === 0) break;
+        const pathType = parseInt(pairs[j].value, 10);
+        j++;
+        if (pathType & 2) {
+          // Polyline boundary: 72=has_bulge, 73=closed, 93=vertex count, then 10/20 pairs (and optional 42 bulge).
+          let closed = true, numVerts = 0;
+          while (j < pairs.length && pairs[j].code !== 0 && pairs[j].code !== 93) {
+            if (pairs[j].code === 73) closed = parseInt(pairs[j].value, 10) === 1;
+            j++;
+          }
+          if (j < pairs.length && pairs[j].code === 93) { numVerts = parseInt(pairs[j].value, 10); j++; }
+          const verts: { x: number; y: number }[] = [];
+          let curX: number | null = null;
+          while (j < pairs.length && pairs[j].code !== 0 && verts.length < numVerts) {
+            if (pairs[j].code === 10) curX = n(pairs[j].value);
+            else if (pairs[j].code === 20 && curX !== null) {
+              verts.push({ x: curX, y: n(pairs[j].value) });
+              curX = null;
+            }
+            j++;
+          }
+          if (verts.length > 2) geom.push({ type: "poly", layer, closed, verts });
+        } else {
+          // Edge-based boundary: skipping. We can't reliably advance without parsing
+          // each edge type, so bail out of further paths in this HATCH.
+          break;
+        }
+      }
+      while (j < pairs.length && pairs[j].code !== 0) j++;
+      i = j; continue;
+    }
+
     if (code === 0 && value === "SPLINE") {
       let j = i + 1, layer = "";
       const fit: { x: number; y: number }[] = [];
