@@ -428,11 +428,8 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
 
       if (code === 0 && value === "POLYLINE") {
         const { layer, closed, vertices, end } = readPolyline(pairs, i + 1);
-        // Rooms may use sublayers like "Rooms$Living Room" — normalize to "Rooms"
-        const normalLayer = layer.startsWith("Rooms") ? "Rooms" : layer;
-        const RENDER = ["Walls", "Rooms", "Doors", "Windows", "Furniture"];
-        if (RENDER.includes(normalLayer)) {
-          polylines.push({ layer: normalLayer, closed, vertices });
+        if (layer === "Walls" || layer === "Doors" || layer === "Windows" || layer === "Furniture" || layer.startsWith("Rooms")) {
+          polylines.push({ layer, closed, vertices });
         }
         i = end; continue;
       }
@@ -465,7 +462,8 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
     }
   }
 
-  const LAYER_ORDER = ["Rooms", "Walls", "Doors", "Windows", "Furniture"];
+  const roomLayerNames = Array.from(new Set(polylines.filter(p => p.layer.startsWith("Rooms")).map(p => p.layer)));
+  const LAYER_ORDER = [...roomLayerNames, "Walls", "Doors", "Windows", "Furniture"];
   const layerMap = new Map<string, FloorplanLayer>(
     LAYER_ORDER.map((name) => [name, { name, entities: [] }])
   );
