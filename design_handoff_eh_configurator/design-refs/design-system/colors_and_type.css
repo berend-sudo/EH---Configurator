@@ -1,0 +1,200 @@
+/* ============================================================
+   Easy Housing — Colors & Type
+   Reference: Brand Guidelines 2022 v1.1 (by the-now.nl)
+   ============================================================ */
+
+/* ---------- 0. Brand typeface: Poppins (self-hosted) -------
+   Files live in /fonts at the project root and are bundled with
+   the design system. URLs below are resolved relative to THIS
+   CSS file, so importers in subfolders still find them.
+*/
+@font-face { font-family: "Poppins"; font-style: normal;  font-weight: 100; font-display: swap; src: url("fonts/Poppins-Thin.ttf") format("truetype"); }
+@font-face { font-family: "Poppins"; font-style: italic;  font-weight: 100; font-display: swap; src: url("fonts/Poppins-ThinItalic.ttf") format("truetype"); }
+@font-face { font-family: "Poppins"; font-style: normal;  font-weight: 200; font-display: swap; src: url("fonts/Poppins-ExtraLight.ttf") format("truetype"); }
+@font-face { font-family: "Poppins"; font-style: italic;  font-weight: 200; font-display: swap; src: url("fonts/Poppins-ExtraLightItalic.ttf") format("truetype"); }
+@font-face { font-family: "Poppins"; font-style: normal;  font-weight: 300; font-display: swap; src: url("fonts/Poppins-Light.ttf") format("truetype"); }
+@font-face { font-family: "Poppins"; font-style: italic;  font-weight: 300; font-display: swap; src: url("fonts/Poppins-LightItalic.ttf") format("truetype"); }
+@font-face { font-family: "Poppins"; font-style: normal;  font-weight: 400; font-display: swap; src: url("fonts/Poppins-Regular.ttf") format("truetype"); }
+@font-face { font-family: "Poppins"; font-style: italic;  font-weight: 400; font-display: swap; src: url("fonts/Poppins-Italic.ttf") format("truetype"); }
+@font-face { font-family: "Poppins"; font-style: normal;  font-weight: 500; font-display: swap; src: url("fonts/Poppins-Medium.ttf") format("truetype"); }
+@font-face { font-family: "Poppins"; font-style: italic;  font-weight: 500; font-display: swap; src: url("fonts/Poppins-MediumItalic.ttf") format("truetype"); }
+@font-face { font-family: "Poppins"; font-style: normal;  font-weight: 600; font-display: swap; src: url("fonts/Poppins-SemiBold.ttf") format("truetype"); }
+@font-face { font-family: "Poppins"; font-style: italic;  font-weight: 600; font-display: swap; src: url("fonts/Poppins-SemiBoldItalic.ttf") format("truetype"); }
+@font-face { font-family: "Poppins"; font-style: normal;  font-weight: 700; font-display: swap; src: url("fonts/Poppins-Bold.ttf") format("truetype"); }
+@font-face { font-family: "Poppins"; font-style: italic;  font-weight: 700; font-display: swap; src: url("fonts/Poppins-BoldItalic.ttf") format("truetype"); }
+@font-face { font-family: "Poppins"; font-style: normal;  font-weight: 800; font-display: swap; src: url("fonts/Poppins-ExtraBold.ttf") format("truetype"); }
+@font-face { font-family: "Poppins"; font-style: italic;  font-weight: 800; font-display: swap; src: url("fonts/Poppins-ExtraBoldItalic.ttf") format("truetype"); }
+@font-face { font-family: "Poppins"; font-style: normal;  font-weight: 900; font-display: swap; src: url("fonts/Poppins-Black.ttf") format("truetype"); }
+@font-face { font-family: "Poppins"; font-style: italic;  font-weight: 900; font-display: swap; src: url("fonts/Poppins-BlackItalic.ttf") format("truetype"); }
+
+
+/* ---------- 1. Color tokens ----------------------------------
+   Brand greens extracted directly from the official logo PNG.
+   The brand guidelines describe the palette as "green colours
+   that represent sustainable, social and scalable" — a single
+   bright leaf-green plus a deep forest green for text.
+*/
+
+:root {
+  /* -- Brand primaries ------------------------------------- */
+  --eh-green:           #4DCC7A;   /* Spring / Leaf green - primary */
+  --eh-green-deep:      #003B2B;   /* Forest green - text & dark surfaces */
+
+  /* -- Tint/shade scale derived from the brand green ------- */
+  --eh-green-50:        #ECFAF1;
+  --eh-green-100:       #D2F4DF;
+  --eh-green-200:       #A6E8BE;
+  --eh-green-300:       #79DC9D;
+  --eh-green-400:       #4DCC7A;   /* = --eh-green */
+  --eh-green-500:       #34B963;
+  --eh-green-600:       #1F9D4E;
+  --eh-green-700:       #157A3C;
+  --eh-green-800:       #0C5A2D;
+  --eh-green-900:       #003B2B;   /* = --eh-green-deep */
+  --eh-green-950:       #00261B;
+
+  /* -- Earthy support colors (off-brand but harmonising,
+        for tags, illustrations, photography overlays) ------- */
+  --eh-sand:            #F1E9D9;
+  --eh-clay:            #C58A5B;
+  --eh-timber:          #8C5E36;
+  --eh-sky:             #BBD8E2;
+
+  /* -- Neutrals --------------------------------------------- */
+  --eh-bg:              #FFFFFF;
+  --eh-bg-alt:          #FAF9F6;   /* warm off-white */
+  --eh-bg-deep:         #003B2B;   /* deep brand surface */
+  --eh-stroke:          #E7EAE5;
+  --eh-stroke-strong:   #C8D0C9;
+  --eh-text:            #003B2B;   /* deep green is the body text */
+  --eh-text-muted:      #4A5C56;
+  --eh-text-soft:       #7A8985;
+  --eh-text-on-dark:    #FFFFFF;
+  --eh-text-on-dark-muted: rgba(255,255,255,0.72);
+
+  /* -- Semantic / state ------------------------------------- */
+  --eh-success:         #34B963;
+  --eh-warning:         #E8A53E;
+  --eh-danger:          #C8463C;
+  --eh-info:            #4A8FB3;
+
+  /* ---------- 2. Type stack ------------------------------- */
+  --eh-font-sans:       "Poppins", "Inter", system-ui, -apple-system,
+                        Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  --eh-font-display:    "Poppins", "Inter", system-ui, sans-serif;
+
+  /* Brand spec calls out Poppins SemiBold (600) + Poppins Light (300).
+     Body uses Light, headings use SemiBold. */
+  --eh-fw-light:        300;
+  --eh-fw-regular:      400;
+  --eh-fw-medium:       500;
+  --eh-fw-semibold:     600;
+  --eh-fw-bold:         700;
+
+  /* Type ramp — scaled from the print ramp in the guidelines
+     (Header1 105pt / H2 80 / H3 62 / H4 38 / Body 18pt). */
+  --eh-fs-display:      88px;   /* Hero headline    */
+  --eh-fs-h1:           64px;
+  --eh-fs-h2:           48px;
+  --eh-fs-h3:           32px;
+  --eh-fs-h4:           24px;
+  --eh-fs-h5:           20px;
+  --eh-fs-body-lg:      18px;
+  --eh-fs-body:         16px;
+  --eh-fs-body-sm:      14px;
+  --eh-fs-caption:      12px;
+
+  --eh-lh-tight:        1.05;
+  --eh-lh-snug:         1.2;
+  --eh-lh-normal:       1.45;
+  --eh-lh-relaxed:      1.6;
+
+  --eh-tracking-tight:  -0.02em;
+  --eh-tracking-normal: 0;
+  --eh-tracking-wide:   0.04em;
+
+  /* ---------- 3. Spacing / radius / elevation ------------- */
+  --eh-space-1:         4px;
+  --eh-space-2:         8px;
+  --eh-space-3:         12px;
+  --eh-space-4:         16px;
+  --eh-space-5:         24px;
+  --eh-space-6:         32px;
+  --eh-space-7:         48px;
+  --eh-space-8:         64px;
+  --eh-space-9:         96px;
+  --eh-space-10:        128px;
+
+  --eh-radius-xs:       4px;
+  --eh-radius-sm:       8px;
+  --eh-radius-md:       12px;
+  --eh-radius-lg:       20px;
+  --eh-radius-xl:       32px;
+  --eh-radius-pill:     999px;
+
+  --eh-shadow-xs:       0 1px 2px rgba(0, 59, 43, 0.06);
+  --eh-shadow-sm:       0 2px 6px rgba(0, 59, 43, 0.08);
+  --eh-shadow-md:       0 10px 24px rgba(0, 59, 43, 0.10);
+  --eh-shadow-lg:       0 24px 48px rgba(0, 59, 43, 0.14);
+  --eh-shadow-glow:     0 0 0 6px rgba(77, 204, 122, 0.20);
+
+  /* ---------- 4. Motion ----------------------------------- */
+  --eh-ease:            cubic-bezier(0.2, 0.7, 0.2, 1);
+  --eh-ease-out:        cubic-bezier(0.16, 1, 0.3, 1);
+  --eh-duration-fast:   120ms;
+  --eh-duration-base:   220ms;
+  --eh-duration-slow:   400ms;
+}
+
+/* ---------- 5. Semantic typography classes ----------------
+   Use these for body copy / heading styles so layouts stay
+   consistent across decks, mocks, and product surfaces.
+*/
+.eh-display,
+.eh-h1, .eh-h2, .eh-h3, .eh-h4, .eh-h5 {
+  font-family: var(--eh-font-display);
+  font-weight: var(--eh-fw-semibold);
+  color: var(--eh-text);
+  line-height: var(--eh-lh-tight);
+  letter-spacing: var(--eh-tracking-tight);
+  text-wrap: balance;
+  margin: 0;
+}
+.eh-display { font-size: var(--eh-fs-display); }
+.eh-h1      { font-size: var(--eh-fs-h1); }
+.eh-h2      { font-size: var(--eh-fs-h2); }
+.eh-h3      { font-size: var(--eh-fs-h3); line-height: var(--eh-lh-snug); }
+.eh-h4      { font-size: var(--eh-fs-h4); line-height: var(--eh-lh-snug); }
+.eh-h5      { font-size: var(--eh-fs-h5); line-height: var(--eh-lh-snug); letter-spacing: 0; }
+
+.eh-body-lg, .eh-body, .eh-body-sm, .eh-caption {
+  font-family: var(--eh-font-sans);
+  font-weight: var(--eh-fw-light);
+  color: var(--eh-text);
+  line-height: var(--eh-lh-relaxed);
+  text-wrap: pretty;
+  margin: 0;
+}
+.eh-body-lg { font-size: var(--eh-fs-body-lg); }
+.eh-body    { font-size: var(--eh-fs-body); }
+.eh-body-sm { font-size: var(--eh-fs-body-sm); line-height: var(--eh-lh-normal); }
+.eh-caption { font-size: var(--eh-fs-caption); line-height: var(--eh-lh-normal); color: var(--eh-text-muted); }
+
+.eh-eyebrow {
+  font-family: var(--eh-font-sans);
+  font-weight: var(--eh-fw-semibold);
+  font-size: 12px;
+  letter-spacing: var(--eh-tracking-wide);
+  text-transform: uppercase;
+  color: var(--eh-green-700);
+}
+
+/* ---------- 6. Utility surface ---------------------------- */
+body.eh-surface       { background: var(--eh-bg); color: var(--eh-text); font-family: var(--eh-font-sans); font-weight: var(--eh-fw-light); }
+.eh-on-dark           { background: var(--eh-bg-deep); color: var(--eh-text-on-dark); }
+.eh-on-deep .eh-h1,
+.eh-on-deep .eh-h2,
+.eh-on-deep .eh-h3,
+.eh-on-deep .eh-h4,
+.eh-on-deep .eh-h5,
+.eh-on-deep .eh-display { color: var(--eh-text-on-dark); }
