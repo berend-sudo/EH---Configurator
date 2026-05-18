@@ -56,6 +56,8 @@ function centroidSVG(
 }
 
 // ── Room type helpers ─────────────────────────────────────────────────────────
+const WALL_THICKNESS = 94; // mm
+
 function roomPatternId(layerName: string): string {
   if (layerName.includes("Bath")) return "pat-bath";
   if (layerName.includes("Terrace")) return "pat-terrace";
@@ -64,7 +66,7 @@ function roomPatternId(layerName: string): string {
 
 function roomDisplayName(layerName: string): string {
   if (layerName === "Rooms") return "Room";
-  return layerName.replace(/^Rooms\s*-\s*/, "");
+  return layerName.replace(/^Rooms\s*[$\-]\s*/, "");
 }
 
 // ── Catmull-Rom spline ────────────────────────────────────────────────────────
@@ -230,7 +232,7 @@ function renderWindow(
 
   return (
     <g key={key}>
-      <polygon points={pts} fill="white" stroke="none" />
+      <polygon points={pts} fill="white" stroke="#003B2B" strokeWidth={1} />
       <line x1={line1[0]} y1={line1[1]} x2={line1[2]} y2={line1[3]}
         stroke="#003B2B" strokeWidth={1} />
       <line x1={line2[0]} y1={line2[1]} x2={line2[2]} y2={line2[3]}
@@ -242,18 +244,49 @@ function renderWindow(
 function renderDoor(
   entity: PolylineEntity,
   delta: number, scale: number, drawH: number, padX: number, padY: number,
+  planW: number, planD: number,
   key: string,
 ): React.ReactNode {
   const world = applyDelta(entity.vertices, delta);
   const pts = world.map((v) => `${sxT(v.x, scale, padX)},${syT(v.y, scale, drawH, padY)}`).join(" ");
   const bb = bboxOf(world);
+  const cx = (bb.minX + bb.maxX) / 2;
+  const cy = (bb.minY + bb.maxY) / 2;
+
+  const W = WALL_THICKNESS;
+  const dTop    = planD - cy;
+  const dBottom = cy;
+  const dLeft   = cx;
+  const dRight  = planW - cx;
+  const minD = Math.min(dTop, dBottom, dLeft, dRight);
+
+  let rx = 0, ry = 0, rw = 0, rh = 0;
+  if (minD === dTop) {
+    // Top wall — white strip across door opening width, 94mm tall on the wall
+    rx = sxT(bb.minX, scale, padX);
+    ry = syT(planD, scale, drawH, padY);
+    rw = bb.w * scale;
+    rh = W * scale;
+  } else if (minD === dBottom) {
+    rx = sxT(bb.minX, scale, padX);
+    ry = syT(W, scale, drawH, padY);
+    rw = bb.w * scale;
+    rh = W * scale;
+  } else if (minD === dLeft) {
+    rx = sxT(0, scale, padX);
+    ry = syT(bb.maxY, scale, drawH, padY);
+    rw = W * scale;
+    rh = bb.h * scale;
+  } else {
+    rx = sxT(planW - W, scale, padX);
+    ry = syT(bb.maxY, scale, drawH, padY);
+    rw = W * scale;
+    rh = bb.h * scale;
+  }
+
   return (
     <g key={key}>
-      <rect
-        x={sxT(bb.minX, scale, padX)} y={syT(bb.maxY, scale, drawH, padY)}
-        width={bb.w * scale} height={bb.h * scale}
-        fill="white" stroke="none"
-      />
+      <rect x={rx} y={ry} width={rw} height={rh} fill="white" stroke="none" />
       {entity.closed
         ? <polygon  points={pts} fill="none" stroke="#003B2B" strokeWidth={1.2} />
         : <polyline points={pts} fill="none" stroke="#003B2B" strokeWidth={1.2} />}
@@ -261,38 +294,30 @@ function renderDoor(
   );
 }
 
-function renderBlockBackground(
+function renderFurnitureBlock(
   entity: BlockEntity,
-  delta: number, scale: number, drawH: number, padX: number, padY: number,
-): React.ReactNode {
-  if (!entity.tl || !entity.tr) return null;
-  const { tl, tr, depthVec, moveX } = entity;
-  const shift = moveX ? delta : 0;
-  const corners = [
-    { x: tl.x + shift,              y: tl.y },
-    { x: tr.x + shift,              y: tr.y },
-    { x: tr.x + depthVec.x + shift, y: tr.y + depthVec.y },
-    { x: tl.x + depthVec.x + shift, y: tl.y + depthVec.y },
-  ];
-  const pts = corners
-    .map((c) => `${sxT(c.x, scale, padX)},${syT(c.y, scale, drawH, padY)}`)
-    .join(" ");
-  return <polygon points={pts} fill="white" stroke="none" />;
-}
-
-function renderFurniture(
-  entity: BlockEntity,
-  delta: number, scale: number, drawH: number, padX: number, padY: number,
+  scale: number, drawH: number, padX: number, padY: number,
   key: string,
 ): React.ReactNode {
   return (
     <g key={key}>
-      {renderBlockBackground(entity, delta, scale, drawH, padX, padY)}
       {entity.geom.map((g, gi) =>
         renderGeom(g, scale, drawH, padX, padY, "#001F17", 0.8, `${key}-${gi}`)
       )}
     </g>
   );
+}
+
+function renderFurniturePolyline(
+  entity: PolylineEntity,
+  delta: number, scale: number, drawH: number, padX: number, padY: number,
+  key: string,
+): React.ReactNode {
+  const world = applyDelta(entity.vertices, delta);
+  const pts = world.map((v) => `${sxT(v.x, scale, padX)},${syT(v.y, scale, drawH, padY)}`).join(" ");
+  return entity.closed
+    ? <polygon  key={key} points={pts} fill="white" stroke="#001F17" strokeWidth={0.8} />
+    : <polyline key={key} points={pts} fill="none"  stroke="#001F17" strokeWidth={0.8} />;
 }
 
 // ── Room labels ───────────────────────────────────────────────────────────────
@@ -369,17 +394,18 @@ function HorizDim({
 }
 
 function VertDim({
-  x, y1, y2, label, tickLen = 6,
-}: { x: number; y1: number; y2: number; label: string; tickLen?: number }) {
+  x, y1, y2, label, tickLen = 6, side = "left",
+}: { x: number; y1: number; y2: number; label: string; tickLen?: number; side?: "left" | "right" }) {
   const my = (y1 + y2) / 2;
+  const tx = side === "left" ? x - 8 : x + 8;
   return (
     <g>
       <line x1={x} y1={y1} x2={x} y2={y2} stroke={DIM_COLOR} strokeWidth={0.7} />
       <line x1={x - tickLen} y1={y1} x2={x + tickLen} y2={y1} stroke={DIM_COLOR} strokeWidth={0.7} />
       <line x1={x - tickLen} y1={y2} x2={x + tickLen} y2={y2} stroke={DIM_COLOR} strokeWidth={0.7} />
-      <text x={x - 8} y={my} textAnchor="middle" fontSize={DIM_FONT}
+      <text x={tx} y={my} textAnchor="middle" fontSize={DIM_FONT}
         fontFamily="sans-serif" fill={DIM_COLOR}
-        transform={`rotate(-90,${x - 8},${my})`}>{label}</text>
+        transform={`rotate(-90,${tx},${my})`}>{label}</text>
     </g>
   );
 }
@@ -508,7 +534,7 @@ function DimensionLines({
     const sy2 = syT(seg.from, scale, drawH, padY);
     innerLines.push(
       <VertDim key={`right-${i}`} x={bRight + innerOff} y1={sy1} y2={sy2}
-        label={len >= 300 ? `${len}` : ""} />
+        label={len >= 300 ? `${len}` : ""} side="right" />
     );
   }
 
@@ -520,6 +546,7 @@ function renderEntity(
   entity: FloorplanEntity,
   layerName: string,
   delta: number, scale: number, drawH: number, padX: number, padY: number,
+  planW: number, planD: number,
   key: string,
 ): React.ReactNode {
   if (layerName.startsWith("Rooms")) {
@@ -536,11 +563,11 @@ function renderEntity(
   }
   if (layerName === "Doors") {
     if (entity.type !== "polyline") return null;
-    return renderDoor(entity, delta, scale, drawH, padX, padY, key);
+    return renderDoor(entity, delta, scale, drawH, padX, padY, planW, planD, key);
   }
   if (layerName === "Furniture") {
-    if (entity.type !== "block") return null;
-    return renderFurniture(entity, delta, scale, drawH, padX, padY, key);
+    if (entity.type === "block")    return renderFurnitureBlock(entity, scale, drawH, padX, padY, key);
+    if (entity.type === "polyline") return renderFurniturePolyline(entity, delta, scale, drawH, padX, padY, key);
   }
   return null;
 }
@@ -566,7 +593,8 @@ export default function FloorplanSVG({ plan, delta, width = 800, height = 700 }:
 
       {plan.layers.map((layer) =>
         layer.entities.map((entity, idx) =>
-          renderEntity(entity, layer.name, delta, scale, drawH, padX, padY, `${layer.name}-${idx}`)
+          renderEntity(entity, layer.name, delta, scale, drawH, padX, padY,
+            totalWidth, plan.baseDepth, `${layer.name}-${idx}`)
         )
       )}
 
