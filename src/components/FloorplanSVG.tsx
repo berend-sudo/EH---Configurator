@@ -294,15 +294,37 @@ function renderDoor(
   );
 }
 
+function renderBlockBackground(
+  entity: BlockEntity,
+  delta: number, scale: number, drawH: number, padX: number, padY: number,
+): React.ReactNode {
+  if (!entity.tl || !entity.tr) return null;
+  const { tl, tr, depthVec, moveX } = entity;
+  const shift = moveX ? delta : 0;
+  const corners = [
+    { x: tl.x + shift,              y: tl.y },
+    { x: tr.x + shift,              y: tr.y },
+    { x: tr.x + depthVec.x + shift, y: tr.y + depthVec.y },
+    { x: tl.x + depthVec.x + shift, y: tl.y + depthVec.y },
+  ];
+  const pts = corners
+    .map((c) => `${sxT(c.x, scale, padX)},${syT(c.y, scale, drawH, padY)}`)
+    .join(" ");
+  return <polygon points={pts} fill="white" stroke="none" />;
+}
+
 function renderFurnitureBlock(
   entity: BlockEntity,
-  scale: number, drawH: number, padX: number, padY: number,
+  delta: number, scale: number, drawH: number, padX: number, padY: number,
   key: string,
 ): React.ReactNode {
+  // Block geom is in world coords without delta. Shift padX to apply moveX at render time.
+  const sPadX = entity.moveX ? padX + delta * scale : padX;
   return (
     <g key={key}>
+      {renderBlockBackground(entity, delta, scale, drawH, padX, padY)}
       {entity.geom.map((g, gi) =>
-        renderGeom(g, scale, drawH, padX, padY, "#001F17", 0.8, `${key}-${gi}`)
+        renderGeom(g, scale, drawH, sPadX, padY, "#001F17", 0.8, `${key}-${gi}`)
       )}
     </g>
   );
@@ -566,7 +588,7 @@ function renderEntity(
     return renderDoor(entity, delta, scale, drawH, padX, padY, planW, planD, key);
   }
   if (layerName === "Furniture") {
-    if (entity.type === "block")    return renderFurnitureBlock(entity, scale, drawH, padX, padY, key);
+    if (entity.type === "block")    return renderFurnitureBlock(entity, delta, scale, drawH, padX, padY, key);
     if (entity.type === "polyline") return renderFurniturePolyline(entity, delta, scale, drawH, padX, padY, key);
   }
   return null;
@@ -584,10 +606,8 @@ export default function FloorplanSVG({ plan, delta, width = 800, height = 700 }:
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
-      width={width}
-      height={height}
       className="border border-stone-200 rounded-lg bg-white w-full"
-      style={{ maxWidth: width }}
+      style={{ maxWidth: width, display: "block" }}
     >
       <RoomPatterns scale={scale} drawH={drawH} padY={padY} />
 
