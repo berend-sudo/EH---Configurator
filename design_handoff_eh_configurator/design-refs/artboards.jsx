@@ -1,7 +1,7 @@
 // artboards-landing.jsx — 3 landing-screen variations for the EH Configurator
 
 // Shared brand chrome (top nav)
-const EHNavBar = ({ onDark = false, step = "Start", style }) => (
+const EHNavBar = ({ onDark = false, step = 1, totalSteps = 3, style }) => (
   <div style={{
     display:"flex", alignItems:"center", justifyContent:"space-between",
     padding: "20px 48px",
@@ -15,21 +15,58 @@ const EHNavBar = ({ onDark = false, step = "Start", style }) => (
       <span style={{ width:1, height:18, background: onDark ? "rgba(255,255,255,.2)" : "var(--eh-stroke-strong)" }} />
       <span style={{ fontSize:14, fontWeight:500, opacity:.85 }}>Configurator</span>
     </div>
-    <div style={{ display:"flex", alignItems:"center", gap:18, fontSize:13 }}>
-      <span style={{ opacity:.6 }}>Step</span>
-      <span style={{ fontWeight:600 }}>{step}</span>
-      <span style={{ opacity:.4 }}>·</span>
-      <span style={{ opacity:.6 }}>Save & exit</span>
+    {/* Right side: step progress — 3 bars + label */}
+    <div style={{ display:"flex", alignItems:"center", gap:14, fontSize:13 }}>
+      <div style={{ display:"flex", gap:6 }}>
+        {Array.from({ length: totalSteps }, (_, i) => i + 1).map(i => (
+          <div key={i} style={{
+            width:28, height:4, borderRadius:2,
+            background: i <= step
+              ? (onDark ? "var(--eh-green)" : "var(--eh-green-900)")
+              : (onDark ? "rgba(255,255,255,.25)" : "var(--eh-stroke)"),
+            transition: "background .22s var(--eh-ease)",
+          }} />
+        ))}
+      </div>
+      <span style={{ opacity: onDark ? .85 : 1 }}>
+        <span style={{ opacity:.6 }}>Step</span>{" "}
+        <strong style={{ fontWeight:600 }}>{step}</strong>
+        <span style={{ opacity:.55 }}> of {totalSteps}</span>
+      </span>
     </div>
   </div>
 );
 
 // UGX currency formatter — used everywhere a price appears.
-const fmtUGX = (n) => 'UGX ' + n.toLocaleString('en-UG');
+const fmtUGX = (n) => 'UGX ' + n.toLocaleString('en-US');
 
-// Tiny budget tick scale (for the slider mock)
-const BudgetSlider = ({ value = 32500000, min = 18000000, max = 75000000 }) => {
-  const pct = (value - min) / (max - min);
+// ── Cost model ────────────────────────────────────────────────────────────
+// Each roof type carries a different base cost (more glass / structure).
+// Each bedroom adds a fixed premium. Used by LandingB to clamp the
+// bedrooms counter to whatever the current budget can afford.
+// Monopitch is the only model that supports a 0-bedroom studio layout;
+// gable and clerestory require at least one walled bedroom.
+const ROOF_BASE = {
+  monopitch:  22000000,
+  gable:      25000000,
+  clerestory: 27000000,
+};
+const BEDROOM_COST = 5000000;
+const minBedroomsFor = (roof) => (roof === "monopitch" ? 0 : 1);
+const maxBedroomsFor = (budget, roof) => {
+  const base = ROOF_BASE[roof] ?? ROOF_BASE.monopitch;
+  const floorMin = minBedroomsFor(roof);
+  const fits = Math.floor((budget - base) / BEDROOM_COST);
+  return Math.max(floorMin, Math.min(4, fits));
+};
+
+// Controlled budget slider — falls back to internal state for the
+// uncontrolled artboards (LandingA, LandingC) that don't pass a value.
+const BudgetSlider = ({ value, onChange, min = 18000000, max = 75000000, step = 500000 }) => {
+  const [internal, setInternal] = React.useState(32500000);
+  const v = value ?? internal;
+  const set = onChange ?? setInternal;
+  const pct = (v - min) / (max - min);
   return (
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:14 }}>
@@ -37,12 +74,24 @@ const BudgetSlider = ({ value = 32500000, min = 18000000, max = 75000000 }) => {
           Budget
         </span>
         <span style={{ fontSize:20, fontWeight:600, color:"var(--eh-text)", fontVariantNumeric:"tabular-nums" }}>
-          {fmtUGX(value)}
+          {fmtUGX(v)}
         </span>
       </div>
-      <div className="rail">
+      <div className="rail" style={{ position:"relative" }}>
         <div className="rail__fill" style={{ width: `${pct * 100}%` }} />
         <div className="rail__knob" style={{ left: `${pct * 100}%` }} />
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={v}
+          onChange={e => set(Number(e.target.value))}
+          style={{
+            position:"absolute", left:-10, right:-10, top:-10, height:26,
+            width:"calc(100% + 20px)", margin:0, opacity:0, cursor:"pointer",
+          }}
+        />
       </div>
       <div style={{ display:"flex", justifyContent:"space-between", marginTop:8, fontSize:12, color:"var(--eh-text-soft)", fontVariantNumeric:"tabular-nums" }}>
         <span>{fmtUGX(min)}</span>
@@ -52,26 +101,71 @@ const BudgetSlider = ({ value = 32500000, min = 18000000, max = 75000000 }) => {
   );
 };
 
-const RoomsCounter = ({ value = 2 }) => (
-  <div>
-    <div style={{ fontSize:11, fontWeight:600, letterSpacing:".08em", textTransform:"uppercase", color:"var(--eh-text-muted)", marginBottom:14 }}>
-      Bedrooms
+const RoomsCounter = ({ value, onChange, min = 0, max = 4 }) => {
+  const [internal, setInternal] = React.useState(2);
+  const v = value ?? internal;
+  const set = onChange ?? setInternal;
+  const atMin = v <= min;
+  const atMax = v >= max;
+  return (
+    <div>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:14 }}>
+        <span style={{ fontSize:11, fontWeight:600, letterSpacing:".08em", textTransform:"uppercase", color:"var(--eh-text-muted)" }}>
+          Bedrooms
+        </span>
+        {max < 4 && (
+          <span style={{ fontSize:11, color:"var(--eh-text-soft)", fontWeight:500 }}>
+            max {max} for this budget
+          </span>
+        )}
+      </div>
+      <div style={{ display:"flex", alignItems:"center", gap:14 }}>
+        <button
+          disabled={atMin}
+          onClick={() => set(Math.max(min, v - 1))}
+          style={{
+            width:42, height:42, borderRadius:"50%",
+            border:"1.5px solid var(--eh-stroke-strong)", background:"#fff",
+            fontSize:20, color:"var(--eh-text)", cursor: atMin ? "not-allowed" : "pointer",
+            opacity: atMin ? .4 : 1,
+          }}>–</button>
+        <div style={{ minWidth:90, textAlign:"center", color:"var(--eh-text)", display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
+          {v === 0 ? (
+            <span style={{ fontSize:26, fontWeight:600, letterSpacing:"-0.02em" }}>Studio</span>
+          ) : (
+            <span style={{ fontSize:34, fontWeight:600, fontVariantNumeric:"tabular-nums", lineHeight:1 }}>{v}</span>
+          )}
+          <span style={{ fontSize:10, color:"var(--eh-text-soft)", letterSpacing:".06em", textTransform:"uppercase", fontWeight:500 }}>
+            {v === 0 ? "no separate bedroom" : v === 1 ? "bedroom" : "bedrooms"}
+          </span>
+        </div>
+        <button
+          disabled={atMax}
+          onClick={() => set(Math.min(max, v + 1))}
+          style={{
+            width:42, height:42, borderRadius:"50%", border:0,
+            background: atMax ? "var(--eh-stroke)" : "var(--eh-green)",
+            color: atMax ? "var(--eh-text-soft)" : "var(--eh-green-900)",
+            fontSize:20, cursor: atMax ? "not-allowed" : "pointer", fontWeight:600,
+          }}>+</button>
+      </div>
     </div>
-    <div style={{ display:"flex", alignItems:"center", gap:14 }}>
-      <button style={{ width:42, height:42, border:"1.5px solid var(--eh-stroke-strong)", borderRadius:"50%",
-                       background:"#fff", fontSize:20, color:"var(--eh-text)", cursor:"pointer" }}>–</button>
-      <div style={{ minWidth:60, textAlign:"center", fontSize:34, fontWeight:600, color:"var(--eh-text)" }}>{value}</div>
-      <button style={{ width:42, height:42, border:0, borderRadius:"50%",
-                       background:"var(--eh-green)", color:"var(--eh-green-900)", fontSize:20, cursor:"pointer", fontWeight:600 }}>+</button>
-    </div>
-  </div>
-);
+  );
+};
 
-const RoofPicker = ({ active = "monopitch" }) => {
+const RoofPicker = ({ value, onChange, active }) => {
+  // `active` kept as a legacy prop for uncontrolled artboards.
+  const [internal, setInternal] = React.useState(active ?? "monopitch");
+  const v = value ?? internal;
+  const set = onChange ?? setInternal;
   const types = [
-    { id: "monopitch", label: "Monopitch", path: "M 6 28 L 6 14 L 50 6 L 50 28 Z" },
-    { id: "gable",     label: "Gable",     path: "M 6 28 L 6 16 L 28 6 L 50 16 L 50 28 Z" },
-    { id: "flat",      label: "Flat",      path: "M 6 28 L 6 12 L 50 12 L 50 28 Z" },
+    { id: "monopitch",  label: "Monopitch",  path: "M 6 28 L 6 14 L 50 6 L 50 28 Z" },
+    { id: "gable",      label: "Gable",      path: "M 6 28 L 6 16 L 28 6 L 50 16 L 50 28 Z" },
+    // Clerestory: two roof planes both at ~10° to horizontal, sloping in
+    // opposite directions. The upper roof rises from the left wall to the
+    // top of the clerestory; a vertical window-strip drops to the main
+    // roof, which falls to the right at the same angle.
+    { id: "clerestory", label: "Clerestory", path: "M 6 28 L 6 9 L 24 6 L 24 14 L 50 19 L 50 28 Z" },
   ];
   return (
     <div>
@@ -79,20 +173,27 @@ const RoofPicker = ({ active = "monopitch" }) => {
         Roof type
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:10 }}>
-        {types.map(t => (
-          <div key={t.id} style={{
-            padding:"14px 10px", borderRadius:14, textAlign:"center", cursor:"pointer",
-            background: t.id === active ? "var(--eh-green-900)" : "#fff",
-            color: t.id === active ? "#fff" : "var(--eh-text)",
-            border: t.id === active ? "1.5px solid var(--eh-green-900)" : "1.5px solid var(--eh-stroke)",
-            transition:"all .15s var(--eh-ease)",
-          }}>
-            <svg viewBox="0 0 56 32" width="56" height="32" style={{ display:"block", margin:"0 auto 6px" }}>
-              <path d={t.path} fill="none" stroke={t.id === active ? "var(--eh-green)" : "var(--eh-green-900)"} strokeWidth="2" strokeLinejoin="round" />
-            </svg>
-            <div style={{ fontSize:12, fontWeight:500 }}>{t.label}</div>
-          </div>
-        ))}
+        {types.map(t => {
+          const isActive = t.id === v;
+          return (
+            <button key={t.id}
+              type="button"
+              onClick={() => set(t.id)}
+              style={{
+                padding:"14px 10px", borderRadius:14, textAlign:"center", cursor:"pointer",
+                background: isActive ? "var(--eh-green-900)" : "#fff",
+                color: isActive ? "#fff" : "var(--eh-text)",
+                border: isActive ? "1.5px solid var(--eh-green-900)" : "1.5px solid var(--eh-stroke)",
+                transition:"all .15s var(--eh-ease)",
+                font:"inherit",
+              }}>
+              <svg viewBox="0 0 56 32" width="56" height="32" style={{ display:"block", margin:"0 auto 6px" }}>
+                <path d={t.path} fill="none" stroke={isActive ? "var(--eh-green)" : "var(--eh-green-900)"} strokeWidth="2" strokeLinejoin="round" />
+              </svg>
+              <div style={{ fontSize:12, fontWeight:500 }}>{t.label}</div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -164,54 +265,69 @@ const LandingA = () => (
 );
 
 // ── L2 — Centered card-on-photo (simple, one-pane invitation) ──────────────
-const LandingB = () => (
-  <div style={{ position:"relative", width:"100%", height:"100%", overflow:"hidden", fontFamily:"var(--eh-font-sans)" }}>
-    {/* Big photo backdrop */}
-    <div className="photo" style={{ position:"absolute", inset:0, background:"linear-gradient(180deg, #6a8466, #2a4d3a)" }} />
-    <div style={{ position:"absolute", inset:0, background:"linear-gradient(135deg, rgba(0,59,43,0.6) 0%, rgba(0,59,43,0.25) 60%, rgba(0,59,43,0.5) 100%)" }} />
-    {/* Nav over photo */}
-    <div style={{ position:"relative", zIndex:2 }}>
-      <EHNavBar onDark />
-    </div>
+const LandingB = () => {
+  const [budget, setBudget] = React.useState(32500000);
+  const [roof, setRoof] = React.useState("monopitch");
+  const [bedrooms, setBedrooms] = React.useState(2);
+  const minBed = minBedroomsFor(roof);
+  const maxBed = maxBedroomsFor(budget, roof);
+  // Clamp bedrooms to the allowed range whenever min or max shifts —
+  // e.g. lowering budget reduces max, switching to gable/clerestory
+  // raises min from 0 to 1.
+  React.useEffect(() => {
+    if (bedrooms > maxBed) setBedrooms(maxBed);
+    else if (bedrooms < minBed) setBedrooms(minBed);
+  }, [minBed, maxBed, bedrooms]);
 
-    {/* Centered card */}
-    <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", zIndex:2, paddingTop:60 }}>
-      <div style={{ background:"#fff", borderRadius:32, padding:"48px 56px", width:760, boxShadow:"0 32px 80px rgba(0,59,43,0.35)" }}>
-        <div style={{ textAlign:"center", marginBottom:36 }}>
-          <span className="ab-pill ab-pill-soft">Quick configurator</span>
-          <h1 style={{ fontSize:44, lineHeight:1.08, fontWeight:600, letterSpacing:"-0.025em", margin:"18px 0 10px", color:"var(--eh-text)" }}>
-            Let's design your home.
-          </h1>
-          <p style={{ fontSize:16, lineHeight:1.55, fontWeight:300, color:"var(--eh-text-muted)", margin:0, maxWidth:520, marginInline:"auto" }}>
-            Three quick choices — we'll generate a floor plan and a transparent
-            budget you can share with our architects.
-          </p>
-        </div>
+  return (
+    <div style={{ position:"relative", width:"100%", height:"100%", overflow:"hidden", fontFamily:"var(--eh-font-sans)" }}>
+      {/* Big photo backdrop */}
+      <div className="photo" style={{ position:"absolute", inset:0, background:"linear-gradient(180deg, #6a8466, #2a4d3a)" }} />
+      <div style={{ position:"absolute", inset:0, background:"linear-gradient(135deg, rgba(0,59,43,0.6) 0%, rgba(0,59,43,0.25) 60%, rgba(0,59,43,0.5) 100%)" }} />
+      {/* Nav over photo */}
+      <div style={{ position:"relative", zIndex:2 }}>
+        <EHNavBar onDark step={1} totalSteps={3} />
+      </div>
 
-        <div style={{ display:"grid", gridTemplateColumns:"1.2fr 1fr", gap:36, marginBottom:32 }}>
-          <BudgetSlider />
-          <RoomsCounter />
-        </div>
-        <RoofPicker />
+      {/* Centered card */}
+      <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", zIndex:2, paddingTop:60 }}>
+        <div style={{ background:"#fff", borderRadius:32, padding:"48px 56px", width:760, boxShadow:"0 32px 80px rgba(0,59,43,0.35)" }}>
+          <div style={{ textAlign:"center", marginBottom:36 }}>
+            <span className="ab-pill ab-pill-soft">Quick configurator</span>
+            <h1 style={{ fontSize:44, lineHeight:1.08, fontWeight:600, letterSpacing:"-0.025em", margin:"18px 0 10px", color:"var(--eh-text)" }}>
+              Let's design your home.
+            </h1>
+            <p style={{ fontSize:16, lineHeight:1.55, fontWeight:300, color:"var(--eh-text-muted)", margin:0, maxWidth:520, marginInline:"auto" }}>
+              Three quick choices — we'll generate a floor plan and a transparent
+              budget you can share with our architects.
+            </p>
+          </div>
 
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"center", marginTop:36 }}>
-          <button className="ab-cta" style={{ padding:"16px 36px", fontSize:16 }}>
-            Open the configurator
-            <span style={{ fontSize:18, lineHeight:1 }}>→</span>
-          </button>
-        </div>
-        <div style={{ textAlign:"center", marginTop:18, fontSize:12, color:"var(--eh-text-soft)" }}>
-          You can change anything in the next step.
+          <div style={{ display:"grid", gridTemplateColumns:"1.2fr 1fr", gap:36, marginBottom:32 }}>
+            <BudgetSlider value={budget} onChange={setBudget} />
+            <RoomsCounter value={bedrooms} onChange={setBedrooms} min={minBed} max={maxBed} />
+          </div>
+          <RoofPicker value={roof} onChange={setRoof} />
+
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"center", marginTop:36 }}>
+            <button className="ab-cta" style={{ padding:"16px 36px", fontSize:16 }}>
+              Open the configurator
+              <span style={{ fontSize:18, lineHeight:1 }}>→</span>
+            </button>
+          </div>
+          <div style={{ textAlign:"center", marginTop:18, fontSize:12, color:"var(--eh-text-soft)" }}>
+            You can change anything in the next step.
+          </div>
         </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 // ── L3 — Multi-step wizard (showing step 2 of 3) ───────────────────────────
 const LandingC = () => (
   <div style={{ width:"100%", height:"100%", background:"var(--eh-bg-alt)", fontFamily:"var(--eh-font-sans)", color:"var(--eh-text)", display:"flex", flexDirection:"column" }}>
-    <EHNavBar step="2 of 3 · Bedrooms" />
+    <EHNavBar step={2} totalSteps={3} />
 
     <div style={{ flex:1, display:"grid", gridTemplateColumns:"1fr 1fr", gap:0 }}>
       {/* LEFT — the active question */}
@@ -361,7 +477,7 @@ const ConfiguratorA = () => {
   const [view, setView] = React.useState("plan");
   return (
     <div style={{ width:"100%", height:"100%", background:"var(--eh-bg-alt)", fontFamily:"var(--eh-font-sans)", color:"var(--eh-text)", display:"flex", flexDirection:"column" }}>
-      <EHNavBar step="Configure · Monopitch Studio" />
+      <EHNavBar step={2} totalSteps={3} />
 
       <div style={{ flex:1, display:"grid", gridTemplateColumns:"380px 1fr", gap:0, minHeight:0 }}>
         {/* LEFT — controls rail */}
@@ -445,7 +561,7 @@ const ConfiguratorB = () => {
   const [view, setView] = React.useState("plan");
   return (
     <div style={{ width:"100%", height:"100%", background:"var(--eh-bg-alt)", fontFamily:"var(--eh-font-sans)", color:"var(--eh-text)", display:"flex", flexDirection:"column" }}>
-      <EHNavBar step="Configure · Monopitch Studio" />
+      <EHNavBar step={2} totalSteps={3} />
 
       {/* Top toolbar — single width slider + actions */}
       <div style={{ background:"#fff", borderBottom:"1px solid var(--eh-stroke)", padding:"22px 48px",
@@ -537,7 +653,7 @@ Object.assign(window, { ConfiguratorA, ConfiguratorB, SliderRow, BudgetChip });
 // ── Final client-info & "Generate PDF" screen ──────────────────────────────
 const FinalScreen = () => (
   <div style={{ width:"100%", height:"100%", background:"var(--eh-bg-alt)", fontFamily:"var(--eh-font-sans)", color:"var(--eh-text)", display:"flex", flexDirection:"column" }}>
-    <EHNavBar step="3 of 3 · Your details" />
+    <EHNavBar step={3} totalSteps={3} />
 
     <div style={{ flex:1, display:"grid", gridTemplateColumns:"1.05fr 1fr", gap:0, minHeight:0 }}>
       {/* LEFT — design summary */}

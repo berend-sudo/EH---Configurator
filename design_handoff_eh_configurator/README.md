@@ -70,8 +70,14 @@ bedrooms / roof type) and route the user into the configurator.
   diagonal dark overlay `linear-gradient(135deg, rgba(0,59,43,0.6)
   0%, rgba(0,59,43,0.25) 60%, rgba(0,59,43,0.5) 100%)`).
 - Top nav over photo (transparent, white text). Logo (`logo-full-white.png`,
-  height 28 px), `|` divider, "Configurator" label, "Step Start"
-  right-aligned with "Save & exit" stub.
+  height 28 px), `|` divider, "Configurator" label. **Right side**:
+  three 28 × 4 px progress bars (radius 2, gap 6) followed by *"Step
+  **1** of 3"* — the bar count is hard-coded for now (Landing /
+  Configurator / Final = 3 steps). On the landing's dark backdrop,
+  filled bars use `--eh-green`, unfilled use `rgba(255,255,255,.25)`.
+  On light backgrounds (configurator, final), filled bars use
+  `--eh-green-900`, unfilled use `--eh-stroke`. **No "Save & exit"
+  link.**
 - Centered white card: **760 px wide**, padding `48px 56px`, border
   radius `32 px`, shadow `0 32px 80px rgba(0,59,43,0.35)`.
 
@@ -106,20 +112,39 @@ tracking 0.08em, `--eh-text-muted`) left; value *"UGX 32,500,000"*
 min/max as 12 px `--eh-text-soft`.
 
 *Bedrooms counter* — minus button (42 × 42, 1.5 px stroke
-`--eh-stroke-strong`, white bg, `–` glyph 20 px). Number (34 px
-SemiBold, min-width 60, centered). Plus button (42 × 42, no
-border, `--eh-green` bg, `--eh-green-900` `+` glyph 20 px
-SemiBold). Default value 2. Min 1, max 4.
+`--eh-stroke-strong`, white bg, `–` glyph 20 px). Centred display
+block with a big number/word (34 px SemiBold, tabular-nums, min-width
+90) plus a small caption underneath (10 px SemiBold uppercase, 0.06em
+tracking, `--eh-text-soft`). Plus button (42 × 42, no border,
+`--eh-green` bg, `--eh-green-900` `+` glyph 20 px SemiBold).
+
+When the value is **0**, the big slot shows the word **"Studio"**
+(26 px SemiBold, -0.02em) instead of "0", and the caption reads
+*"NO SEPARATE BEDROOM"*. Otherwise: caption is *"BEDROOM"* (when
+value = 1) or *"BEDROOMS"* (when value > 1).
+
+Valid range depends on the **roof type currently selected** — see
+*Interactions & behaviour* below. **Monopitch** allows 0–4 (the
+studio layout is monopitch-only). **Gable** and **Clerestory**
+require at least 1 bedroom, so the range is 1–4. The `+` / `–`
+buttons disable at their respective bounds (greyed bg, `not-allowed`
+cursor). If the current budget caps the maximum below 4, show a
+small caption right of the BEDROOMS eyebrow: *"max N for this
+budget"* (11 px Medium, `--eh-text-soft`). Hide this caption when
+max === 4.
 
 *Roof type picker* — 3-column grid, gap 10 px. Each option is a
 rounded card (radius 14, padding `14px 10px`, 1.5 px stroke
 `--eh-stroke`, centered SVG glyph + label). Active option flips
 to `--eh-green-900` bg, white text, glyph stroke `--eh-green`.
-Glyphs (24 × 24 SVG):
-- **Monopitch** — `M 6 28 L 6 14 L 50 6 L 50 28 Z` (sloped roof)
-- **Gable** — `M 6 28 L 6 16 L 28 6 L 50 16 L 50 28 Z`
-- **Flat** — `M 6 28 L 6 12 L 50 12 L 50 28 Z`
-Default selection: monopitch.
+Glyphs (56 × 32 viewBox, 2 px stroke, `strokeLinejoin: round`):
+- **Monopitch** — `M 6 28 L 6 14 L 50 6 L 50 28 Z` (one sloped roof)
+- **Gable** — `M 6 28 L 6 16 L 28 6 L 50 16 L 50 28 Z` (peaked roof)
+- **Clerestory** — `M 6 28 L 6 9 L 24 6 L 24 14 L 50 19 L 50 28 Z`
+  (two roof planes at ~10° sloping in opposite directions, with a
+  vertical clerestory window strip dropping between them)
+
+Default selection: **monopitch**.
 
 ---
 
@@ -323,6 +348,64 @@ A4 portrait, 595 × 842 px at 72 dpi.
   - Terrace value (`terraceW × 1.45` m).
   - Indicative budget (UGX). Use existing pricing logic on the
     backend; the layout only displays.
+- **Budget / bedrooms / roof on landing** — the three inputs are
+  **coupled**: changing the budget or roof type changes the maximum
+  number of bedrooms the user can pick, and the bedroom counter must
+  auto-clamp.
+
+  **Pricing already exists on the backend.** Before implementing,
+  locate the existing pricing function in this repo (search for
+  pricing / cost / budget utilities — common names: `calculatePrice`,
+  `estimateCost`, `getQuote`, `lib/pricing.ts`, `utils/pricing.ts`).
+  Build the Landing's `minBedroomsFor` / `maxBedroomsFor` helpers
+  on top of that — **do not hard-code a cost model in the UI**.
+
+  Expected helper shape:
+
+  ```ts
+  // Wraps the existing backend pricing function.
+  // Do NOT inline literal costs here.
+  import { priceFor } from "@/lib/pricing"; // wherever it actually lives
+
+  export const minBedroomsFor = (roof: RoofType) =>
+    roof === "monopitch" ? 0 : 1;
+
+  export const maxBedroomsFor = (budget: number, roof: RoofType) => {
+    // Walk bedrooms 4 → min and return the highest count whose price
+    // still fits under `budget`.
+    for (let b = 4; b >= minBedroomsFor(roof); b--) {
+      if (priceFor({ roof, bedrooms: b }) <= budget) return b;
+    }
+    return minBedroomsFor(roof);
+  };
+  ```
+
+  If the backend pricing function isn't trivially callable client-
+  side, expose a lightweight `/api/pricing` route (or equivalent)
+  and call it on slider/roof change with a 150 ms debounce. Cache
+  results per `(roof, bedrooms)` tuple so dragging the slider doesn't
+  hammer the endpoint.
+
+  The Landing's local state must auto-clamp the bedroom count when
+  `min` or `max` changes:
+
+  ```tsx
+  useEffect(() => {
+    if (bedrooms > maxBed) setBedrooms(maxBed);
+    else if (bedrooms < minBed) setBedrooms(minBed);
+  }, [minBed, maxBed]);
+  ```
+
+  Pulling the budget slider down past a threshold reduces `max`;
+  switching from Monopitch to Gable while at 0 bedrooms raises `min`
+  from 0 to 1 and the counter auto-bumps. The *"max N for this
+  budget"* hint label only appears when `maxBed < 4`.
+
+  **The artboard's placeholder cost model** (in
+  `design-refs/artboards.jsx`, search for `ROOF_BASE`) is purely
+  illustrative — same `min`/`max` shape, hard-coded numbers, so the
+  prototype demos the interaction. Ignore those numbers; use the
+  real backend pricing.
 - **Roof type / bedrooms / budget** on landing — chip-style
   selection. Active state flips color (see specs). No
   modal/confirm — just inline state.
@@ -342,9 +425,10 @@ Minimal — most of the state already lives in your existing
 working configurator. New state surfaces:
 
 - `view: "plan" | "images"` — local to the configurator screen.
-- `roofType: "monopitch" | "gable" | "flat"` — landing only,
+- `roofType: "monopitch" | "gable" | "clerestory"` — landing only,
   pass to the configurator route.
-- `bedrooms: 1 | 2 | 3 | 4` — landing only.
+- `bedrooms: 0 | 1 | 2 | 3 | 4` — landing only (0 only valid when
+  `roofType === "monopitch"`).
 - `clientInfo: { name, email, phone, timeline, consent }` —
   final screen only, posted to PDF endpoint.
 

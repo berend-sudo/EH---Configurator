@@ -53,6 +53,12 @@ codebase (Claude Code → GitHub → Vercel pipeline).
 - The price lives in **one place per screen**. On the configurator
   it's the "Indicative budget" row in the left summary card —
   do *not* float a budget chip over the plan.
+- **Pricing is backend-owned.** Do not hard-code costs in the UI.
+  Find the existing pricing function in this repo and wire the
+  Landing's bedroom-cap logic through it. The cost model in
+  `design-refs/artboards.jsx` (search `ROOF_BASE`) is a prototype
+  placeholder only — it demos the *shape* of the interaction, not
+  the actual numbers.
 - The width slider on the configurator is **the only slider**.
   Length is fixed per model (Monopitch Studio = 4.97 m). Do not
   add a length slider.
