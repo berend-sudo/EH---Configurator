@@ -112,9 +112,13 @@ function renderEntity(
     const pts = entity.vertices.map((v) =>
       `${sx(v.x, v.moveX, delta, scale, padX)},${sy(v.y, scale, drawH, padY)}`
     ).join(" ");
+    // Closed shapes drawn directly on the Furniture layer (e.g. wardrobes
+    // sketched as a polygon rather than placed as a block) get a white
+    // fill so they read as solid furniture, like block backgrounds do.
+    const fill = entity.closed && layerName === "Furniture" ? "white" : style.fill;
     return entity.closed
-      ? <polygon  key={key} points={pts} fill={style.fill} stroke={style.stroke} strokeWidth={style.strokeWidth} />
-      : <polyline key={key} points={pts} fill="none"       stroke={style.stroke} strokeWidth={style.strokeWidth} />;
+      ? <polygon  key={key} points={pts} fill={fill}  stroke={style.stroke} strokeWidth={style.strokeWidth} />
+      : <polyline key={key} points={pts} fill="none" stroke={style.stroke} strokeWidth={style.strokeWidth} />;
   }
 
   if (entity.type === "block") {

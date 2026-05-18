@@ -412,7 +412,7 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
         const { layer, closed, vertices, end } = readPolyline(pairs, i + 1);
         // Rooms may use sublayers like "Rooms$Living Room" — normalize to "Rooms"
         const normalLayer = layer.startsWith("Rooms") ? "Rooms" : layer;
-        const RENDER = ["Walls", "Rooms", "Doors", "Windows"];
+        const RENDER = ["Walls", "Rooms", "Doors", "Windows", "Furniture"];
         if (RENDER.includes(normalLayer)) {
           polylines.push({ layer: normalLayer, closed, vertices });
         }
