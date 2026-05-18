@@ -27,7 +27,7 @@ export default function BudgetSlider({ value, min = 18_000_000, max = 75_000_000
           type="range"
           min={min}
           max={max}
-          step={100_000}
+          step={500_000}
           value={value}
           onChange={(e) => onChange(Number(e.target.value))}
           aria-label="Budget"

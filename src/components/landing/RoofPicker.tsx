@@ -1,13 +1,19 @@
 "use client";
 
-export type RoofType = "monopitch" | "gable" | "flat";
+import type { RoofType } from "./pricing-helpers";
 
 type Props = { value: RoofType; onChange: (r: RoofType) => void };
 
 const TYPES: { id: RoofType; label: string; path: string }[] = [
   { id: "monopitch", label: "Monopitch", path: "M 6 28 L 6 14 L 50 6 L 50 28 Z" },
   { id: "gable", label: "Gable", path: "M 6 28 L 6 16 L 28 6 L 50 16 L 50 28 Z" },
-  { id: "flat", label: "Flat", path: "M 6 28 L 6 12 L 50 12 L 50 28 Z" },
+  {
+    id: "clerestory",
+    label: "Clerestory",
+    // Two roof planes at ~10° in opposite directions with a vertical
+    // clerestory window strip dropping between them.
+    path: "M 6 28 L 6 9 L 24 6 L 24 14 L 50 19 L 50 28 Z",
+  },
 ];
 
 export default function RoofPicker({ value, onChange }: Props) {

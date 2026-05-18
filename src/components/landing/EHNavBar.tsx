@@ -1,6 +1,6 @@
-type Props = { onDark?: boolean; step?: string };
+type Props = { onDark?: boolean; step?: number; totalSteps?: number };
 
-export default function EHNavBar({ onDark = false, step = "Start" }: Props) {
+export default function EHNavBar({ onDark = false, step = 1, totalSteps = 3 }: Props) {
   return (
     <div
       style={{
@@ -18,11 +18,33 @@ export default function EHNavBar({ onDark = false, step = "Start" }: Props) {
         <span style={{ width: 1, height: 18, background: onDark ? "rgba(255,255,255,.2)" : "var(--eh-stroke-strong)" }} />
         <span style={{ fontSize: 14, fontWeight: 500, opacity: 0.85 }}>Configurator</span>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 18, fontSize: 13 }}>
-        <span style={{ opacity: 0.6 }}>Step</span>
-        <span style={{ fontWeight: 600 }}>{step}</span>
-        <span style={{ opacity: 0.4 }}>·</span>
-        <span style={{ opacity: 0.6 }}>Save &amp; exit</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, fontSize: 13 }}>
+        <div style={{ display: "flex", gap: 6 }}>
+          {Array.from({ length: totalSteps }, (_, i) => i + 1).map((i) => (
+            <div
+              key={i}
+              style={{
+                width: 28,
+                height: 4,
+                borderRadius: 2,
+                background:
+                  i <= step
+                    ? onDark
+                      ? "var(--eh-green)"
+                      : "var(--eh-green-900)"
+                    : onDark
+                    ? "rgba(255,255,255,.25)"
+                    : "var(--eh-stroke)",
+                transition: "background .22s var(--eh-ease)",
+              }}
+            />
+          ))}
+        </div>
+        <span style={{ opacity: onDark ? 0.85 : 1 }}>
+          <span style={{ opacity: 0.6 }}>Step</span>{" "}
+          <strong style={{ fontWeight: 600 }}>{step}</strong>
+          <span style={{ opacity: 0.55 }}> of {totalSteps}</span>
+        </span>
       </div>
     </div>
   );

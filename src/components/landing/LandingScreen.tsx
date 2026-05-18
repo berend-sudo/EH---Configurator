@@ -1,17 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import EHNavBar from "./EHNavBar";
 import BudgetSlider from "./BudgetSlider";
 import BedroomsCounter from "./BedroomsCounter";
-import RoofPicker, { type RoofType } from "./RoofPicker";
+import RoofPicker from "./RoofPicker";
+import { minBedroomsFor, maxBedroomsFor, type RoofType } from "./pricing-helpers";
 
 export default function LandingScreen() {
   const router = useRouter();
   const [budget, setBudget] = useState(32_500_000);
   const [bedrooms, setBedrooms] = useState(2);
   const [roof, setRoof] = useState<RoofType>("monopitch");
+
+  const minBed = minBedroomsFor(roof);
+  const maxBed = maxBedroomsFor(budget, roof);
+  useEffect(() => {
+    if (bedrooms > maxBed) setBedrooms(maxBed);
+    else if (bedrooms < minBed) setBedrooms(minBed);
+  }, [minBed, maxBed, bedrooms]);
 
   return (
     <main style={{ position: "relative", width: "100%", minHeight: "100vh", overflow: "hidden" }}>
@@ -31,7 +39,7 @@ export default function LandingScreen() {
       />
 
       <div style={{ position: "relative", zIndex: 2 }}>
-        <EHNavBar onDark step="Start" />
+        <EHNavBar onDark step={1} totalSteps={3} />
       </div>
 
       <div
@@ -86,7 +94,7 @@ export default function LandingScreen() {
 
           <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 36, marginBottom: 32 }}>
             <BudgetSlider value={budget} onChange={setBudget} />
-            <BedroomsCounter value={bedrooms} onChange={setBedrooms} />
+            <BedroomsCounter value={bedrooms} onChange={setBedrooms} min={minBed} max={maxBed} />
           </div>
           <RoofPicker value={roof} onChange={setRoof} />
 
