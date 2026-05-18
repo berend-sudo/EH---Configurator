@@ -118,7 +118,7 @@ export default function Home() {
                 type="range"
                 min={plan.minDelta}
                 max={plan.maxDelta}
-                step={50}
+                step={610}
                 value={delta}
                 onChange={(e) => setDelta(Number(e.target.value))}
                 className="w-full accent-stone-700"
