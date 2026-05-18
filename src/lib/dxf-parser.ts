@@ -553,7 +553,10 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
   const rawMinDelta = fixedInteriorMaxX > 0 && movingMinX < Infinity
     ? Math.max(0, fixedInteriorMaxX - movingMinX)
     : 0;
-  const minDelta = Math.ceil(rawMinDelta / 50) * 50;
+  const minDelta = Math.ceil(rawMinDelta / 610) * 610;
+
+  const rawMax = Math.round(maxX * 0.5);
+  const maxDelta = minDelta + Math.floor((rawMax - minDelta) / 610) * 610;
 
   const name = filename.replace(/\.dxf$/i, "");
   const id = name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
@@ -564,7 +567,7 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
     baseWidth: Math.round(maxX),
     baseDepth: Math.round(maxY),
     minDelta,
-    maxDelta: Math.round(maxX * 0.5),
+    maxDelta,
     layers: LAYER_ORDER.map((nm) => layerMap.get(nm)!).filter((l) => l.entities.length > 0),
   };
 }
