@@ -689,8 +689,8 @@ export default function FloorplanSVG({ plan, delta, pxPerMm = 0.1 }: Props) {
   return (
     <svg
       viewBox={`0 0 ${svgW} ${svgH}`}
-      className="border border-stone-200 rounded-lg bg-white w-full"
-      style={{ display: "block" }}
+      className="w-full"
+      style={{ display: "block", maxHeight: "100%" }}
       preserveAspectRatio="xMidYMid meet"
     >
       <RoomPatterns scale={scale} drawH={drawH} padY={padY} />

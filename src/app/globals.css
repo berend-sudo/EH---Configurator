@@ -1,3 +1,232 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ============================================================
+   Easy Housing — Design tokens
+   Source: design_handoff_eh_configurator/tokens/colors_and_type.css
+   ============================================================ */
+:root {
+  --eh-green:           #4DCC7A;
+  --eh-green-deep:      #003B2B;
+
+  --eh-green-50:        #ECFAF1;
+  --eh-green-100:       #D2F4DF;
+  --eh-green-200:       #A6E8BE;
+  --eh-green-300:       #79DC9D;
+  --eh-green-400:       #4DCC7A;
+  --eh-green-500:       #34B963;
+  --eh-green-600:       #1F9D4E;
+  --eh-green-700:       #157A3C;
+  --eh-green-800:       #0C5A2D;
+  --eh-green-900:       #003B2B;
+  --eh-green-950:       #00261B;
+
+  --eh-sand:            #F1E9D9;
+  --eh-clay:            #C58A5B;
+  --eh-timber:          #8C5E36;
+  --eh-sky:             #BBD8E2;
+
+  --eh-bg:              #FFFFFF;
+  --eh-bg-alt:          #FAF9F6;
+  --eh-bg-deep:         #003B2B;
+  --eh-stroke:          #E7EAE5;
+  --eh-stroke-strong:   #C8D0C9;
+  --eh-text:            #003B2B;
+  --eh-text-muted:      #4A5C56;
+  --eh-text-soft:       #7A8985;
+
+  --eh-shadow-sm:       0 2px 6px rgba(0, 59, 43, 0.08);
+  --eh-shadow-glow:     0 0 0 6px rgba(77, 204, 122, 0.20);
+
+  --eh-ease:            cubic-bezier(0.2, 0.7, 0.2, 1);
+  --eh-duration-fast:   120ms;
+  --eh-duration-base:   220ms;
+  --eh-duration-slow:   400ms;
+}
+
+html, body {
+  background: var(--eh-bg);
+  color: var(--eh-text);
+}
+
+/* ============================================================
+   Helper classes — lifted from design-refs/EH Configurator Layouts.html
+   ============================================================ */
+
+/* Pill chips (header tags) */
+.ab-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.ab-pill-soft { background: var(--eh-green-100); color: var(--eh-green-800); }
+
+/* CTA buttons (pill) */
+.ab-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 28px;
+  border-radius: 999px;
+  background: var(--eh-green);
+  color: var(--eh-green-900);
+  font-weight: 600;
+  font-size: 15px;
+  border: 0;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background var(--eh-duration-base) var(--eh-ease),
+              transform var(--eh-duration-fast) var(--eh-ease);
+}
+.ab-cta:hover { background: var(--eh-green-500); }
+.ab-cta:active { transform: scale(0.98); }
+.ab-cta--ghost {
+  background: transparent;
+  color: var(--eh-green-900);
+  border: 1.5px solid var(--eh-green-900);
+}
+.ab-cta--ghost:hover { background: transparent; }
+
+/* Segmented control */
+.seg {
+  display: inline-flex;
+  padding: 4px;
+  gap: 4px;
+  border: 1px solid var(--eh-stroke-strong);
+  border-radius: 999px;
+  background: #fff;
+}
+.seg button {
+  border: 0;
+  background: transparent;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--eh-text);
+  cursor: pointer;
+  transition: background var(--eh-duration-base) var(--eh-ease),
+              color var(--eh-duration-base) var(--eh-ease);
+  font-family: inherit;
+}
+.seg button.is-active { background: var(--eh-green-900); color: #fff; }
+
+/* Placeholder photo block (warm gradient) — TODO: replace with real Easy Housing photography */
+.photo {
+  background-color: var(--eh-sand);
+  background-image:
+    linear-gradient(135deg, rgba(0,59,43,.08) 0%, rgba(0,59,43,0) 60%),
+    radial-gradient(circle at 30% 70%, rgba(140,94,54,.22), transparent 55%),
+    radial-gradient(circle at 75% 30%, rgba(77,204,122,.18), transparent 55%);
+  position: relative;
+  overflow: hidden;
+}
+.photo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, transparent 55%, rgba(0,59,43,.18)),
+    repeating-linear-gradient(45deg, rgba(0,59,43,.04) 0 6px, transparent 6px 12px);
+  pointer-events: none;
+}
+.photo__label {
+  position: absolute;
+  left: 12px;
+  bottom: 10px;
+  z-index: 1;
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.85);
+  font-weight: 600;
+}
+
+/* ============================================================
+   SliderRow — real <input type=range> styled to match the prototype
+   ============================================================ */
+.eh-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 22px;
+  background: transparent;
+  cursor: pointer;
+  margin: 0;
+  padding: 0;
+}
+.eh-slider:focus { outline: none; }
+
+/* WebKit track */
+.eh-slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--eh-green-900) 0%,
+    var(--eh-green-900) var(--eh-slider-pct, 0%),
+    var(--eh-stroke) var(--eh-slider-pct, 0%),
+    var(--eh-stroke) 100%
+  );
+}
+.eh-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--eh-green);
+  border: 0;
+  margin-top: -8px;
+  box-shadow:
+    0 0 0 6px rgba(77, 204, 122, 0.20),
+    0 2px 6px rgba(0, 59, 43, 0.18);
+  cursor: pointer;
+  transition: transform var(--eh-duration-fast) var(--eh-ease);
+}
+.eh-slider:active::-webkit-slider-thumb { transform: scale(0.96); }
+
+/* Firefox track */
+.eh-slider::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--eh-stroke);
+}
+.eh-slider::-moz-range-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--eh-green-900);
+}
+.eh-slider::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--eh-green);
+  border: 0;
+  box-shadow:
+    0 0 0 6px rgba(77, 204, 122, 0.20),
+    0 2px 6px rgba(0, 59, 43, 0.18);
+  cursor: pointer;
+}
+
+/* ============================================================
+   View fade transition (Plan ⇄ Example images)
+   ============================================================ */
+.eh-view-fade-enter {
+  opacity: 0;
+  transform: translateY(4px);
+}
+.eh-view-fade-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity var(--eh-duration-base) var(--eh-ease),
+              transform var(--eh-duration-base) var(--eh-ease);
+}
