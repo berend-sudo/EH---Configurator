@@ -1,57 +1,55 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { FloorplanJSON } from "@/types/floorplan";
 import FloorplanSVG from "@/components/FloorplanSVG";
 import BudgetPanel from "@/components/BudgetPanel";
+import { FLOOR_PLANS, type FloorPlanEntry } from "@/lib/floor-plans";
 
 export default function Home() {
   const [plan, setPlan] = useState<FloorplanJSON | null>(null);
   const [delta, setDelta] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [dragging, setDragging] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [currentEntry, setCurrentEntry] = useState<FloorPlanEntry>(FLOOR_PLANS[0]);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  const processFile = useCallback(async (file: File) => {
-    if (!file.name.toLowerCase().endsWith(".dxf")) {
-      setError("Please upload a .dxf file");
-      return;
-    }
+  const loadFloorPlan = async (entry: FloorPlanEntry) => {
     setLoading(true);
     setError(null);
+    setMenuOpen(false);
     try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch("/api/parse-dxf", { method: "POST", body: form });
+      const res = await fetch(`/api/parse-dxf?file=${encodeURIComponent(entry.file)}`);
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error ?? "Parse failed");
+        throw new Error(err.error ?? "Load failed");
       }
       const json: FloorplanJSON = await res.json();
       setPlan(json);
       setDelta(json.minDelta);
+      setCurrentEntry(entry);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
       setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    loadFloorPlan(FLOOR_PLANS[0]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const onDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      setDragging(false);
-      const file = e.dataTransfer.files[0];
-      if (file) processFile(file);
-    },
-    [processFile]
-  );
-
-  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) processFile(file);
-  };
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const widthMm = plan ? plan.baseWidth + delta : 0;
   const widthM = (widthMm / 1000).toFixed(2);
@@ -60,42 +58,48 @@ export default function Home() {
     <main className="min-h-screen bg-stone-50 font-sans">
       <header className="border-b border-stone-200 bg-white px-8 py-4 flex items-center gap-4">
         <h1 className="text-lg font-semibold tracking-tight text-stone-800">EH Configurator</h1>
-        {plan && (
-          <span className="text-sm text-stone-500">{plan.name}</span>
-        )}
+
+        {/* Floor plan selector */}
+        <div className="relative" ref={menuRef}>
+          <button
+            onClick={() => setMenuOpen((o) => !o)}
+            className="flex items-center gap-1.5 text-sm text-stone-600 hover:text-stone-900 border border-stone-200 hover:border-stone-300 rounded-lg px-3 py-1.5 bg-white transition-colors"
+          >
+            {currentEntry.name}
+            <svg
+              className={`w-3.5 h-3.5 transition-transform ${menuOpen ? "rotate-180" : ""}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          {menuOpen && (
+            <div className="absolute left-0 top-full mt-1 z-10 bg-white border border-stone-200 rounded-lg shadow-md min-w-[200px] py-1">
+              {FLOOR_PLANS.map((entry) => (
+                <button
+                  key={entry.id}
+                  onClick={() => loadFloorPlan(entry)}
+                  className={`w-full text-left px-4 py-2 text-sm transition-colors ${
+                    entry.id === currentEntry.id
+                      ? "text-stone-900 bg-stone-100 font-medium"
+                      : "text-stone-600 hover:bg-stone-50 hover:text-stone-900"
+                  }`}
+                >
+                  {entry.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </header>
 
       <div className="flex flex-col items-center gap-6 p-8">
-        {/* Upload zone */}
-        {!plan && (
-          <div
-            className={`w-full max-w-xl border-2 border-dashed rounded-xl p-12 text-center transition-colors cursor-pointer ${
-              dragging ? "border-stone-500 bg-stone-100" : "border-stone-300 hover:border-stone-400"
-            }`}
-            onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-            onDragLeave={() => setDragging(false)}
-            onDrop={onDrop}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".dxf"
-              className="hidden"
-              onChange={onFileChange}
-            />
-            <div className="text-4xl mb-3 text-stone-300">⬆</div>
-            <p className="text-stone-600 font-medium">Drop a DXF file here</p>
-            <p className="text-stone-400 text-sm mt-1">or click to browse</p>
-            <p className="text-stone-400 text-xs mt-3">
-              Expects layers: Walls, Rooms, Doors, Windows, Furniture,<br />
-              PT Rechtsboven, PT Linksboven
-            </p>
-          </div>
-        )}
-
         {loading && (
-          <div className="text-stone-500 text-sm">Parsing DXF…</div>
+          <div className="text-stone-500 text-sm">Loading floor plan…</div>
         )}
 
         {error && (
@@ -104,7 +108,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* Configurator */}
         {plan && (
           <div className="w-full max-w-5xl flex flex-col gap-6">
             {/* Controls */}
@@ -135,23 +138,6 @@ export default function Home() {
 
             {/* Floor plan */}
             <FloorplanSVG plan={plan} delta={delta} />
-
-            {/* Upload another */}
-            <div className="flex gap-3">
-              <button
-                onClick={() => { setPlan(null); setDelta(0); }}
-                className="text-sm text-stone-500 hover:text-stone-700 underline underline-offset-2"
-              >
-                Upload another DXF
-              </button>
-              <a
-                href={`data:application/json,${encodeURIComponent(JSON.stringify(plan, null, 2))}`}
-                download={`${plan.id}.json`}
-                className="text-sm text-stone-500 hover:text-stone-700 underline underline-offset-2"
-              >
-                Download JSON
-              </a>
-            </div>
           </div>
         )}
       </div>
