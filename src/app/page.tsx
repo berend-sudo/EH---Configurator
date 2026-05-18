@@ -1,161 +1,156 @@
 "use client";
 
-import Link from "next/link";
-import { useMemo, useState } from "react";
-import { calculatePrice } from "@/lib/costEngine";
-import { MONO_PITCH_2BR_DEFAULT } from "@/data/standardModels";
-import type { ComponentAmounts, ComponentId } from "@/types/costEngine";
+import { useState, useCallback, useRef } from "react";
+import type { FloorplanJSON } from "@/types/floorplan";
+import FloorplanSVG from "@/components/FloorplanSVG";
 
-const ugx = new Intl.NumberFormat("en-UG", {
-  style: "currency",
-  currency: "UGX",
-  maximumFractionDigits: 0,
-});
-const usd = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  maximumFractionDigits: 2,
-});
+export default function Home() {
+  const [plan, setPlan] = useState<FloorplanJSON | null>(null);
+  const [delta, setDelta] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-const TWEAKABLE: Array<{ id: ComponentId; label: string }> = [
-  { id: "floor-frame-2442x1221", label: "Floor frames A (2442 × 1221)" },
-  { id: "floor-frame-2442x2442", label: "Floor frames B (2442 × 2442)" },
-  { id: "floor-frame-2442x3053", label: "Floor frames C (2442 × 3053)" },
-  { id: "partition-wall-frame-per-m1", label: "Partitions (m)" },
-  { id: "interior-door", label: "Interior doors" },
-  { id: "aluminium-bulk-per-sqm", label: "Aluminium (sqm bulk)" },
-  { id: "cement-boards-per-bathroom", label: "Bathrooms (cement boards)" },
-];
+  const processFile = useCallback(async (file: File) => {
+    if (!file.name.toLowerCase().endsWith(".dxf")) {
+      setError("Please upload a .dxf file");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/parse-dxf", { method: "POST", body: form });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error ?? "Parse failed");
+      }
+      const json: FloorplanJSON = await res.json();
+      setPlan(json);
+      setDelta(json.minDelta);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-export default function Phase1TestPage() {
-  const [amounts, setAmounts] = useState<ComponentAmounts>(
-    MONO_PITCH_2BR_DEFAULT.componentAmounts,
+  const onDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setDragging(false);
+      const file = e.dataTransfer.files[0];
+      if (file) processFile(file);
+    },
+    [processFile]
   );
-  const [gfa, setGfa] = useState(MONO_PITCH_2BR_DEFAULT.gfaSqm);
 
-  const result = useMemo(
-    () => calculatePrice({ componentAmounts: amounts, gfaSqm: gfa }),
-    [amounts, gfa],
-  );
-
-  const setAmount = (id: ComponentId, value: number) => {
-    setAmounts((prev) => ({ ...prev, [id]: value }));
+  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processFile(file);
   };
 
+  const widthMm = plan ? plan.baseWidth + delta : 0;
+  const widthM = (widthMm / 1000).toFixed(2);
+
   return (
-    <main className="mx-auto max-w-5xl space-y-8 p-8">
-      <header className="flex items-baseline justify-between gap-4">
-        <div className="space-y-2">
-          <p className="text-sm uppercase tracking-wider text-eh-forest/70">
-            Easy Housing — Phase 1
-          </p>
-          <h1 className="text-2xl font-semibold text-eh-forest">
-            Cost engine sanity check
-          </h1>
-          <p className="text-sm text-eh-charcoal/70">
-            Defaults reproduce the calculation template’s default Mono Pitch 2BR
-            row. Expected price inc VAT ≈ 100,215,294 UGX.
-          </p>
-        </div>
-        <div className="flex gap-3 text-sm">
-          <Link
-            href="/floor-plan"
-            className="underline text-eh-forest hover:text-eh-wood"
-          >
-            floor plan →
-          </Link>
-          <Link
-            href="/admin"
-            className="underline text-eh-forest hover:text-eh-wood"
-          >
-            admin editor →
-          </Link>
-        </div>
+    <main className="min-h-screen bg-stone-50 font-sans">
+      <header className="border-b border-stone-200 bg-white px-8 py-4 flex items-center gap-4">
+        <h1 className="text-lg font-semibold tracking-tight text-stone-800">EH Configurator</h1>
+        {plan && (
+          <span className="text-sm text-stone-500">{plan.name}</span>
+        )}
       </header>
 
-      <section className="grid gap-6 md:grid-cols-2">
-        <div className="space-y-3 rounded-md border border-eh-sage p-4">
-          <h2 className="text-sm font-semibold text-eh-forest">Inputs</h2>
-          {TWEAKABLE.map((row) => (
-            <label key={row.id} className="flex items-center justify-between gap-4 text-sm">
-              <span>{row.label}</span>
-              <input
-                type="number"
-                step="0.1"
-                value={amounts[row.id] ?? 0}
-                onChange={(e) => setAmount(row.id, Number(e.target.value))}
-                className="w-24 rounded border border-eh-sage px-2 py-1 text-right"
-              />
-            </label>
-          ))}
-          <label className="flex items-center justify-between gap-4 text-sm pt-2 border-t border-eh-sage">
-            <span>GFA (sqm)</span>
+      <div className="flex flex-col items-center gap-6 p-8">
+        {/* Upload zone */}
+        {!plan && (
+          <div
+            className={`w-full max-w-xl border-2 border-dashed rounded-xl p-12 text-center transition-colors cursor-pointer ${
+              dragging ? "border-stone-500 bg-stone-100" : "border-stone-300 hover:border-stone-400"
+            }`}
+            onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={onDrop}
+            onClick={() => fileInputRef.current?.click()}
+          >
             <input
-              type="number"
-              step="0.01"
-              value={gfa}
-              onChange={(e) => setGfa(Number(e.target.value))}
-              className="w-24 rounded border border-eh-sage px-2 py-1 text-right"
+              ref={fileInputRef}
+              type="file"
+              accept=".dxf"
+              className="hidden"
+              onChange={onFileChange}
             />
-          </label>
-        </div>
+            <div className="text-4xl mb-3 text-stone-300">⬆</div>
+            <p className="text-stone-600 font-medium">Drop a DXF file here</p>
+            <p className="text-stone-400 text-sm mt-1">or click to browse</p>
+            <p className="text-stone-400 text-xs mt-3">
+              Expects layers: Walls, Rooms, Doors, Windows, Furniture,<br />
+              PT Rechtsboven, PT Linksboven
+            </p>
+          </div>
+        )}
 
-        <div className="space-y-3 rounded-md border border-eh-sage p-4">
-          <h2 className="text-sm font-semibold text-eh-forest">Output</h2>
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-            <dt>Cost USD ex VAT</dt>
-            <dd className="text-right font-mono">{usd.format(result.costUsdExVat)}</dd>
-            <dt>Margin USD (10%)</dt>
-            <dd className="text-right font-mono">{usd.format(result.marginUsd)}</dd>
-            <dt>Sales price USD ex VAT</dt>
-            <dd className="text-right font-mono">{usd.format(result.salesPriceUsdExVat)}</dd>
-            <dt>VAT USD (18%)</dt>
-            <dd className="text-right font-mono">{usd.format(result.vatUsd)}</dd>
-            <dt>Price USD inc VAT</dt>
-            <dd className="text-right font-mono">{usd.format(result.priceUsdIncVat)}</dd>
-            <dt className="pt-2 border-t border-eh-sage">Price UGX inc VAT</dt>
-            <dd className="text-right font-mono pt-2 border-t border-eh-sage">
-              {ugx.format(result.priceUgxIncVat)}
-            </dd>
-            <dt>Rounded UP (100k)</dt>
-            <dd className="text-right font-mono font-semibold text-eh-forest">
-              {ugx.format(result.priceUgxIncVatRounded)}
-            </dd>
-            <dt>Per sqm GFA</dt>
-            <dd className="text-right font-mono">{ugx.format(result.pricePerSqmUgxIncVat)}</dd>
-          </dl>
-        </div>
-      </section>
+        {loading && (
+          <div className="text-stone-500 text-sm">Parsing DXF…</div>
+        )}
 
-      <section className="rounded-md border border-eh-sage p-4">
-        <h2 className="mb-2 text-sm font-semibold text-eh-forest">
-          Component breakdown ({result.componentBreakdown.length} lines)
-        </h2>
-        <table className="w-full text-xs">
-          <thead className="text-eh-charcoal/60">
-            <tr>
-              <th className="text-left">Component</th>
-              <th className="text-right">Amount</th>
-              <th className="text-right">Unit USD</th>
-              <th className="text-right">+ flat USD</th>
-              <th className="text-right">Total USD</th>
-            </tr>
-          </thead>
-          <tbody>
-            {result.componentBreakdown.map((line) => (
-              <tr key={line.id} className="border-t border-eh-sage/50">
-                <td>{line.name}</td>
-                <td className="text-right font-mono">{line.amount}</td>
-                <td className="text-right font-mono">{line.unitCostUsd.toFixed(2)}</td>
-                <td className="text-right font-mono">
-                  {line.fixedExtraUsd ? line.fixedExtraUsd.toFixed(0) : ""}
-                </td>
-                <td className="text-right font-mono">{line.totalUsd.toFixed(2)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+        {error && (
+          <div className="text-red-600 text-sm bg-red-50 border border-red-200 rounded px-4 py-2">
+            {error}
+          </div>
+        )}
+
+        {/* Configurator */}
+        {plan && (
+          <div className="w-full max-w-5xl flex flex-col gap-6">
+            {/* Controls */}
+            <div className="bg-white rounded-xl border border-stone-200 p-6">
+              <div className="flex items-center justify-between mb-3">
+                <label className="text-sm font-medium text-stone-700">Width</label>
+                <span className="text-sm font-mono text-stone-800 bg-stone-100 px-2 py-0.5 rounded">
+                  {widthM} m
+                </span>
+              </div>
+              <input
+                type="range"
+                min={plan.minDelta}
+                max={plan.maxDelta}
+                step={50}
+                value={delta}
+                onChange={(e) => setDelta(Number(e.target.value))}
+                className="w-full accent-stone-700"
+              />
+              <div className="flex justify-between text-xs text-stone-400 mt-1">
+                <span>{((plan.baseWidth + plan.minDelta) / 1000).toFixed(1)} m</span>
+                <span>{((plan.baseWidth + plan.maxDelta) / 1000).toFixed(1)} m</span>
+              </div>
+            </div>
+
+            {/* Floor plan */}
+            <FloorplanSVG plan={plan} delta={delta} width={900} height={720} />
+
+            {/* Upload another */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setPlan(null); setDelta(0); }}
+                className="text-sm text-stone-500 hover:text-stone-700 underline underline-offset-2"
+              >
+                Upload another DXF
+              </button>
+              <a
+                href={`data:application/json,${encodeURIComponent(JSON.stringify(plan, null, 2))}`}
+                download={`${plan.id}.json`}
+                className="text-sm text-stone-500 hover:text-stone-700 underline underline-offset-2"
+              >
+                Download JSON
+              </a>
+            </div>
+          </div>
+        )}
+      </div>
     </main>
   );
 }

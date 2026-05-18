@@ -2,19 +2,14 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Easy Housing Configurator",
-  description:
-    "Configure your prefab timber home from Easy Housing — Uganda.",
+  title: "EH Configurator",
+  description: "Floor plan configurator from DXF files",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="min-h-screen antialiased">{children}</body>
+      <body>{children}</body>
     </html>
   );
 }
