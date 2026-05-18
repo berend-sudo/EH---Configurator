@@ -10,10 +10,6 @@ export interface PolylineEntity {
   vertices: Vertex[];
 }
 
-// All block geometry is flattened to world-space polylines after applying
-// scale + rotation + translation. Arcs and circles are tessellated into
-// polylines; this makes scale (including negative/mirror) and rotation
-// safe to apply per-vertex without fragile angle math.
 export interface GeomPolyline {
   type: "polyline";
   closed: boolean;
@@ -36,7 +32,9 @@ export interface BlockEntity {
   scaleX: number;
   scaleY: number;
   moveX: boolean;
-  background: BlockGeom[]; // MeubelRefRec shapes — render white-filled before geom
+  tl: { x: number; y: number } | null; // top-left world coord at delta=0
+  tr: { x: number; y: number } | null; // top-right world coord at delta=0
+  depthVec: { x: number; y: number };  // world vector from TL-edge to bottom edge
   geom: BlockGeom[];
 }
 

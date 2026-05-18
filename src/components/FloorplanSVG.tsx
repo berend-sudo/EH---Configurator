@@ -1,6 +1,6 @@
 "use client";
 
-import type { FloorplanJSON, FloorplanEntity, BlockGeom } from "@/types/floorplan";
+import type { FloorplanJSON, FloorplanEntity, BlockGeom, BlockEntity } from "@/types/floorplan";
 
 interface Props {
   plan: FloorplanJSON;
@@ -78,6 +78,28 @@ function renderGeom(
   return null;
 }
 
+function renderBlockBackground(
+  entity: BlockEntity,
+  delta: number, scale: number,
+  drawH: number, padX: number, padY: number,
+  stroke: string, strokeWidth: number, key: string,
+): React.ReactNode {
+  if (!entity.tl || !entity.tr) return null;
+  const { tl, tr, depthVec, moveX } = entity;
+  const shift = moveX ? delta : 0;
+  // Pre-apply delta to avoid double-adding in sx()
+  const corners = [
+    { x: tl.x + shift,              y: tl.y },
+    { x: tr.x + shift,              y: tr.y },
+    { x: tr.x + depthVec.x + shift, y: tr.y + depthVec.y },
+    { x: tl.x + depthVec.x + shift, y: tl.y + depthVec.y },
+  ];
+  const pts = corners
+    .map((c) => `${sx(c.x, false, 0, scale, padX)},${sy(c.y, scale, drawH, padY)}`)
+    .join(" ");
+  return <polygon key={key} points={pts} fill="white" stroke={stroke} strokeWidth={strokeWidth} />;
+}
+
 function renderEntity(
   entity: FloorplanEntity,
   delta: number, scale: number,
@@ -98,11 +120,8 @@ function renderEntity(
   if (entity.type === "block") {
     return (
       <g key={key}>
-        {/* MeubelRefRec background: white fill so furniture appears solid */}
-        {entity.background.map((g, gi) =>
-          renderGeom(g, entity.moveX, delta, scale, drawH, padX, padY,
-            style.stroke, style.strokeWidth, `${key}-bg-${gi}`, "white")
-        )}
+        {renderBlockBackground(entity, delta, scale, drawH, padX, padY,
+          style.stroke, style.strokeWidth, `${key}-bg`)}
         {entity.geom.map((g, gi) =>
           renderGeom(g, entity.moveX, delta, scale, drawH, padX, padY,
             style.stroke, style.strokeWidth, `${key}-${gi}`)
