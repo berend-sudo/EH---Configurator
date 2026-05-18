@@ -17,42 +17,15 @@ const LAYER_STYLES = {
   Furniture: { fill: "none",    stroke: "#7a6e65", strokeWidth: 0.8 },
 } as const;
 
-// ── Coordinate conversion (DXF world → SVG pixels) ───────────────────────────
-
+// World-space → SVG conversion (DXF Y-up → SVG Y-down)
 function sx(worldX: number, moveX: boolean, delta: number, scale: number, padX: number) {
   return (moveX ? worldX + delta : worldX) * scale + padX;
 }
 function sy(worldY: number, scale: number, drawH: number, padY: number) {
-  return padY + drawH - worldY * scale; // flip Y: DXF is Y-up, SVG is Y-down
+  return padY + drawH - worldY * scale;
 }
 
-// ── DXF arc → SVG path ────────────────────────────────────────────────────────
-// Block geometry is already in world space (rotation applied by parser).
-// DXF arcs are CCW. After Y-flip, CCW becomes CW, so sweep-flag = 0.
-
-function arcPath(
-  cx: number, cy: number, r: number,
-  startDeg: number, endDeg: number,
-  moveX: boolean, delta: number,
-  scale: number, drawH: number, padX: number, padY: number,
-): string {
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  let sa = toRad(startDeg);
-  let ea = toRad(endDeg);
-  if (ea <= sa) ea += 2 * Math.PI; // DXF arcs go CCW from start to end
-
-  const x1 = sx(cx + r * Math.cos(sa), moveX, delta, scale, padX);
-  const y1 = sy(cy + r * Math.sin(sa), scale, drawH, padY);
-  const x2 = sx(cx + r * Math.cos(ea), moveX, delta, scale, padX);
-  const y2 = sy(cy + r * Math.sin(ea), scale, drawH, padY);
-
-  const large = ea - sa > Math.PI ? 1 : 0;
-  // sweep=0 because Y-flip reverses arc direction from CCW to CW in SVG
-  return `M ${x1} ${y1} A ${r * scale} ${r * scale} 0 ${large} 0 ${x2} ${y2}`;
-}
-
-// ── Spline → smooth SVG path (Catmull-Rom through points) ────────────────────
-
+// Catmull-Rom smooth path through points
 function splinePath(
   pts: { x: number; y: number }[],
   moveX: boolean, delta: number,
@@ -78,64 +51,31 @@ function splinePath(
   return d;
 }
 
-// ── Render one piece of already-world-space block geometry ───────────────────
-
 function renderGeom(
   g: BlockGeom,
   moveX: boolean, delta: number,
   scale: number, drawH: number, padX: number, padY: number,
   stroke: string, strokeWidth: number, key: string,
 ) {
-  const sw = strokeWidth;
-  switch (g.type) {
-    case "line":
-      return (
-        <line
-          key={key}
-          x1={sx(g.x1, moveX, delta, scale, padX)} y1={sy(g.y1, scale, drawH, padY)}
-          x2={sx(g.x2, moveX, delta, scale, padX)} y2={sy(g.y2, scale, drawH, padY)}
-          stroke={stroke} strokeWidth={sw} fill="none"
-        />
-      );
-    case "circle":
-      return (
-        <circle
-          key={key}
-          cx={sx(g.cx, moveX, delta, scale, padX)} cy={sy(g.cy, scale, drawH, padY)}
-          r={g.r * scale}
-          stroke={stroke} strokeWidth={sw} fill="none"
-        />
-      );
-    case "arc":
-      return (
-        <path
-          key={key}
-          d={arcPath(g.cx, g.cy, g.r, g.startAngle, g.endAngle, moveX, delta, scale, drawH, padX, padY)}
-          stroke={stroke} strokeWidth={sw} fill="none"
-        />
-      );
-    case "polyline": {
-      const pts = g.vertices.map(
-        (v) => `${sx(v.x, moveX, delta, scale, padX)},${sy(v.y, scale, drawH, padY)}`
-      ).join(" ");
-      return g.closed
-        ? <polygon  key={key} points={pts} stroke={stroke} strokeWidth={sw} fill="none" />
-        : <polyline key={key} points={pts} stroke={stroke} strokeWidth={sw} fill="none" />;
-    }
-    case "spline":
-      return (
-        <path
-          key={key}
-          d={splinePath(g.points, moveX, delta, scale, drawH, padX, padY)}
-          stroke={stroke} strokeWidth={sw} fill="none"
-        />
-      );
-    default:
-      return null;
+  if (g.type === "polyline") {
+    const pts = g.vertices.map(
+      (v) => `${sx(v.x, moveX, delta, scale, padX)},${sy(v.y, scale, drawH, padY)}`
+    ).join(" ");
+    return g.closed
+      ? <polygon  key={key} points={pts} stroke={stroke} strokeWidth={strokeWidth} fill="none" />
+      : <polyline key={key} points={pts} stroke={stroke} strokeWidth={strokeWidth} fill="none" />;
   }
+  if (g.type === "spline") {
+    return (
+      <path
+        key={key}
+        d={splinePath(g.points, moveX, delta, scale, drawH, padX, padY)}
+        stroke={stroke} strokeWidth={strokeWidth} fill="none"
+      />
+    );
+  }
+  return null;
 }
-
-// ── Render one floor plan entity ──────────────────────────────────────────────
 
 function renderEntity(
   entity: FloorplanEntity,
@@ -167,8 +107,6 @@ function renderEntity(
 
   return null;
 }
-
-// ── Component ─────────────────────────────────────────────────────────────────
 
 export default function FloorplanSVG({ plan, delta, width = 800, height = 700 }: Props) {
   const padX = 40, padY = 40;

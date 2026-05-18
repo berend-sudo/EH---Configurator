@@ -4,6 +4,8 @@ import type {
   PolylineEntity,
   BlockEntity,
   BlockGeom,
+  GeomPolyline,
+  GeomSpline,
   Vertex,
 } from "@/types/floorplan";
 
@@ -23,12 +25,8 @@ function parsePairs(content: string): Pair[] {
 
 function n(s: string) { return parseFloat(s) || 0; }
 
-// Nearest-zone classifier: a point moves if the nearest PT Rechtsboven is
-// closer than the nearest PT Linksboven. This makes the PT layers act as
-// zone markers rather than per-vertex tags, so untagged vertices on the
-// "right side" still move and untagged vertices on the "left side" stay,
-// avoiding the mixed-move distortion when the architect only marked some
-// corners explicitly.
+// ── Zone classifier: nearest PT wins ─────────────────────────────────────────
+
 function decideMoveX(
   x: number, y: number,
   right: { x: number; y: number }[],
@@ -48,27 +46,40 @@ function decideMoveX(
   return dR < dL;
 }
 
-// ── Geometry helpers ──────────────────────────────────────────────────────────
+// ── Transform a local block-space point to world space ───────────────────────
+// Order: scale → rotate → translate (matches DXF INSERT semantics)
 
-function rotatePt(x: number, y: number, deg: number) {
-  const r = (deg * Math.PI) / 180;
-  return { x: x * Math.cos(r) - y * Math.sin(r), y: x * Math.sin(r) + y * Math.cos(r) };
+function transformPoint(
+  lx: number, ly: number,
+  ix: number, iy: number,
+  rotDeg: number,
+  sx: number, sy: number,
+): { x: number; y: number } {
+  const xs = lx * sx;
+  const ys = ly * sy;
+  const r = (rotDeg * Math.PI) / 180;
+  const cos = Math.cos(r), sin = Math.sin(r);
+  return { x: ix + xs * cos - ys * sin, y: iy + xs * sin + ys * cos };
 }
 
-// Flatten a local-space point to world space
-function toWorld(lx: number, ly: number, ix: number, iy: number, rot: number) {
-  const p = rotatePt(lx, ly, rot);
-  return { x: ix + p.x, y: iy + p.y };
-}
+// ── Local geometry primitives (before flattening) ────────────────────────────
 
-// ── Low-level DXF readers (advance index, return {data, end}) ─────────────────
+interface LocalLine    { type: "line";    layer: string; x1: number; y1: number; x2: number; y2: number }
+interface LocalArc     { type: "arc";     layer: string; cx: number; cy: number; r: number; sa: number; ea: number }
+interface LocalCircle  { type: "circle";  layer: string; cx: number; cy: number; r: number }
+interface LocalPoly    { type: "poly";    layer: string; closed: boolean; verts: { x: number; y: number }[] }
+interface LocalSpline  { type: "spline";  layer: string; pts: { x: number; y: number }[] }
+type LocalGeom = LocalLine | LocalArc | LocalCircle | LocalPoly | LocalSpline;
+
+// ── DXF readers ───────────────────────────────────────────────────────────────
 
 function readPolyline(
   pairs: Pair[],
   start: number,
-): { closed: boolean; vertices: { x: number; y: number }[]; end: number } {
-  let flags = 0, j = start;
+): { layer: string; closed: boolean; vertices: { x: number; y: number }[]; end: number } {
+  let flags = 0, layer = "", j = start;
   while (j < pairs.length && pairs[j].code !== 0) {
+    if (pairs[j].code === 8)  layer = pairs[j].value;
     if (pairs[j].code === 70) flags = parseInt(pairs[j].value, 10);
     j++;
   }
@@ -92,15 +103,7 @@ function readPolyline(
       j++;
     }
   }
-  return { closed: !!(flags & 1), vertices, end: j };
-}
-
-// ── Block definition reader ───────────────────────────────────────────────────
-
-interface LocalGeom {
-  type: string;
-  layer: string;
-  [key: string]: unknown;
+  return { layer, closed: !!(flags & 1), vertices, end: j };
 }
 
 function readBlockDef(pairs: Pair[], start: number): { geom: LocalGeom[]; end: number } {
@@ -109,7 +112,6 @@ function readBlockDef(pairs: Pair[], start: number): { geom: LocalGeom[]; end: n
 
   while (i < pairs.length) {
     const { code, value } = pairs[i];
-
     if (code === 0 && (value === "ENDBLK" || value === "BLOCK")) break;
 
     if (code === 0 && value === "LINE") {
@@ -155,14 +157,8 @@ function readBlockDef(pairs: Pair[], start: number): { geom: LocalGeom[]; end: n
     }
 
     if (code === 0 && value === "POLYLINE") {
-      let peekLayer = "", pj = i + 1;
-      while (pj < pairs.length && pairs[pj].code !== 0) {
-        if (pairs[pj].code === 8) { peekLayer = pairs[pj].value; break; }
-        pj++;
-      }
-      const { closed, vertices, end } = readPolyline(pairs, i + 1);
-      if (vertices.length > 0)
-        geom.push({ type: "polyline", layer: peekLayer, closed, vertices });
+      const { layer, closed, vertices, end } = readPolyline(pairs, i + 1);
+      if (vertices.length > 0) geom.push({ type: "poly", layer, closed, verts: vertices });
       i = end; continue;
     }
 
@@ -191,38 +187,70 @@ function readBlockDef(pairs: Pair[], start: number): { geom: LocalGeom[]; end: n
   return { geom, end: i };
 }
 
-// ── Flatten local-space geometry to world space ───────────────────────────────
+// ── Tessellation: arcs and circles → world-space polylines ───────────────────
 
-function flattenGeom(localGeom: LocalGeom[], ix: number, iy: number, rot: number): BlockGeom[] {
+const ARC_SEGMENTS = 32;
+
+function tessellateArc(
+  g: LocalArc,
+  ix: number, iy: number, rotDeg: number, sx: number, sy: number,
+): { x: number; y: number }[] {
+  let sa = g.sa, ea = g.ea;
+  if (ea <= sa) ea += 360;
+  const sweep = ea - sa;
+  const steps = Math.max(2, Math.ceil((sweep / 360) * ARC_SEGMENTS));
+  const pts: { x: number; y: number }[] = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const ang = ((sa + t * sweep) * Math.PI) / 180;
+    const lx = g.cx + g.r * Math.cos(ang);
+    const ly = g.cy + g.r * Math.sin(ang);
+    pts.push(transformPoint(lx, ly, ix, iy, rotDeg, sx, sy));
+  }
+  return pts;
+}
+
+function tessellateCircle(
+  g: LocalCircle,
+  ix: number, iy: number, rotDeg: number, sx: number, sy: number,
+): { x: number; y: number }[] {
+  const steps = ARC_SEGMENTS;
+  const pts: { x: number; y: number }[] = [];
+  for (let i = 0; i < steps; i++) {
+    const ang = (i / steps) * 2 * Math.PI;
+    const lx = g.cx + g.r * Math.cos(ang);
+    const ly = g.cy + g.r * Math.sin(ang);
+    pts.push(transformPoint(lx, ly, ix, iy, rotDeg, sx, sy));
+  }
+  return pts;
+}
+
+// ── Flatten all local geometry to world-space polylines/splines ──────────────
+
+function flattenGeom(
+  localGeom: LocalGeom[],
+  ix: number, iy: number, rotDeg: number, sx: number, sy: number,
+): BlockGeom[] {
   const out: BlockGeom[] = [];
   for (const g of localGeom) {
-    if (g.layer === "MeubelRefRec") continue; // skip reference rectangles
+    if (g.layer === "MeubelRefRec") continue;
 
     if (g.type === "line") {
-      const p1 = toWorld(g.x1 as number, g.y1 as number, ix, iy, rot);
-      const p2 = toWorld(g.x2 as number, g.y2 as number, ix, iy, rot);
-      out.push({ type: "line", x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y });
+      const p1 = transformPoint(g.x1, g.y1, ix, iy, rotDeg, sx, sy);
+      const p2 = transformPoint(g.x2, g.y2, ix, iy, rotDeg, sx, sy);
+      out.push({ type: "polyline", closed: false, vertices: [p1, p2] } as GeomPolyline);
     } else if (g.type === "arc") {
-      const c = toWorld(g.cx as number, g.cy as number, ix, iy, rot);
-      out.push({
-        type: "arc",
-        cx: c.x, cy: c.y, r: g.r as number,
-        startAngle: (g.sa as number) + rot,
-        endAngle:   (g.ea as number) + rot,
-      });
+      const verts = tessellateArc(g, ix, iy, rotDeg, sx, sy);
+      out.push({ type: "polyline", closed: false, vertices: verts } as GeomPolyline);
     } else if (g.type === "circle") {
-      const c = toWorld(g.cx as number, g.cy as number, ix, iy, rot);
-      out.push({ type: "circle", cx: c.x, cy: c.y, r: g.r as number });
-    } else if (g.type === "polyline") {
-      const vertices = (g.vertices as { x: number; y: number }[]).map(
-        (v) => toWorld(v.x, v.y, ix, iy, rot),
-      );
-      out.push({ type: "polyline", closed: g.closed as boolean, vertices });
+      const verts = tessellateCircle(g, ix, iy, rotDeg, sx, sy);
+      out.push({ type: "polyline", closed: true, vertices: verts } as GeomPolyline);
+    } else if (g.type === "poly") {
+      const verts = g.verts.map((v) => transformPoint(v.x, v.y, ix, iy, rotDeg, sx, sy));
+      out.push({ type: "polyline", closed: g.closed, vertices: verts } as GeomPolyline);
     } else if (g.type === "spline") {
-      const points = (g.pts as { x: number; y: number }[]).map(
-        (v) => toWorld(v.x, v.y, ix, iy, rot),
-      );
-      out.push({ type: "spline", points });
+      const points = g.pts.map((v) => transformPoint(v.x, v.y, ix, iy, rotDeg, sx, sy));
+      out.push({ type: "spline", points } as GeomSpline);
     }
   }
   return out;
@@ -236,7 +264,7 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
   const ptRight: { x: number; y: number }[] = [];
   const ptLeft:  { x: number; y: number }[] = [];
   const polylines: { layer: string; closed: boolean; vertices: { x: number; y: number }[] }[] = [];
-  const inserts: { name: string; x: number; y: number; rotation: number }[] = [];
+  const inserts: { name: string; x: number; y: number; rotation: number; scaleX: number; scaleY: number }[] = [];
   const blockDefs = new Map<string, LocalGeom[]>();
 
   let section = "";
@@ -249,15 +277,12 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
     if (code === 2 && value === "ENTITIES") { section = "ENTITIES"; i++; continue; }
     if (code === 0 && value === "ENDSEC")   { section = "";         i++; continue; }
 
-    // ── BLOCKS: read each block definition ──
     if (section === "BLOCKS" && code === 0 && value === "BLOCK") {
-      // find block name (first code=2 after BLOCK, before next code=0)
       let j = i + 1, blockName = "";
       while (j < pairs.length && pairs[j].code !== 0) {
         if (pairs[j].code === 2) { blockName = pairs[j].value; break; }
         j++;
       }
-      // advance past header to first entity (next code=0 pair)
       while (j < pairs.length && pairs[j].code !== 0) j++;
       const { geom, end } = readBlockDef(pairs, j);
       if (blockName && !blockName.startsWith("*"))
@@ -265,9 +290,7 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
       i = end; continue;
     }
 
-    // ── ENTITIES ──
     if (section === "ENTITIES") {
-
       if (code === 0 && value === "POINT") {
         let j = i + 1, layer = "", px = 0, py = 0;
         while (j < pairs.length && pairs[j].code !== 0) {
@@ -282,33 +305,27 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
       }
 
       if (code === 0 && value === "POLYLINE") {
-        let j = i + 1, layer = "", flags = 0;
-        while (j < pairs.length && pairs[j].code !== 0) {
-          if (pairs[j].code === 8)  layer = pairs[j].value;
-          if (pairs[j].code === 70) flags = parseInt(pairs[j].value, 10);
-          j++;
-        }
         const RENDER = ["Walls", "Rooms", "Doors", "Windows"];
+        const { layer, closed, vertices, end } = readPolyline(pairs, i + 1);
         if (RENDER.includes(layer)) {
-          const { closed, vertices, end } = readPolyline(pairs, j);
-          polylines.push({ layer, closed: closed || !!(flags & 1), vertices });
-          i = end; continue;
+          polylines.push({ layer, closed, vertices });
         }
-        const { end } = readPolyline(pairs, j);
         i = end; continue;
       }
 
       if (code === 0 && value === "INSERT") {
-        let j = i + 1, layer = "", name = "", ix = 0, iy = 0, rot = 0;
+        let j = i + 1, layer = "", name = "", ix = 0, iy = 0, rot = 0, sx = 1, sy = 1;
         while (j < pairs.length && pairs[j].code !== 0) {
           if (pairs[j].code === 8)  layer = pairs[j].value;
           if (pairs[j].code === 2)  name  = pairs[j].value;
-          if (pairs[j].code === 10) ix  = n(pairs[j].value);
-          if (pairs[j].code === 20) iy  = n(pairs[j].value);
-          if (pairs[j].code === 50) rot = n(pairs[j].value);
+          if (pairs[j].code === 10) ix    = n(pairs[j].value);
+          if (pairs[j].code === 20) iy    = n(pairs[j].value);
+          if (pairs[j].code === 41) sx    = n(pairs[j].value);
+          if (pairs[j].code === 42) sy    = n(pairs[j].value);
+          if (pairs[j].code === 50) rot   = n(pairs[j].value);
           j++;
         }
-        if (layer === "Furniture") inserts.push({ name, x: ix, y: iy, rotation: rot });
+        if (layer === "Furniture") inserts.push({ name, x: ix, y: iy, rotation: rot, scaleX: sx, scaleY: sy });
         i = j; continue;
       }
     }
@@ -316,7 +333,6 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
     i++;
   }
 
-  // ── Bounding box from wall/room geometry ──────────────────────────────────
   let maxX = 0, maxY = 0;
   for (const p of polylines) {
     for (const v of p.vertices) {
@@ -325,13 +341,11 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
     }
   }
 
-  // ── Assemble layers ───────────────────────────────────────────────────────
   const LAYER_ORDER = ["Rooms", "Walls", "Doors", "Windows", "Furniture"];
   const layerMap = new Map<string, FloorplanLayer>(
     LAYER_ORDER.map((name) => [name, { name, entities: [] }])
   );
 
-  // Wall/room/door/window polylines
   for (const raw of polylines) {
     const layer = layerMap.get(raw.layer);
     if (!layer) continue;
@@ -343,22 +357,22 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
     layer.entities.push({ type: "polyline", closed: raw.closed, vertices } as PolylineEntity);
   }
 
-  // Furniture inserts — flatten geometry to world space, simple proximity moveX
   const furnitureLayer = layerMap.get("Furniture")!;
   for (const ins of inserts) {
     const moveX = decideMoveX(ins.x, ins.y, ptRight, ptLeft);
     const localGeom = blockDefs.get(ins.name) ?? [];
-    const geom = flattenGeom(localGeom, ins.x, ins.y, ins.rotation);
-    const entity: BlockEntity = {
+    const geom = flattenGeom(localGeom, ins.x, ins.y, ins.rotation, ins.scaleX, ins.scaleY);
+    furnitureLayer.entities.push({
       type: "block",
       name: ins.name,
       x: ins.x,
       y: ins.y,
       rotation: ins.rotation,
+      scaleX: ins.scaleX,
+      scaleY: ins.scaleY,
       moveX,
       geom,
-    };
-    furnitureLayer.entities.push(entity);
+    } as BlockEntity);
   }
 
   const name = filename.replace(/\.dxf$/i, "");

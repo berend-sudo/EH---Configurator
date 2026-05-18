@@ -10,25 +10,10 @@ export interface PolylineEntity {
   vertices: Vertex[];
 }
 
-// Geometry primitives inside a block definition (local coords, no moveX)
-export interface GeomLine {
-  type: "line";
-  x1: number; y1: number;
-  x2: number; y2: number;
-}
-
-export interface GeomArc {
-  type: "arc";
-  cx: number; cy: number; r: number;
-  startAngle: number; // degrees
-  endAngle: number;   // degrees
-}
-
-export interface GeomCircle {
-  type: "circle";
-  cx: number; cy: number; r: number;
-}
-
+// All block geometry is flattened to world-space polylines after applying
+// scale + rotation + translation. Arcs and circles are tessellated into
+// polylines; this makes scale (including negative/mirror) and rotation
+// safe to apply per-vertex without fragile angle math.
 export interface GeomPolyline {
   type: "polyline";
   closed: boolean;
@@ -37,17 +22,19 @@ export interface GeomPolyline {
 
 export interface GeomSpline {
   type: "spline";
-  points: { x: number; y: number }[]; // fit/control points, rendered as smooth path
+  points: { x: number; y: number }[];
 }
 
-export type BlockGeom = GeomLine | GeomArc | GeomCircle | GeomPolyline | GeomSpline;
+export type BlockGeom = GeomPolyline | GeomSpline;
 
 export interface BlockEntity {
   type: "block";
   name: string;
   x: number;
   y: number;
-  rotation: number; // degrees, CCW in DXF space
+  rotation: number;
+  scaleX: number;
+  scaleY: number;
   moveX: boolean;
   geom: BlockGeom[];
 }
