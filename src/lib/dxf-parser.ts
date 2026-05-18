@@ -7,7 +7,7 @@ import type {
   GeomPolyline,
   GeomSpline,
   Vertex,
-} from "@/types/dxfFloorplan";
+} from "@/types/floorplan";
 
 // ── Pair parsing ─────────────────────────────────────────────────────────────
 
