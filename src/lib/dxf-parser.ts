@@ -23,6 +23,31 @@ function parsePairs(content: string): Pair[] {
 
 function n(s: string) { return parseFloat(s) || 0; }
 
+// Nearest-zone classifier: a point moves if the nearest PT Rechtsboven is
+// closer than the nearest PT Linksboven. This makes the PT layers act as
+// zone markers rather than per-vertex tags, so untagged vertices on the
+// "right side" still move and untagged vertices on the "left side" stay,
+// avoiding the mixed-move distortion when the architect only marked some
+// corners explicitly.
+function decideMoveX(
+  x: number, y: number,
+  right: { x: number; y: number }[],
+  left:  { x: number; y: number }[],
+): boolean {
+  if (right.length === 0) return false;
+  if (left.length === 0)  return true;
+  let dR = Infinity, dL = Infinity;
+  for (const p of right) {
+    const d = (p.x - x) * (p.x - x) + (p.y - y) * (p.y - y);
+    if (d < dR) dR = d;
+  }
+  for (const p of left) {
+    const d = (p.x - x) * (p.x - x) + (p.y - y) * (p.y - y);
+    if (d < dL) dL = d;
+  }
+  return dR < dL;
+}
+
 // ── Geometry helpers ──────────────────────────────────────────────────────────
 
 function rotatePt(x: number, y: number, deg: number) {
@@ -209,6 +234,7 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
   const pairs = parsePairs(content);
 
   const ptRight: { x: number; y: number }[] = [];
+  const ptLeft:  { x: number; y: number }[] = [];
   const polylines: { layer: string; closed: boolean; vertices: { x: number; y: number }[] }[] = [];
   const inserts: { name: string; x: number; y: number; rotation: number }[] = [];
   const blockDefs = new Map<string, LocalGeom[]>();
@@ -251,6 +277,7 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
           j++;
         }
         if (layer === "PT Rechtsboven") ptRight.push({ x: px, y: py });
+        else if (layer === "PT Linksboven")  ptLeft.push({ x: px, y: py });
         i = j; continue;
       }
 
@@ -311,7 +338,7 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
     const vertices: Vertex[] = raw.vertices.map((v) => ({
       x: v.x,
       y: v.y,
-      moveX: ptRight.some((pt) => Math.abs(pt.x - v.x) < 2 && Math.abs(pt.y - v.y) < 2),
+      moveX: decideMoveX(v.x, v.y, ptRight, ptLeft),
     }));
     layer.entities.push({ type: "polyline", closed: raw.closed, vertices } as PolylineEntity);
   }
@@ -319,10 +346,7 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
   // Furniture inserts — flatten geometry to world space, simple proximity moveX
   const furnitureLayer = layerMap.get("Furniture")!;
   for (const ins of inserts) {
-    const nearestPtDist = Math.min(
-      ...ptRight.map((pt) => Math.hypot(pt.x - ins.x, pt.y - ins.y))
-    );
-    const moveX = nearestPtDist < 350;
+    const moveX = decideMoveX(ins.x, ins.y, ptRight, ptLeft);
     const localGeom = blockDefs.get(ins.name) ?? [];
     const geom = flattenGeom(localGeom, ins.x, ins.y, ins.rotation);
     const entity: BlockEntity = {
