@@ -21,31 +21,6 @@ function applyDelta(verts: { x: number; y: number; moveX?: boolean }[], delta: n
   return verts.map((v) => ({ x: v.x + (v.moveX ? delta : 0), y: v.y }));
 }
 
-const MAX_WINDOW_WIDTH_MM = 1800;
-
-function applyDeltaWindow(verts: { x: number; y: number; moveX?: boolean }[], delta: number) {
-  if (delta <= 0) return applyDelta(verts, delta);
-
-  let minX0 = Infinity, maxX0 = -Infinity;
-  for (const v of verts) {
-    if (v.x < minX0) minX0 = v.x;
-    if (v.x > maxX0) maxX0 = v.x;
-  }
-  let rateMax = 0, rateMin = 0;
-  for (const v of verts) {
-    if (v.x === maxX0 && v.moveX) rateMax = 1;
-    if (v.x === minX0 && v.moveX) rateMin = 1;
-  }
-  const rate = rateMax - rateMin;
-  const w0 = maxX0 - minX0;
-
-  let dEff = delta;
-  if (rate > 0 && w0 < MAX_WINDOW_WIDTH_MM) {
-    dEff = Math.min(delta, (MAX_WINDOW_WIDTH_MM - w0) / rate);
-  }
-  return verts.map((v) => ({ x: v.x + (v.moveX ? dEff : 0), y: v.y }));
-}
-
 interface Pt { x: number; y: number }
 
 function bboxOf(pts: Pt[]) {
@@ -233,7 +208,7 @@ function renderWindow(
   delta: number, scale: number, drawH: number, padX: number, padY: number,
   key: string,
 ): React.ReactNode {
-  const world = applyDeltaWindow(entity.vertices, delta);
+  const world = applyDelta(entity.vertices, delta);
   const pts = world.map((v) => `${sxT(v.x, scale, padX)},${syT(v.y, scale, drawH, padY)}`).join(" ");
   const bb = bboxOf(world);
   const isHoriz = bb.w >= bb.h;
@@ -490,7 +465,7 @@ function windowsOnWall(
   const intervals: Array<{ min: number; max: number }> = [];
   for (const entity of windowLayer.entities) {
     if (entity.type !== "polyline") continue;
-    const world = applyDeltaWindow(entity.vertices, delta);
+    const world = applyDelta(entity.vertices, delta);
     const bb = bboxOf(world);
     const cx = (bb.minX + bb.maxX) / 2;
     const cy = (bb.minY + bb.maxY) / 2;
