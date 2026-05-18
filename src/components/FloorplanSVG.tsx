@@ -17,8 +17,57 @@ function syT(worldY: number, scale: number, drawH: number, padY: number) {
   return padY + drawH - worldY * scale;
 }
 
-function applyDelta(verts: { x: number; y: number; moveX?: boolean }[], delta: number) {
-  return verts.map((v) => ({ x: v.x + (v.moveX ? delta : 0), y: v.y }));
+const MAX_WINDOW_WIDTH_MM = 1800;
+
+// Map from a vertex's original x-coordinate to a clamped delta. Any moveX vertex
+// at that x grows by the clamped delta instead of the full slider delta — used
+// so wall vertices at a capped window's edge stay attached to the window.
+type ClampMap = Map<number, number>;
+
+function buildWindowClampMap(plan: FloorplanJSON, delta: number): ClampMap {
+  const map: ClampMap = new Map();
+  if (delta <= 0) return map;
+  const windowLayer = plan.layers.find((l) => l.name === "Windows");
+  if (!windowLayer) return map;
+
+  for (const entity of windowLayer.entities) {
+    if (entity.type !== "polyline") continue;
+    const verts = entity.vertices;
+    let minX0 = Infinity, maxX0 = -Infinity;
+    for (const v of verts) {
+      if (v.x < minX0) minX0 = v.x;
+      if (v.x > maxX0) maxX0 = v.x;
+    }
+    let rateMax = 0, rateMin = 0;
+    for (const v of verts) {
+      if (v.x === maxX0 && v.moveX) rateMax = 1;
+      if (v.x === minX0 && v.moveX) rateMin = 1;
+    }
+    const rate = rateMax - rateMin;
+    const w0 = maxX0 - minX0;
+    if (rate > 0 && w0 < MAX_WINDOW_WIDTH_MM) {
+      const dEff = Math.min(delta, (MAX_WINDOW_WIDTH_MM - w0) / rate);
+      const existing = map.get(maxX0);
+      if (existing === undefined || dEff < existing) map.set(maxX0, dEff);
+    }
+  }
+  return map;
+}
+
+function shiftFor(x: number, delta: number, clampMap?: ClampMap): number {
+  const dEff = clampMap?.get(x);
+  return dEff !== undefined ? dEff : delta;
+}
+
+function applyDelta(
+  verts: { x: number; y: number; moveX?: boolean }[],
+  delta: number,
+  clampMap?: ClampMap,
+) {
+  return verts.map((v) => ({
+    x: v.x + (v.moveX ? shiftFor(v.x, delta, clampMap) : 0),
+    y: v.y,
+  }));
 }
 
 interface Pt { x: number; y: number }
@@ -34,12 +83,15 @@ function bboxOf(pts: Pt[]) {
   return { minX, minY, maxX, maxY, w: maxX - minX, h: maxY - minY };
 }
 
-function polygonAreaM2(verts: { x: number; y: number; moveX: boolean }[], delta: number) {
+function polygonAreaM2(
+  verts: { x: number; y: number; moveX: boolean }[],
+  delta: number, clampMap?: ClampMap,
+) {
   let a = 0;
   for (let i = 0; i < verts.length; i++) {
     const j = (i + 1) % verts.length;
-    const xi = verts[i].x + (verts[i].moveX ? delta : 0);
-    const xj = verts[j].x + (verts[j].moveX ? delta : 0);
+    const xi = verts[i].x + (verts[i].moveX ? shiftFor(verts[i].x, delta, clampMap) : 0);
+    const xj = verts[j].x + (verts[j].moveX ? shiftFor(verts[j].x, delta, clampMap) : 0);
     a += xi * verts[j].y - xj * verts[i].y;
   }
   return Math.abs(a) / 2 / 1_000_000;
@@ -48,8 +100,9 @@ function polygonAreaM2(verts: { x: number; y: number; moveX: boolean }[], delta:
 function centroidSVG(
   verts: { x: number; y: number; moveX: boolean }[],
   delta: number, scale: number, drawH: number, padX: number, padY: number,
+  clampMap?: ClampMap,
 ) {
-  const world = applyDelta(verts, delta);
+  const world = applyDelta(verts, delta, clampMap);
   const cx = world.reduce((s, v) => s + v.x, 0) / world.length;
   const cy = world.reduce((s, v) => s + v.y, 0) / world.length;
   return { x: sxT(cx, scale, padX), y: syT(cy, scale, drawH, padY) };
@@ -180,9 +233,9 @@ function renderRoom(
   entity: PolylineEntity,
   layerName: string,
   delta: number, scale: number, drawH: number, padX: number, padY: number,
-  key: string,
+  key: string, clampMap?: ClampMap,
 ): React.ReactNode {
-  const world = applyDelta(entity.vertices, delta);
+  const world = applyDelta(entity.vertices, delta, clampMap);
   const pts = world.map((v) => `${sxT(v.x, scale, padX)},${syT(v.y, scale, drawH, padY)}`).join(" ");
   const patId = roomPatternId(layerName);
   return (
@@ -194,9 +247,9 @@ function renderRoom(
 function renderWall(
   entity: PolylineEntity,
   delta: number, scale: number, drawH: number, padX: number, padY: number,
-  key: string,
+  key: string, clampMap?: ClampMap,
 ): React.ReactNode {
-  const world = applyDelta(entity.vertices, delta);
+  const world = applyDelta(entity.vertices, delta, clampMap);
   const pts = world.map((v) => `${sxT(v.x, scale, padX)},${syT(v.y, scale, drawH, padY)}`).join(" ");
   return entity.closed
     ? <polygon  key={key} points={pts} fill="#003B2B" stroke="#003B2B" strokeWidth={1} />
@@ -206,9 +259,9 @@ function renderWall(
 function renderWindow(
   entity: PolylineEntity,
   delta: number, scale: number, drawH: number, padX: number, padY: number,
-  key: string,
+  key: string, clampMap?: ClampMap,
 ): React.ReactNode {
-  const world = applyDelta(entity.vertices, delta);
+  const world = applyDelta(entity.vertices, delta, clampMap);
   const pts = world.map((v) => `${sxT(v.x, scale, padX)},${syT(v.y, scale, drawH, padY)}`).join(" ");
   const bb = bboxOf(world);
   const isHoriz = bb.w >= bb.h;
@@ -262,9 +315,9 @@ function renderDoor(
   entity: PolylineEntity,
   delta: number, scale: number, drawH: number, padX: number, padY: number,
   planW: number, planD: number,
-  key: string,
+  key: string, clampMap?: ClampMap,
 ): React.ReactNode {
-  const world = applyDelta(entity.vertices, delta);
+  const world = applyDelta(entity.vertices, delta, clampMap);
   const pts = world.map((v) => `${sxT(v.x, scale, padX)},${syT(v.y, scale, drawH, padY)}`).join(" ");
   const bb = bboxOf(world);
 
@@ -353,9 +406,9 @@ function renderFurnitureBlock(
 function renderFurniturePolyline(
   entity: PolylineEntity,
   delta: number, scale: number, drawH: number, padX: number, padY: number,
-  key: string,
+  key: string, clampMap?: ClampMap,
 ): React.ReactNode {
-  const world = applyDelta(entity.vertices, delta);
+  const world = applyDelta(entity.vertices, delta, clampMap);
   const pts = world.map((v) => `${sxT(v.x, scale, padX)},${syT(v.y, scale, drawH, padY)}`).join(" ");
   return entity.closed
     ? <polygon  key={key} points={pts} fill="white" stroke="#001F17" strokeWidth={0.8} />
@@ -364,10 +417,10 @@ function renderFurniturePolyline(
 
 // ── Room labels ───────────────────────────────────────────────────────────────
 function RoomLabels({
-  plan, delta, scale, drawH, padX, padY,
+  plan, delta, scale, drawH, padX, padY, clampMap,
 }: {
   plan: FloorplanJSON; delta: number; scale: number;
-  drawH: number; padX: number; padY: number;
+  drawH: number; padX: number; padY: number; clampMap?: ClampMap;
 }) {
   const labels: React.ReactNode[] = [];
 
@@ -378,8 +431,8 @@ function RoomLabels({
     for (let i = 0; i < layer.entities.length; i++) {
       const entity = layer.entities[i];
       if (entity.type !== "polyline") continue;
-      const area = polygonAreaM2(entity.vertices, delta).toFixed(2);
-      const { x: cx, y: cy } = centroidSVG(entity.vertices, delta, scale, drawH, padX, padY);
+      const area = polygonAreaM2(entity.vertices, delta, clampMap).toFixed(2);
+      const { x: cx, y: cy } = centroidSVG(entity.vertices, delta, scale, drawH, padX, padY, clampMap);
       const fontSize = 10;
       const lineH = fontSize + 3;
       const line1 = displayName;
@@ -457,6 +510,7 @@ function windowsOnWall(
   plan: FloorplanJSON,
   delta: number,
   wall: "top" | "bottom" | "left" | "right",
+  clampMap?: ClampMap,
 ): Array<{ min: number; max: number }> {
   const windowLayer = plan.layers.find((l) => l.name === "Windows");
   if (!windowLayer) return [];
@@ -465,7 +519,7 @@ function windowsOnWall(
   const intervals: Array<{ min: number; max: number }> = [];
   for (const entity of windowLayer.entities) {
     if (entity.type !== "polyline") continue;
-    const world = applyDelta(entity.vertices, delta);
+    const world = applyDelta(entity.vertices, delta, clampMap);
     const bb = bboxOf(world);
     const cx = (bb.minX + bb.maxX) / 2;
     const cy = (bb.minY + bb.maxY) / 2;
@@ -494,10 +548,10 @@ function buildChain(wallStart: number, wallEnd: number, intervals: Array<{ min: 
 }
 
 function DimensionLines({
-  plan, delta, scale, drawH, padX, padY,
+  plan, delta, scale, drawH, padX, padY, clampMap,
 }: {
   plan: FloorplanJSON; delta: number; scale: number;
-  drawH: number; padX: number; padY: number;
+  drawH: number; padX: number; padY: number; clampMap?: ClampMap;
 }) {
   const bLeft   = padX;
   const bRight  = padX + (plan.baseWidth + delta) * scale;
@@ -520,7 +574,7 @@ function DimensionLines({
   const innerLines: React.ReactNode[] = [];
 
   // Top wall — horizontal chain
-  const topWins = windowsOnWall(plan, delta, "top");
+  const topWins = windowsOnWall(plan, delta, "top", clampMap);
   const topChain = buildChain(0, plan.baseWidth + delta, topWins);
   for (let i = 0; i < topChain.length; i++) {
     const seg = topChain[i];
@@ -535,7 +589,7 @@ function DimensionLines({
   }
 
   // Bottom wall — horizontal chain
-  const botWins = windowsOnWall(plan, delta, "bottom");
+  const botWins = windowsOnWall(plan, delta, "bottom", clampMap);
   const botChain = buildChain(0, plan.baseWidth + delta, botWins);
   for (let i = 0; i < botChain.length; i++) {
     const seg = botChain[i];
@@ -550,7 +604,7 @@ function DimensionLines({
   }
 
   // Left wall — vertical chain (Y axis in world is bottom→top; in SVG top→bottom)
-  const leftWins = windowsOnWall(plan, delta, "left");
+  const leftWins = windowsOnWall(plan, delta, "left", clampMap);
   const leftChain = buildChain(0, plan.baseDepth, leftWins);
   for (let i = 0; i < leftChain.length; i++) {
     const seg = leftChain[i];
@@ -566,7 +620,7 @@ function DimensionLines({
   }
 
   // Right wall — vertical chain
-  const rightWins = windowsOnWall(plan, delta, "right");
+  const rightWins = windowsOnWall(plan, delta, "right", clampMap);
   const rightChain = buildChain(0, plan.baseDepth, rightWins);
   for (let i = 0; i < rightChain.length; i++) {
     const seg = rightChain[i];
@@ -589,27 +643,27 @@ function renderEntity(
   layerName: string,
   delta: number, scale: number, drawH: number, padX: number, padY: number,
   planW: number, planD: number,
-  key: string,
+  key: string, clampMap?: ClampMap,
 ): React.ReactNode {
   if (layerName.startsWith("Rooms")) {
     if (entity.type !== "polyline") return null;
-    return renderRoom(entity, layerName, delta, scale, drawH, padX, padY, key);
+    return renderRoom(entity, layerName, delta, scale, drawH, padX, padY, key, clampMap);
   }
   if (layerName === "Walls") {
     if (entity.type !== "polyline") return null;
-    return renderWall(entity, delta, scale, drawH, padX, padY, key);
+    return renderWall(entity, delta, scale, drawH, padX, padY, key, clampMap);
   }
   if (layerName === "Windows") {
     if (entity.type !== "polyline") return null;
-    return renderWindow(entity, delta, scale, drawH, padX, padY, key);
+    return renderWindow(entity, delta, scale, drawH, padX, padY, key, clampMap);
   }
   if (layerName === "Doors") {
     if (entity.type !== "polyline") return null;
-    return renderDoor(entity, delta, scale, drawH, padX, padY, planW, planD, key);
+    return renderDoor(entity, delta, scale, drawH, padX, padY, planW, planD, key, clampMap);
   }
   if (layerName === "Furniture") {
     if (entity.type === "block")    return renderFurnitureBlock(entity, delta, scale, drawH, padX, padY, key);
-    if (entity.type === "polyline") return renderFurniturePolyline(entity, delta, scale, drawH, padX, padY, key);
+    if (entity.type === "polyline") return renderFurniturePolyline(entity, delta, scale, drawH, padX, padY, key, clampMap);
   }
   return null;
 }
@@ -630,6 +684,8 @@ export default function FloorplanSVG({ plan, delta, pxPerMm = 0.1 }: Props) {
   const svgW  = drawW + 2 * padX;
   const svgH  = drawH + 2 * padY;
 
+  const clampMap = buildWindowClampMap(plan, delta);
+
   return (
     <svg
       viewBox={`0 0 ${svgW} ${svgH}`}
@@ -642,12 +698,12 @@ export default function FloorplanSVG({ plan, delta, pxPerMm = 0.1 }: Props) {
       {plan.layers.map((layer) =>
         layer.entities.map((entity, idx) =>
           renderEntity(entity, layer.name, delta, scale, drawH, padX, padY,
-            totalWidth, plan.baseDepth, `${layer.name}-${idx}`)
+            totalWidth, plan.baseDepth, `${layer.name}-${idx}`, clampMap)
         )
       )}
 
-      <RoomLabels plan={plan} delta={delta} scale={scale} drawH={drawH} padX={padX} padY={padY} />
-      <DimensionLines plan={plan} delta={delta} scale={scale} drawH={drawH} padX={padX} padY={padY} />
+      <RoomLabels plan={plan} delta={delta} scale={scale} drawH={drawH} padX={padX} padY={padY} clampMap={clampMap} />
+      <DimensionLines plan={plan} delta={delta} scale={scale} drawH={drawH} padX={padX} padY={padY} clampMap={clampMap} />
     </svg>
   );
 }
