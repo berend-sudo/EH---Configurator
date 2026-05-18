@@ -5,7 +5,7 @@ import type { FloorplanJSON } from "@/types/floorplan";
 import {
   countRooms,
   calculateBudget,
-  detectIsClere,
+  detectTypology,
   USD_RATE,
   type BudgetLineItem,
 } from "@/lib/budget";
@@ -38,10 +38,10 @@ function LineRow({ item }: { item: BudgetLineItem }) {
 export default function BudgetPanel({ plan, delta }: Props) {
   const [includeFinishings, setIncludeFinishings] = useState(false);
 
-  const rooms   = countRooms(plan, delta);
-  const isClere = detectIsClere(plan.name);
-  const budget  = calculateBudget(rooms, isClere);
-  const total   = includeFinishings ? budget.grandTotal : budget.coreTotal;
+  const rooms    = countRooms(plan, delta);
+  const typology = detectTypology(plan.name);
+  const budget   = calculateBudget(rooms, typology);
+  const total    = includeFinishings ? budget.grandTotal : budget.coreTotal;
   const totalLbl = includeFinishings ? "Grand Total" : "Total (structure)";
 
   return (
@@ -49,16 +49,26 @@ export default function BudgetPanel({ plan, delta }: Props) {
       <div className="flex items-start justify-between mb-4">
         <div>
           <h2 className="text-sm font-semibold text-stone-700">Estimated Budget</h2>
+          <p className="text-xs text-stone-500 mt-0.5">
+            <span className="font-medium text-stone-700">{typology.name}</span>
+            {!typology.detected && (
+              <span
+                className="ml-1 text-amber-600"
+                title="Could not detect typology from DXF filename — defaulting to Mono Pitch. Rename the file or use a typology selector once available."
+              >
+                (assumed)
+              </span>
+            )}
+          </p>
           <p className="text-xs text-stone-400 mt-0.5">
             GFA {rooms.gfa.toFixed(1)} m²
             {rooms.terraceArea > 0 && ` · Terrace ${rooms.terraceArea.toFixed(1)} m² (excl.)`}
             {" · "}{rooms.bedrooms} bed · {rooms.bathrooms} bath
             {rooms.kitchens > 0 && ` · ${rooms.kitchens} kitchen`}
-            {isClere && " · Clerestory rate"}
           </p>
         </div>
-        <span className="text-xs text-stone-400 font-mono bg-stone-50 border border-stone-200 px-2 py-1 rounded">
-          {budget.sqmRate.toLocaleString("en-UG")} UGX/m²
+        <span className="text-xs text-stone-400 font-mono bg-stone-50 border border-stone-200 px-2 py-1 rounded whitespace-nowrap">
+          {typology.sqmRate.toLocaleString("en-UG")} UGX/m²
         </span>
       </div>
 

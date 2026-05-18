@@ -1,7 +1,13 @@
 import type { FloorplanJSON, Vertex } from "@/types/floorplan";
 
-const RATE_STANDARD    = 1_350_000;
-const RATE_CLERESTORY  = 1_420_000;
+// Rates from the "Price Calc" sheet (Typology Calculator, rows 87-92).
+// Gables price ~9% cheaper per m² than Mono Pitch / Clerestory.
+// A Frame has no published rate in the Excel — falls back to Mono Pitch.
+const RATE_MONO_PITCH  = 1_228_500;
+const RATE_GABLE       = 1_123_500;
+const RATE_CLERESTORY  = 1_228_500;
+const RATE_A_FRAME     = 1_228_500; // placeholder, no Excel rate
+
 const ELEC_BASE        = 1_500_000;
 const ELEC_PER_SQM     =    50_000;
 const PLUMB_BASE       =   500_000;
@@ -25,8 +31,53 @@ export function polygonAreaM2(verts: Vertex[], delta: number): number {
   return Math.abs(a) / 2 / 1_000_000;
 }
 
-export function detectIsClere(planName: string): boolean {
-  return planName.toLowerCase().includes("clerestory");
+export type TypologyName =
+  | "Mono Pitch"
+  | "Compact Gable"
+  | "Standard Gable"
+  | "Large Gable"
+  | "Standard Clerestory"
+  | "Large Clerestory"
+  | "A Frame";
+
+export interface TypologyInfo {
+  name: TypologyName;
+  sqmRate: number;
+  detected: boolean; // false when we fell back to the default
+}
+
+export function detectTypology(planName: string): TypologyInfo {
+  const n = planName.toLowerCase();
+
+  if (n.includes("clerestory")) {
+    const isLarge = n.includes("large");
+    return {
+      name: isLarge ? "Large Clerestory" : "Standard Clerestory",
+      sqmRate: RATE_CLERESTORY,
+      detected: true,
+    };
+  }
+
+  if (n.includes("a frame") || n.includes("a-frame") || n.includes("aframe")) {
+    return { name: "A Frame", sqmRate: RATE_A_FRAME, detected: true };
+  }
+
+  if (n.includes("gable")) {
+    if (n.includes("compact") || n.includes("small")) {
+      return { name: "Compact Gable", sqmRate: RATE_GABLE, detected: true };
+    }
+    if (n.includes("large")) {
+      return { name: "Large Gable", sqmRate: RATE_GABLE, detected: true };
+    }
+    return { name: "Standard Gable", sqmRate: RATE_GABLE, detected: true };
+  }
+
+  if (n.includes("monopitch") || n.includes("mono pitch") || n.includes("mono-pitch")) {
+    return { name: "Mono Pitch", sqmRate: RATE_MONO_PITCH, detected: true };
+  }
+
+  // Fallback: assume Mono Pitch but flag as undetected so the UI can warn.
+  return { name: "Mono Pitch", sqmRate: RATE_MONO_PITCH, detected: false };
 }
 
 export interface CountRoomsResult {
@@ -58,15 +109,15 @@ export function countRooms(plan: FloorplanJSON, delta: number): CountRoomsResult
 export interface BudgetLineItem { label: string; amount: number; }
 
 export interface BudgetResult {
-  sqmRate: number;
+  typology: TypologyInfo;
   lines: { core: BudgetLineItem[]; optional: BudgetLineItem[]; };
   coreTotal: number;
   grandTotal: number;
 }
 
-export function calculateBudget(rooms: CountRoomsResult, isClere: boolean): BudgetResult {
+export function calculateBudget(rooms: CountRoomsResult, typology: TypologyInfo): BudgetResult {
   const { gfa, bathrooms, kitchens } = rooms;
-  const sqmRate        = isClere ? RATE_CLERESTORY : RATE_STANDARD;
+  const sqmRate        = typology.sqmRate;
   const basicStructure = gfa * sqmRate;
   const electricals    = ELEC_BASE   + ELEC_PER_SQM  * gfa;
   const plumbing       = PLUMB_BASE  + PLUMB_PER_BATH * bathrooms + PLUMB_PER_SQM * gfa;
@@ -83,7 +134,7 @@ export function calculateBudget(rooms: CountRoomsResult, isClere: boolean): Budg
   ];
 
   return {
-    sqmRate,
+    typology,
     lines: {
       core: [
         { label: "Basic structure", amount: basicStructure },
