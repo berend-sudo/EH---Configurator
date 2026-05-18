@@ -187,7 +187,7 @@ function renderRoom(
   const patId = roomPatternId(layerName);
   return (
     <polygon key={key} points={pts}
-      fill={`url(#${patId})`} stroke="#6B5A3A" strokeWidth={0.5} />
+      fill={`url(#${patId})`} stroke="none" />
   );
 }
 
@@ -241,6 +241,23 @@ function renderWindow(
   );
 }
 
+// A door polyline's first and last vertices both lie on the wall it cuts
+// through (the swing arc starts on the wall, ends on the wall). Detect which
+// bbox edge contains both endpoints — that's the wall edge.
+function detectDoorWallEdge(
+  world: Pt[], bb: ReturnType<typeof bboxOf>,
+): "top" | "bottom" | "left" | "right" | null {
+  if (world.length < 2) return null;
+  const v0 = world[0];
+  const vN = world[world.length - 1];
+  const tol = 5; // mm
+  if (Math.abs(v0.y - bb.maxY) < tol && Math.abs(vN.y - bb.maxY) < tol) return "top";
+  if (Math.abs(v0.y - bb.minY) < tol && Math.abs(vN.y - bb.minY) < tol) return "bottom";
+  if (Math.abs(v0.x - bb.minX) < tol && Math.abs(vN.x - bb.minX) < tol) return "left";
+  if (Math.abs(v0.x - bb.maxX) < tol && Math.abs(vN.x - bb.maxX) < tol) return "right";
+  return null;
+}
+
 function renderDoor(
   entity: PolylineEntity,
   delta: number, scale: number, drawH: number, padX: number, padY: number,
@@ -250,35 +267,38 @@ function renderDoor(
   const world = applyDelta(entity.vertices, delta);
   const pts = world.map((v) => `${sxT(v.x, scale, padX)},${syT(v.y, scale, drawH, padY)}`).join(" ");
   const bb = bboxOf(world);
-  const cx = (bb.minX + bb.maxX) / 2;
-  const cy = (bb.minY + bb.maxY) / 2;
 
   const W = WALL_THICKNESS;
-  const dTop    = planD - cy;
-  const dBottom = cy;
-  const dLeft   = cx;
-  const dRight  = planW - cx;
-  const minD = Math.min(dTop, dBottom, dLeft, dRight);
+  // Wall edge from polyline endpoints; fall back to nearest building edge.
+  let side = detectDoorWallEdge(world, bb);
+  if (!side) {
+    const cx = (bb.minX + bb.maxX) / 2;
+    const cy = (bb.minY + bb.maxY) / 2;
+    const dTop = planD - cy, dBottom = cy, dLeft = cx, dRight = planW - cx;
+    const minD = Math.min(dTop, dBottom, dLeft, dRight);
+    side = minD === dTop ? "top" : minD === dBottom ? "bottom" : minD === dLeft ? "left" : "right";
+  }
 
+  // White rect spans the door opening, centred on the wall and 94mm thick.
   let rx = 0, ry = 0, rw = 0, rh = 0;
-  if (minD === dTop) {
-    // Top wall — white strip across door opening width, 94mm tall on the wall
+  if (side === "top") {
+    // bbox top edge (world y = bb.maxY) sits on the wall centreline
     rx = sxT(bb.minX, scale, padX);
-    ry = syT(planD, scale, drawH, padY);
+    ry = syT(bb.maxY + W / 2, scale, drawH, padY);
     rw = bb.w * scale;
     rh = W * scale;
-  } else if (minD === dBottom) {
+  } else if (side === "bottom") {
     rx = sxT(bb.minX, scale, padX);
-    ry = syT(W, scale, drawH, padY);
+    ry = syT(bb.minY + W / 2, scale, drawH, padY);
     rw = bb.w * scale;
     rh = W * scale;
-  } else if (minD === dLeft) {
-    rx = sxT(0, scale, padX);
+  } else if (side === "left") {
+    rx = sxT(bb.minX - W / 2, scale, padX);
     ry = syT(bb.maxY, scale, drawH, padY);
     rw = W * scale;
     rh = bb.h * scale;
   } else {
-    rx = sxT(planW - W, scale, padX);
+    rx = sxT(bb.maxX - W / 2, scale, padX);
     ry = syT(bb.maxY, scale, drawH, padY);
     rw = W * scale;
     rh = bb.h * scale;
