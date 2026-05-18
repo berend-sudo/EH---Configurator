@@ -556,7 +556,40 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
   const minDelta = Math.ceil(rawMinDelta / 610) * 610;
 
   const rawMax = Math.round(maxX * 0.5);
-  const maxDelta = minDelta + Math.floor((rawMax - minDelta) / 610) * 610;
+
+  // Cap by the 1800 mm max window width: find the smallest delta at which any
+  // stretching window would hit 1800 mm wide, and don't let the slider go past
+  // that. Windows whose right edge moves with delta but whose left edge does
+  // not (rate = 1) grow by exactly delta; rate = 0 (both sides shift together)
+  // means no stretching.
+  const MAX_WINDOW_WIDTH_MM = 1800;
+  const windowLayer = layerMap.get("Windows");
+  let windowMaxDelta = Infinity;
+  if (windowLayer) {
+    for (const entity of windowLayer.entities) {
+      if (entity.type !== "polyline") continue;
+      const verts = (entity as PolylineEntity).vertices;
+      let minX0 = Infinity, maxX0 = -Infinity;
+      for (const v of verts) {
+        if (v.x < minX0) minX0 = v.x;
+        if (v.x > maxX0) maxX0 = v.x;
+      }
+      let rateMax = 0, rateMin = 0;
+      for (const v of verts) {
+        if (v.x === maxX0 && v.moveX) rateMax = 1;
+        if (v.x === minX0 && v.moveX) rateMin = 1;
+      }
+      const rate = rateMax - rateMin;
+      const w0 = maxX0 - minX0;
+      if (rate > 0 && w0 < MAX_WINDOW_WIDTH_MM) {
+        const cap = (MAX_WINDOW_WIDTH_MM - w0) / rate;
+        if (cap < windowMaxDelta) windowMaxDelta = cap;
+      }
+    }
+  }
+
+  const cappedMax = Math.min(rawMax, windowMaxDelta);
+  const maxDelta = minDelta + Math.max(0, Math.floor((cappedMax - minDelta) / 610)) * 610;
 
   const name = filename.replace(/\.dxf$/i, "");
   const id = name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
