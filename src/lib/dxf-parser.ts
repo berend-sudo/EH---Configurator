@@ -34,6 +34,40 @@ function isNear(ax: number, ay: number, bx: number, by: number, tol = 2) {
   return Math.abs(ax - bx) < tol && Math.abs(ay - by) < tol;
 }
 
+function rotatePt(x: number, y: number, deg: number): { x: number; y: number } {
+  const r = (deg * Math.PI) / 180;
+  return { x: x * Math.cos(r) - y * Math.sin(r), y: x * Math.sin(r) + y * Math.cos(r) };
+}
+
+// Check whether any PT Rechtsboven point falls inside the rotated bounding box
+function ptInsideRefRect(
+  pts: { x: number; y: number }[],
+  ix: number,
+  iy: number,
+  rotation: number,
+  refRect: { x: number; y: number }[],
+): boolean {
+  const worldCorners = refRect.map((v) => {
+    const r = rotatePt(v.x, v.y, rotation);
+    return { x: ix + r.x, y: iy + r.y };
+  });
+  const xs = worldCorners.map((c) => c.x);
+  const ys = worldCorners.map((c) => c.y);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  return pts.some((p) => p.x >= minX && p.x <= maxX && p.y >= minY && p.y <= maxY);
+}
+
+// Proximity check for furniture without a MeubelRefRec (PT points are ~318 mm offset from insert)
+function ptNearInsert(
+  pts: { x: number; y: number }[],
+  ix: number,
+  iy: number,
+  tol = 350,
+): boolean {
+  return pts.some((p) => Math.hypot(p.x - ix, p.y - iy) < tol);
+}
+
 // ── Read a POLYLINE (with VERTEX subentities) starting after the POLYLINE pair ──
 function readPolyline(pairs: DxfPair[], start: number): { closed: boolean; vertices: { x: number; y: number }[]; end: number } {
   let flags = 0;
@@ -66,8 +100,9 @@ function readPolyline(pairs: DxfPair[], start: number): { closed: boolean; verti
 }
 
 // ── Extract geometry from a block definition ──
-function readBlockGeom(pairs: DxfPair[], start: number): { geom: BlockGeom[]; end: number } {
+function readBlockGeom(pairs: DxfPair[], start: number): { geom: BlockGeom[]; refRect: { x: number; y: number }[] | null; end: number } {
   const geom: BlockGeom[] = [];
+  let refRect: { x: number; y: number }[] | null = null;
   let i = start;
 
   while (i < pairs.length) {
@@ -116,9 +151,19 @@ function readBlockGeom(pairs: DxfPair[], start: number): { geom: BlockGeom[]; en
     }
 
     if (code === 0 && value === "POLYLINE") {
+      // peek at layer before consuming
+      let peekLayer = "";
+      let pj = i + 1;
+      while (pj < pairs.length && pairs[pj].code !== 0) {
+        if (pairs[pj].code === 8) { peekLayer = pairs[pj].value; break; }
+        pj++;
+      }
       const { closed, vertices, end } = readPolyline(pairs, i + 1);
-      if (vertices.length > 0)
+      if (peekLayer === "MeubelRefRec") {
+        refRect = vertices;
+      } else if (vertices.length > 0) {
         geom.push({ type: "polyline", closed, vertices } as GeomPolyline);
+      }
       i = end; continue;
     }
 
@@ -145,7 +190,7 @@ function readBlockGeom(pairs: DxfPair[], start: number): { geom: BlockGeom[]; en
     i++;
   }
 
-  return { geom, end: i };
+  return { geom, refRect, end: i };
 }
 
 // ── Main parser ──
@@ -154,8 +199,10 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
 
   const ptRight: { x: number; y: number }[] = [];
   const polylines: { layer: string; closed: boolean; vertices: { x: number; y: number }[] }[] = [];
-  const inserts: { layer: string; name: string; x: number; y: number }[] = [];
+  const inserts: { layer: string; name: string; x: number; y: number; rotation: number }[] = [];
+  // blockDefs stores geometry; blockRefs stores the MeubelRefRec rectangle (for moveX detection)
   const blockDefs = new Map<string, BlockGeom[]>();
+  const blockRefs = new Map<string, { x: number; y: number }[]>();
 
   let section = "";
   let i = 0;
@@ -176,9 +223,11 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
       }
       // skip to end of header (next code=0)
       while (j < pairs.length && pairs[j].code !== 0) j++;
-      const { geom, end } = readBlockGeom(pairs, j);
-      if (blockName && blockName !== "*Model_Space" && blockName !== "*Paper_Space")
+      const { geom, refRect, end } = readBlockGeom(pairs, j);
+      if (blockName && blockName !== "*Model_Space" && blockName !== "*Paper_Space") {
         blockDefs.set(blockName, geom);
+        if (refRect) blockRefs.set(blockName, refRect);
+      }
       i = end; continue;
     }
 
@@ -214,15 +263,16 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
       }
 
       if (code === 0 && value === "INSERT") {
-        let j = i + 1, layer = "", name = "", ix = 0, iy = 0;
+        let j = i + 1, layer = "", name = "", ix = 0, iy = 0, rot = 0;
         while (j < pairs.length && pairs[j].code !== 0) {
-          if (pairs[j].code === 8) layer = pairs[j].value;
-          if (pairs[j].code === 2) name = pairs[j].value;
-          if (pairs[j].code === 10) ix = n(pairs[j].value);
-          if (pairs[j].code === 20) iy = n(pairs[j].value);
+          if (pairs[j].code === 8)  layer = pairs[j].value;
+          if (pairs[j].code === 2)  name  = pairs[j].value;
+          if (pairs[j].code === 10) ix    = n(pairs[j].value);
+          if (pairs[j].code === 20) iy    = n(pairs[j].value);
+          if (pairs[j].code === 50) rot   = n(pairs[j].value);
           j++;
         }
-        if (layer === "Furniture") inserts.push({ layer, name, x: ix, y: iy });
+        if (layer === "Furniture") inserts.push({ layer, name, x: ix, y: iy, rotation: rot });
         i = j; continue;
       }
     }
@@ -258,9 +308,20 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
 
   const furnitureLayer = layerMap.get("Furniture")!;
   for (const ins of inserts) {
-    const moveX = ptRight.some((pt) => isNear(pt.x, pt.y, ins.x, ins.y));
+    const ref = blockRefs.get(ins.name);
+    const moveX = ref
+      ? ptInsideRefRect(ptRight, ins.x, ins.y, ins.rotation, ref)
+      : ptNearInsert(ptRight, ins.x, ins.y);
     const geom = blockDefs.get(ins.name) ?? [];
-    const entity: BlockEntity = { type: "block", name: ins.name, x: ins.x, y: ins.y, moveX, geom };
+    const entity: BlockEntity = {
+      type: "block",
+      name: ins.name,
+      x: ins.x,
+      y: ins.y,
+      rotation: ins.rotation,
+      moveX,
+      geom,
+    };
     furnitureLayer.entities.push(entity);
   }
 

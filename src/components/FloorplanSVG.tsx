@@ -150,12 +150,13 @@ function renderEntity(
   if (entity.type === "block") {
     const bx = tx(entity.x, entity.moveX, delta, scale);
     const by = ty(entity.y, scale, drawH);
-    // Block geometry is in local mm coords; scale and place via transform
-    // Y is already flipped in renderBlockGeom (using -y), so we just translate
+    // DXF rotation is CCW in Y-up space. After Y-flip (handled in renderBlockGeom via -y),
+    // we negate the angle so the rotation direction is correct in SVG Y-down space.
+    const svgRot = -entity.rotation;
     return (
       <g
         key={key}
-        transform={`translate(${bx}, ${by}) scale(${scale})`}
+        transform={`translate(${bx}, ${by}) scale(${scale}) rotate(${svgRot})`}
       >
         {entity.geom.map((g, gi) =>
           renderBlockGeom(g, style.stroke, style.strokeWidth / scale, `${key}-g${gi}`)

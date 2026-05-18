@@ -47,6 +47,7 @@ export interface BlockEntity {
   name: string;
   x: number;
   y: number;
+  rotation: number; // degrees, CCW in DXF space
   moveX: boolean;
   geom: BlockGeom[];
 }
