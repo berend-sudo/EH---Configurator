@@ -7,7 +7,7 @@ import type {
   GeomPolyline,
   GeomSpline,
   Vertex,
-} from "@/types/floorplan";
+} from "@/types/dxfFloorplan";
 
 // ── Pair parsing ─────────────────────────────────────────────────────────────
 
@@ -69,7 +69,8 @@ interface LocalArc     { type: "arc";     layer: string; cx: number; cy: number;
 interface LocalCircle  { type: "circle";  layer: string; cx: number; cy: number; r: number }
 interface LocalPoly    { type: "poly";    layer: string; closed: boolean; verts: { x: number; y: number }[] }
 interface LocalSpline  { type: "spline";  layer: string; pts: { x: number; y: number }[] }
-type LocalGeom = LocalLine | LocalArc | LocalCircle | LocalPoly | LocalSpline;
+interface LocalPoint   { type: "point";   layer: string; x: number; y: number }
+type LocalGeom = LocalLine | LocalArc | LocalCircle | LocalPoly | LocalSpline | LocalPoint;
 
 // ── DXF readers ───────────────────────────────────────────────────────────────
 
@@ -164,10 +165,8 @@ function readBlockDef(pairs: Pair[], start: number): { geom: LocalGeom[]; end: n
 
     if (code === 0 && value === "HATCH") {
       // Solid hatches define filled regions whose outline is the *only*
-      // record of certain shapes (e.g. the toilet cistern body has no
-      // LINE/ARC outline; the cistern silhouette lives only in the HATCH
-      // boundary). Extract polyline-type boundary paths as outlines so
-      // they get rendered.
+      // record of certain shapes (e.g. toilet cistern body). Extract
+      // polyline-type boundary paths as outlines so they get rendered.
       let j = i + 1, layer = "", numPaths = 0;
       while (j < pairs.length && pairs[j].code !== 0) {
         if (pairs[j].code === 8) layer = pairs[j].value;
@@ -180,7 +179,6 @@ function readBlockDef(pairs: Pair[], start: number): { geom: LocalGeom[]; end: n
         const pathType = parseInt(pairs[j].value, 10);
         j++;
         if (pathType & 2) {
-          // Polyline boundary: 72=has_bulge, 73=closed, 93=vertex count, then 10/20 pairs (and optional 42 bulge).
           let closed = true, numVerts = 0;
           while (j < pairs.length && pairs[j].code !== 0 && pairs[j].code !== 93) {
             if (pairs[j].code === 73) closed = parseInt(pairs[j].value, 10) === 1;
@@ -199,8 +197,6 @@ function readBlockDef(pairs: Pair[], start: number): { geom: LocalGeom[]; end: n
           }
           if (verts.length > 2) geom.push({ type: "poly", layer, closed, verts });
         } else {
-          // Edge-based boundary: skipping. We can't reliably advance without parsing
-          // each edge type, so bail out of further paths in this HATCH.
           break;
         }
       }
@@ -224,6 +220,18 @@ function readBlockDef(pairs: Pair[], start: number): { geom: LocalGeom[]; end: n
       }
       const pts = fit.length > 0 ? fit : ctrl;
       if (pts.length > 1) geom.push({ type: "spline", layer, pts });
+      i = j; continue;
+    }
+
+    if (code === 0 && value === "POINT") {
+      let j = i + 1, layer = "", px = 0, py = 0;
+      while (j < pairs.length && pairs[j].code !== 0) {
+        if (pairs[j].code === 8)  layer = pairs[j].value;
+        if (pairs[j].code === 10) px = n(pairs[j].value);
+        if (pairs[j].code === 20) py = n(pairs[j].value);
+        j++;
+      }
+      geom.push({ type: "point", layer, x: px, y: py });
       i = j; continue;
     }
 
@@ -273,15 +281,16 @@ function tessellateCircle(
 
 // ── Flatten all local geometry to world-space polylines/splines ──────────────
 
-function flattenGeomSplit(
+function flattenGeom(
   localGeom: LocalGeom[],
   ix: number, iy: number, rotDeg: number, sx: number, sy: number,
-): { background: BlockGeom[]; geom: BlockGeom[] } {
-  const background: BlockGeom[] = [];
-  const geom: BlockGeom[] = [];
+): BlockGeom[] {
+  const out: BlockGeom[] = [];
 
-  function flatten(g: LocalGeom, isBg: boolean) {
-    const out = isBg ? background : geom;
+  for (const g of localGeom) {
+    if (g.type === "point") continue;
+    if (g.layer === "FurnitureRefRec" || g.layer === "MeubelRefRec") continue;
+
     if (g.type === "line") {
       const p1 = transformPoint(g.x1, g.y1, ix, iy, rotDeg, sx, sy);
       const p2 = transformPoint(g.x2, g.y2, ix, iy, rotDeg, sx, sy);
@@ -301,10 +310,53 @@ function flattenGeomSplit(
     }
   }
 
+  return out;
+}
+
+// ── Extract PT Top Left/Right Furniture points from local geometry ────────────
+
+function extractBlockPoints(localGeom: LocalGeom[]): {
+  tlLocal: { x: number; y: number } | null;
+  trLocal: { x: number; y: number } | null;
+} {
+  let tlLocal = null, trLocal = null;
   for (const g of localGeom) {
-    flatten(g, g.layer === "MeubelRefRec");
+    if (g.type !== "point") continue;
+    if (g.layer === "PT Top Left Furniture")  tlLocal = { x: g.x, y: g.y };
+    if (g.layer === "PT Top Right Furniture") trLocal = { x: g.x, y: g.y };
   }
-  return { background, geom };
+  return { tlLocal, trLocal };
+}
+
+// ── Compute depth vector from TL→TR axis into the furniture body ─────────────
+
+function computeDepthVec(
+  tl: { x: number; y: number },
+  tr: { x: number; y: number },
+  geom: BlockGeom[],
+): { x: number; y: number } {
+  const dx = tr.x - tl.x, dy = tr.y - tl.y;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  if (len < 1e-9) return { x: 0, y: 0 };
+  const rx = dx / len, ry = dy / len;
+  const pA = { x:  ry, y: -rx };
+  const pB = { x: -ry, y:  rx };
+  let sumA = 0, maxA = 0, sumB = 0, maxB = 0, count = 0;
+  for (const g of geom) {
+    if (g.type !== "polyline") continue;
+    for (const v of g.vertices) {
+      const relX = v.x - tl.x, relY = v.y - tl.y;
+      const a = relX * pA.x + relY * pA.y;
+      const b = relX * pB.x + relY * pB.y;
+      if (a > maxA) maxA = a;
+      if (b > maxB) maxB = b;
+      sumA += a; sumB += b; count++;
+    }
+  }
+  const useA = count === 0 || sumA >= sumB;
+  const depth = useA ? maxA : maxB;
+  const perp  = useA ? pA : pB;
+  return { x: perp.x * depth, y: perp.y * depth };
 }
 
 // ── Main parser ───────────────────────────────────────────────────────────────
@@ -350,16 +402,19 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
           if (pairs[j].code === 20) py = n(pairs[j].value);
           j++;
         }
-        if (layer === "PT Rechtsboven") ptRight.push({ x: px, y: py });
-        else if (layer === "PT Linksboven")  ptLeft.push({ x: px, y: py });
+        // Accept both English (v4) and Dutch (legacy) zone layer names
+        if (layer === "PT Top Right" || layer === "PT Rechtsboven") ptRight.push({ x: px, y: py });
+        else if (layer === "PT Top Left" || layer === "PT Linksboven") ptLeft.push({ x: px, y: py });
         i = j; continue;
       }
 
       if (code === 0 && value === "POLYLINE") {
-        const RENDER = ["Walls", "Rooms", "Doors", "Windows"];
         const { layer, closed, vertices, end } = readPolyline(pairs, i + 1);
-        if (RENDER.includes(layer)) {
-          polylines.push({ layer, closed, vertices });
+        // Rooms may use sublayers like "Rooms$Living Room" — normalize to "Rooms"
+        const normalLayer = layer.startsWith("Rooms") ? "Rooms" : layer;
+        const RENDER = ["Walls", "Rooms", "Doors", "Windows"];
+        if (RENDER.includes(normalLayer)) {
+          polylines.push({ layer: normalLayer, closed, vertices });
         }
         i = end; continue;
       }
@@ -410,9 +465,24 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
 
   const furnitureLayer = layerMap.get("Furniture")!;
   for (const ins of inserts) {
-    const moveX = decideMoveX(ins.x, ins.y, ptRight, ptLeft);
     const localGeom = blockDefs.get(ins.name) ?? [];
-    const { background, geom } = flattenGeomSplit(localGeom, ins.x, ins.y, ins.rotation, ins.scaleX, ins.scaleY);
+    const { tlLocal, trLocal } = extractBlockPoints(localGeom);
+    const geom = flattenGeom(localGeom, ins.x, ins.y, ins.rotation, ins.scaleX, ins.scaleY);
+
+    let tl: { x: number; y: number } | null = null;
+    let tr: { x: number; y: number } | null = null;
+    let depthVec = { x: 0, y: 0 };
+
+    if (tlLocal && trLocal) {
+      tl = transformPoint(tlLocal.x, tlLocal.y, ins.x, ins.y, ins.rotation, ins.scaleX, ins.scaleY);
+      tr = transformPoint(trLocal.x, trLocal.y, ins.x, ins.y, ins.rotation, ins.scaleX, ins.scaleY);
+      depthVec = computeDepthVec(tl, tr, geom);
+    }
+
+    // Use TL/TR left edge for zone classification; fall back to insertion point
+    const refX = (tl && tr) ? Math.min(tl.x, tr.x) : ins.x;
+    const moveX = decideMoveX(refX, ins.y, ptRight, ptLeft);
+
     furnitureLayer.entities.push({
       type: "block",
       name: ins.name,
@@ -422,16 +492,16 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
       scaleX: ins.scaleX,
       scaleY: ins.scaleY,
       moveX,
-      background,
+      tl,
+      tr,
+      depthVec,
       geom,
     } as BlockEntity);
   }
 
   // ── Auto-compute minDelta ─────────────────────────────────────────────────
-  // Find the rightmost fixed (moveX=false) wall vertex in the interior zone
-  // (exclude exterior walls at x < 500 or x > maxX-500).
-  // Find the leftmost moving (moveX=true) vertex across walls + furniture.
-  // minDelta = how far we must shift right for moving geometry to clear fixed walls.
+  // Find rightmost fixed interior wall vertex; find leftmost moving furniture
+  // left edge. minDelta = clearance needed to avoid overlap.
   let fixedInteriorMaxX = 0;
   let movingMinX = Infinity;
   const interiorMin = 500, interiorMax = maxX - 500;
@@ -447,12 +517,18 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
       }
     }
   }
+
   for (const ent of furnitureLayer.entities) {
     if (ent.type !== "block" || !ent.moveX) continue;
-    for (const bg of ent.background) {
-      if (bg.type === "polyline") {
-        for (const v of bg.vertices) {
-          if (v.x < movingMinX) movingMinX = v.x;
+    if (ent.tl && ent.tr) {
+      const leftEdge = Math.min(ent.tl.x, ent.tr.x);
+      if (leftEdge < movingMinX) movingMinX = leftEdge;
+    } else {
+      for (const g of ent.geom) {
+        if (g.type === "polyline") {
+          for (const v of g.vertices) {
+            if (v.x < movingMinX) movingMinX = v.x;
+          }
         }
       }
     }
@@ -461,7 +537,6 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
   const rawMinDelta = fixedInteriorMaxX > 0 && movingMinX < Infinity
     ? Math.max(0, fixedInteriorMaxX - movingMinX)
     : 0;
-  // Round up to nearest 50mm
   const minDelta = Math.ceil(rawMinDelta / 50) * 50;
 
   const name = filename.replace(/\.dxf$/i, "");
