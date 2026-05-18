@@ -11,3 +11,13 @@ export const maxBedroomsFor = (budget: number, roof: RoofType): number => {
   }
   return floor;
 };
+
+export const minCostFor = (roof: RoofType): number =>
+  priceForLanding({ roof, bedrooms: minBedroomsFor(roof) });
+
+export const isAffordable = (roof: RoofType, budget: number): boolean =>
+  minCostFor(roof) <= budget;
+
+// Search order = ascending minCost so the fallback picks the cheapest
+// roof still in reach at the current budget.
+export const ROOF_FALLBACK_ORDER: readonly RoofType[] = ["monopitch", "gable", "clerestory"];

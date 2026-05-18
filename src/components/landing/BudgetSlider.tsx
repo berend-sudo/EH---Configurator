@@ -9,7 +9,7 @@ type Props = {
   onChange: (n: number) => void;
 };
 
-export default function BudgetSlider({ value, min = 18_000_000, max = 75_000_000, onChange }: Props) {
+export default function BudgetSlider({ value, min = 42_000_000, max = 115_000_000, onChange }: Props) {
   const pct = ((value - min) / (max - min)) * 100;
   return (
     <div>

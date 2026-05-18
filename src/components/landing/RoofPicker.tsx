@@ -1,8 +1,8 @@
 "use client";
 
-import type { RoofType } from "./pricing-helpers";
+import { isAffordable, type RoofType } from "./pricing-helpers";
 
-type Props = { value: RoofType; onChange: (r: RoofType) => void };
+type Props = { value: RoofType; onChange: (r: RoofType) => void; budget: number };
 
 const TYPES: { id: RoofType; label: string; path: string }[] = [
   { id: "monopitch", label: "Monopitch", path: "M 6 28 L 6 14 L 50 6 L 50 28 Z" },
@@ -16,7 +16,7 @@ const TYPES: { id: RoofType; label: string; path: string }[] = [
   },
 ];
 
-export default function RoofPicker({ value, onChange }: Props) {
+export default function RoofPicker({ value, onChange, budget }: Props) {
   return (
     <div>
       <div
@@ -34,32 +34,38 @@ export default function RoofPicker({ value, onChange }: Props) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
         {TYPES.map((t) => {
           const active = t.id === value;
+          const affordable = isAffordable(t.id, budget);
+          const disabled = !affordable && !active;
+          const strokeColor = disabled
+            ? "var(--eh-text-soft)"
+            : active
+            ? "var(--eh-green)"
+            : "var(--eh-green-900)";
           return (
             <button
               key={t.id}
               type="button"
-              onClick={() => onChange(t.id)}
+              onClick={() => {
+                if (!disabled) onChange(t.id);
+              }}
               aria-pressed={active}
+              aria-disabled={disabled || undefined}
+              disabled={disabled}
               style={{
                 padding: "14px 10px",
                 borderRadius: 14,
                 textAlign: "center",
-                cursor: "pointer",
+                cursor: disabled ? "not-allowed" : "pointer",
                 background: active ? "var(--eh-green-900)" : "#fff",
-                color: active ? "#fff" : "var(--eh-text)",
+                color: disabled ? "var(--eh-text-soft)" : active ? "#fff" : "var(--eh-text)",
                 border: active ? "1.5px solid var(--eh-green-900)" : "1.5px solid var(--eh-stroke)",
+                opacity: disabled ? 0.55 : 1,
                 transition: "all .15s var(--eh-ease)",
                 font: "inherit",
               }}
             >
               <svg viewBox="0 0 56 32" width="56" height="32" style={{ display: "block", margin: "0 auto 6px" }} aria-hidden="true">
-                <path
-                  d={t.path}
-                  fill="none"
-                  stroke={active ? "var(--eh-green)" : "var(--eh-green-900)"}
-                  strokeWidth="2"
-                  strokeLinejoin="round"
-                />
+                <path d={t.path} fill="none" stroke={strokeColor} strokeWidth="2" strokeLinejoin="round" />
               </svg>
               <div style={{ fontSize: 12, fontWeight: 500 }}>{t.label}</div>
             </button>

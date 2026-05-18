@@ -6,13 +6,30 @@ import EHNavBar from "./EHNavBar";
 import BudgetSlider from "./BudgetSlider";
 import BedroomsCounter from "./BedroomsCounter";
 import RoofPicker from "./RoofPicker";
-import { minBedroomsFor, maxBedroomsFor, type RoofType } from "./pricing-helpers";
+import {
+  minBedroomsFor,
+  maxBedroomsFor,
+  isAffordable,
+  ROOF_FALLBACK_ORDER,
+  type RoofType,
+} from "./pricing-helpers";
 
 export default function LandingScreen() {
   const router = useRouter();
-  const [budget, setBudget] = useState(32_500_000);
+  const [budget, setBudget] = useState(75_000_000);
   const [bedrooms, setBedrooms] = useState(2);
   const [roof, setRoof] = useState<RoofType>("monopitch");
+
+  // If the current roof becomes unaffordable as the budget drops, fall
+  // back to the cheapest still-affordable roof. If none are affordable
+  // (e.g. budget pinned below every roof's min cost) leave the selection
+  // alone so the user keeps a stable choice while every card is greyed.
+  useEffect(() => {
+    if (!isAffordable(roof, budget)) {
+      const next = ROOF_FALLBACK_ORDER.find((r) => isAffordable(r, budget));
+      if (next) setRoof(next);
+    }
+  }, [budget, roof]);
 
   const minBed = minBedroomsFor(roof);
   const maxBed = maxBedroomsFor(budget, roof);
@@ -96,7 +113,7 @@ export default function LandingScreen() {
             <BudgetSlider value={budget} onChange={setBudget} />
             <BedroomsCounter value={bedrooms} onChange={setBedrooms} min={minBed} max={maxBed} />
           </div>
-          <RoofPicker value={roof} onChange={setRoof} />
+          <RoofPicker value={roof} onChange={setRoof} budget={budget} />
 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginTop: 36 }}>
             <button
