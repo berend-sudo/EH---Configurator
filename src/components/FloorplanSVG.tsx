@@ -5,8 +5,8 @@ import type { FloorplanJSON, FloorplanEntity, BlockGeom, BlockEntity, PolylineEn
 interface Props {
   plan: FloorplanJSON;
   delta: number;
-  width?: number;
-  height?: number;
+  /** Pixels per millimetre — controls absolute viewBox size. */
+  pxPerMm?: number;
 }
 
 // ── Coordinate helpers ────────────────────────────────────────────────────────
@@ -595,19 +595,27 @@ function renderEntity(
 }
 
 // ── Root component ────────────────────────────────────────────────────────────
-export default function FloorplanSVG({ plan, delta, width = 800, height = 700 }: Props) {
-  const padX = 100, padY = 100;
-  const drawW = width  - padX * 2;
-  const drawH = height - padY * 2;
-
+export default function FloorplanSVG({ plan, delta, pxPerMm = 0.1 }: Props) {
+  // Fixed mm→viewBox-px scale. ViewBox grows with delta so the building, dim
+  // lines and labels all sit at consistent visual proportions. The SVG element
+  // itself fills the container width via CSS, so the *displayed* px-per-mm
+  // varies, but the layout stays correct.
+  const scale = pxPerMm;
+  const padX = 100;  // viewBox px
+  const padY = 100;
   const totalWidth = plan.baseWidth + delta;
-  const scale = Math.min(drawW / totalWidth, drawH / plan.baseDepth);
+
+  const drawW = totalWidth * scale;
+  const drawH = plan.baseDepth * scale;
+  const svgW  = drawW + 2 * padX;
+  const svgH  = drawH + 2 * padY;
 
   return (
     <svg
-      viewBox={`0 0 ${width} ${height}`}
+      viewBox={`0 0 ${svgW} ${svgH}`}
       className="border border-stone-200 rounded-lg bg-white w-full"
-      style={{ maxWidth: width, display: "block" }}
+      style={{ display: "block" }}
+      preserveAspectRatio="xMidYMid meet"
     >
       <RoomPatterns scale={scale} drawH={drawH} padY={padY} />
 

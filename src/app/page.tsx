@@ -130,7 +130,7 @@ export default function Home() {
             </div>
 
             {/* Floor plan */}
-            <FloorplanSVG plan={plan} delta={delta} width={900} height={720} />
+            <FloorplanSVG plan={plan} delta={delta} />
 
             {/* Upload another */}
             <div className="flex gap-3">
