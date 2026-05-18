@@ -10,10 +10,6 @@ export interface PolylineEntity {
   vertices: Vertex[];
 }
 
-// All block geometry is flattened to world-space polylines after applying
-// scale + rotation + translation. Arcs and circles are tessellated into
-// polylines; this makes scale (including negative/mirror) and rotation
-// safe to apply per-vertex without fragile angle math.
 export interface GeomPolyline {
   type: "polyline";
   closed: boolean;
@@ -25,7 +21,17 @@ export interface GeomSpline {
   points: { x: number; y: number }[];
 }
 
-export type BlockGeom = GeomPolyline | GeomSpline;
+// True circle preserved as native SVG <circle>. Renders cleanly at any
+// zoom; tessellating to a 32-gon polyline introduces visible flat sides
+// on burner / dial circles.
+export interface GeomCircle {
+  type: "circle";
+  cx: number;
+  cy: number;
+  r: number;
+}
+
+export type BlockGeom = GeomPolyline | GeomSpline | GeomCircle;
 
 export interface BlockEntity {
   type: "block";
@@ -36,7 +42,9 @@ export interface BlockEntity {
   scaleX: number;
   scaleY: number;
   moveX: boolean;
-  background: BlockGeom[]; // MeubelRefRec shapes — render white-filled before geom
+  tl: { x: number; y: number } | null; // top-left world coord at delta=0
+  tr: { x: number; y: number } | null; // top-right world coord at delta=0
+  depthVec: { x: number; y: number };  // world vector from TL-edge to bottom edge
   geom: BlockGeom[];
 }
 
