@@ -1,0 +1,65 @@
+"use client";
+
+export type RoofType = "monopitch" | "gable" | "flat";
+
+type Props = { value: RoofType; onChange: (r: RoofType) => void };
+
+const TYPES: { id: RoofType; label: string; path: string }[] = [
+  { id: "monopitch", label: "Monopitch", path: "M 6 28 L 6 14 L 50 6 L 50 28 Z" },
+  { id: "gable", label: "Gable", path: "M 6 28 L 6 16 L 28 6 L 50 16 L 50 28 Z" },
+  { id: "flat", label: "Flat", path: "M 6 28 L 6 12 L 50 12 L 50 28 Z" },
+];
+
+export default function RoofPicker({ value, onChange }: Props) {
+  return (
+    <div>
+      <div
+        style={{
+          fontSize: 11,
+          fontWeight: 600,
+          letterSpacing: ".08em",
+          textTransform: "uppercase",
+          color: "var(--eh-text-muted)",
+          marginBottom: 14,
+        }}
+      >
+        Roof type
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+        {TYPES.map((t) => {
+          const active = t.id === value;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => onChange(t.id)}
+              aria-pressed={active}
+              style={{
+                padding: "14px 10px",
+                borderRadius: 14,
+                textAlign: "center",
+                cursor: "pointer",
+                background: active ? "var(--eh-green-900)" : "#fff",
+                color: active ? "#fff" : "var(--eh-text)",
+                border: active ? "1.5px solid var(--eh-green-900)" : "1.5px solid var(--eh-stroke)",
+                transition: "all .15s var(--eh-ease)",
+                font: "inherit",
+              }}
+            >
+              <svg viewBox="0 0 56 32" width="56" height="32" style={{ display: "block", margin: "0 auto 6px" }} aria-hidden="true">
+                <path
+                  d={t.path}
+                  fill="none"
+                  stroke={active ? "var(--eh-green)" : "var(--eh-green-900)"}
+                  strokeWidth="2"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <div style={{ fontSize: 12, fontWeight: 500 }}>{t.label}</div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
