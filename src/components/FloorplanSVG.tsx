@@ -75,6 +75,17 @@ function renderGeom(
       />
     );
   }
+  if (g.type === "circle") {
+    return (
+      <circle
+        key={key}
+        cx={sx(g.cx, moveX, delta, scale, padX)}
+        cy={sy(g.cy, scale, drawH, padY)}
+        r={g.r * scale}
+        stroke={stroke} strokeWidth={strokeWidth} fill={fill}
+      />
+    );
+  }
   return null;
 }
 

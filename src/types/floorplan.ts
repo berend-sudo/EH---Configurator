@@ -21,7 +21,17 @@ export interface GeomSpline {
   points: { x: number; y: number }[];
 }
 
-export type BlockGeom = GeomPolyline | GeomSpline;
+// True circle preserved as native SVG <circle>. Renders cleanly at any
+// zoom; tessellating to a 32-gon polyline introduces visible flat sides
+// on burner / dial circles.
+export interface GeomCircle {
+  type: "circle";
+  cx: number;
+  cy: number;
+  r: number;
+}
+
+export type BlockGeom = GeomPolyline | GeomSpline | GeomCircle;
 
 export interface BlockEntity {
   type: "block";

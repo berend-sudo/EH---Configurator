@@ -6,6 +6,7 @@ import type {
   BlockGeom,
   GeomPolyline,
   GeomSpline,
+  GeomCircle,
   Vertex,
 } from "@/types/floorplan";
 
@@ -299,8 +300,16 @@ function flattenGeom(
       const verts = tessellateArc(g, ix, iy, rotDeg, sx, sy);
       out.push({ type: "polyline", closed: false, vertices: verts } as GeomPolyline);
     } else if (g.type === "circle") {
-      const verts = tessellateCircle(g, ix, iy, rotDeg, sx, sy);
-      out.push({ type: "polyline", closed: true, vertices: verts } as GeomPolyline);
+      // For uniform scale (the common case) preserve a true circle so it
+      // renders as native SVG <circle>. Non-uniform scale would turn it
+      // into an ellipse — fall back to polygon tessellation in that case.
+      if (Math.abs(Math.abs(sx) - Math.abs(sy)) < 1e-9) {
+        const center = transformPoint(g.cx, g.cy, ix, iy, rotDeg, sx, sy);
+        out.push({ type: "circle", cx: center.x, cy: center.y, r: g.r * Math.abs(sx) } as GeomCircle);
+      } else {
+        const verts = tessellateCircle(g, ix, iy, rotDeg, sx, sy);
+        out.push({ type: "polyline", closed: true, vertices: verts } as GeomPolyline);
+      }
     } else if (g.type === "poly") {
       const verts = g.verts.map((v) => transformPoint(v.x, v.y, ix, iy, rotDeg, sx, sy));
       out.push({ type: "polyline", closed: g.closed, vertices: verts } as GeomPolyline);
@@ -342,15 +351,24 @@ function computeDepthVec(
   const pA = { x:  ry, y: -rx };
   const pB = { x: -ry, y:  rx };
   let sumA = 0, maxA = 0, sumB = 0, maxB = 0, count = 0;
+  const project = (x: number, y: number) => {
+    const relX = x - tl.x, relY = y - tl.y;
+    const a = relX * pA.x + relY * pA.y;
+    const b = relX * pB.x + relY * pB.y;
+    if (a > maxA) maxA = a;
+    if (b > maxB) maxB = b;
+    sumA += a; sumB += b; count++;
+  };
   for (const g of geom) {
-    if (g.type !== "polyline") continue;
-    for (const v of g.vertices) {
-      const relX = v.x - tl.x, relY = v.y - tl.y;
-      const a = relX * pA.x + relY * pA.y;
-      const b = relX * pB.x + relY * pB.y;
-      if (a > maxA) maxA = a;
-      if (b > maxB) maxB = b;
-      sumA += a; sumB += b; count++;
+    if (g.type === "polyline") {
+      for (const v of g.vertices) project(v.x, v.y);
+    } else if (g.type === "circle") {
+      // Approximate the circle by its bounding box corners so that burner
+      // / dial circles contribute their full extent to the depth estimate.
+      project(g.cx - g.r, g.cy - g.r);
+      project(g.cx + g.r, g.cy + g.r);
+      project(g.cx - g.r, g.cy + g.r);
+      project(g.cx + g.r, g.cy - g.r);
     }
   }
   const useA = count === 0 || sumA >= sumB;
