@@ -56,21 +56,22 @@ function renderGeom(
   moveX: boolean, delta: number,
   scale: number, drawH: number, padX: number, padY: number,
   stroke: string, strokeWidth: number, key: string,
+  fill = "none",
 ) {
   if (g.type === "polyline") {
     const pts = g.vertices.map(
       (v) => `${sx(v.x, moveX, delta, scale, padX)},${sy(v.y, scale, drawH, padY)}`
     ).join(" ");
     return g.closed
-      ? <polygon  key={key} points={pts} stroke={stroke} strokeWidth={strokeWidth} fill="none" />
-      : <polyline key={key} points={pts} stroke={stroke} strokeWidth={strokeWidth} fill="none" />;
+      ? <polygon  key={key} points={pts} stroke={stroke} strokeWidth={strokeWidth} fill={fill} />
+      : <polyline key={key} points={pts} stroke={stroke} strokeWidth={strokeWidth} fill={fill} />;
   }
   if (g.type === "spline") {
     return (
       <path
         key={key}
         d={splinePath(g.points, moveX, delta, scale, drawH, padX, padY)}
-        stroke={stroke} strokeWidth={strokeWidth} fill="none"
+        stroke={stroke} strokeWidth={strokeWidth} fill={fill}
       />
     );
   }
@@ -97,6 +98,11 @@ function renderEntity(
   if (entity.type === "block") {
     return (
       <g key={key}>
+        {/* MeubelRefRec background: white fill so furniture appears solid */}
+        {entity.background.map((g, gi) =>
+          renderGeom(g, entity.moveX, delta, scale, drawH, padX, padY,
+            style.stroke, style.strokeWidth, `${key}-bg-${gi}`, "white")
+        )}
         {entity.geom.map((g, gi) =>
           renderGeom(g, entity.moveX, delta, scale, drawH, padX, padY,
             style.stroke, style.strokeWidth, `${key}-${gi}`)

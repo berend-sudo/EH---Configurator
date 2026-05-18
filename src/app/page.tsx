@@ -29,7 +29,7 @@ export default function Home() {
       }
       const json: FloorplanJSON = await res.json();
       setPlan(json);
-      setDelta(0);
+      setDelta(json.minDelta);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {

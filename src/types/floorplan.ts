@@ -36,6 +36,7 @@ export interface BlockEntity {
   scaleX: number;
   scaleY: number;
   moveX: boolean;
+  background: BlockGeom[]; // MeubelRefRec shapes — render white-filled before geom
   geom: BlockGeom[];
 }
 

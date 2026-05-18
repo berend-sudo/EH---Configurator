@@ -273,14 +273,15 @@ function tessellateCircle(
 
 // ── Flatten all local geometry to world-space polylines/splines ──────────────
 
-function flattenGeom(
+function flattenGeomSplit(
   localGeom: LocalGeom[],
   ix: number, iy: number, rotDeg: number, sx: number, sy: number,
-): BlockGeom[] {
-  const out: BlockGeom[] = [];
-  for (const g of localGeom) {
-    if (g.layer === "MeubelRefRec") continue;
+): { background: BlockGeom[]; geom: BlockGeom[] } {
+  const background: BlockGeom[] = [];
+  const geom: BlockGeom[] = [];
 
+  function flatten(g: LocalGeom, isBg: boolean) {
+    const out = isBg ? background : geom;
     if (g.type === "line") {
       const p1 = transformPoint(g.x1, g.y1, ix, iy, rotDeg, sx, sy);
       const p2 = transformPoint(g.x2, g.y2, ix, iy, rotDeg, sx, sy);
@@ -299,7 +300,11 @@ function flattenGeom(
       out.push({ type: "spline", points } as GeomSpline);
     }
   }
-  return out;
+
+  for (const g of localGeom) {
+    flatten(g, g.layer === "MeubelRefRec");
+  }
+  return { background, geom };
 }
 
 // ── Main parser ───────────────────────────────────────────────────────────────
@@ -407,7 +412,7 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
   for (const ins of inserts) {
     const moveX = decideMoveX(ins.x, ins.y, ptRight, ptLeft);
     const localGeom = blockDefs.get(ins.name) ?? [];
-    const geom = flattenGeom(localGeom, ins.x, ins.y, ins.rotation, ins.scaleX, ins.scaleY);
+    const { background, geom } = flattenGeomSplit(localGeom, ins.x, ins.y, ins.rotation, ins.scaleX, ins.scaleY);
     furnitureLayer.entities.push({
       type: "block",
       name: ins.name,
@@ -417,9 +422,47 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
       scaleX: ins.scaleX,
       scaleY: ins.scaleY,
       moveX,
+      background,
       geom,
     } as BlockEntity);
   }
+
+  // ── Auto-compute minDelta ─────────────────────────────────────────────────
+  // Find the rightmost fixed (moveX=false) wall vertex in the interior zone
+  // (exclude exterior walls at x < 500 or x > maxX-500).
+  // Find the leftmost moving (moveX=true) vertex across walls + furniture.
+  // minDelta = how far we must shift right for moving geometry to clear fixed walls.
+  let fixedInteriorMaxX = 0;
+  let movingMinX = Infinity;
+  const interiorMin = 500, interiorMax = maxX - 500;
+
+  for (const raw of polylines) {
+    for (const v of raw.vertices) {
+      const moving = decideMoveX(v.x, v.y, ptRight, ptLeft);
+      if (!moving && v.x > interiorMin && v.x < interiorMax) {
+        if (v.x > fixedInteriorMaxX) fixedInteriorMaxX = v.x;
+      }
+      if (moving) {
+        if (v.x < movingMinX) movingMinX = v.x;
+      }
+    }
+  }
+  for (const ent of furnitureLayer.entities) {
+    if (ent.type !== "block" || !ent.moveX) continue;
+    for (const bg of ent.background) {
+      if (bg.type === "polyline") {
+        for (const v of bg.vertices) {
+          if (v.x < movingMinX) movingMinX = v.x;
+        }
+      }
+    }
+  }
+
+  const rawMinDelta = fixedInteriorMaxX > 0 && movingMinX < Infinity
+    ? Math.max(0, fixedInteriorMaxX - movingMinX)
+    : 0;
+  // Round up to nearest 50mm
+  const minDelta = Math.ceil(rawMinDelta / 50) * 50;
 
   const name = filename.replace(/\.dxf$/i, "");
   const id = name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
@@ -429,7 +472,7 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
     name,
     baseWidth: Math.round(maxX),
     baseDepth: Math.round(maxY),
-    minDelta: 0,
+    minDelta,
     maxDelta: Math.round(maxX * 0.5),
     layers: LAYER_ORDER.map((nm) => layerMap.get(nm)!).filter((l) => l.entities.length > 0),
   };
