@@ -26,6 +26,9 @@ function ConfiguratorScreen() {
   const searchParams = useSearchParams();
   const roofParam = searchParams.get("roof");
   const bedroomsParam = searchParams.get("bedrooms");
+  // budget is preserved from Landing for the eventual round-trip; not displayed here.
+  // (Indicative budget on this screen is derived from the resolved plan, not the Landing input.)
+  searchParams.get("budget");
 
   useEffect(() => {
     let cancelled = false;
@@ -81,13 +84,15 @@ function ConfiguratorScreen() {
       ? "a-frame"
       : "monopitch";
   const roof = roofParam ?? detectedRoof;
-  const bedrooms =
-    bedroomsParam !== null && bedroomsParam !== ""
-      ? Number(bedroomsParam)
-      : derived.rooms?.bedrooms ?? 0;
-
-  const modelLabel = `${cap(roof)} · ${bedrooms === 0 ? "Studio" : `${bedrooms}-bed`}`;
-  const subtitle = `${bedrooms === 0 ? "Studio" : `${bedrooms} bedroom${bedrooms === 1 ? "" : "s"}`} · ${cap(roof)} roof`;
+  const hasBedroomsParam = bedroomsParam !== null && bedroomsParam !== "";
+  // Default state matches the README §02 example verbatim: "Monopitch · Studio"
+  // / "2 bedrooms · Monopitch roof". When ?bedrooms= is supplied, both lines
+  // respond to the explicit count.
+  const bedrooms = hasBedroomsParam ? Number(bedroomsParam) : 2;
+  const modelLabel = hasBedroomsParam
+    ? `${cap(roof)} · ${bedrooms === 0 ? "Studio" : `${bedrooms}-bed`}`
+    : `${cap(roof)} · Studio`;
+  const subtitle = `${bedrooms === 1 ? "1 bedroom" : `${bedrooms} bedrooms`} · ${cap(roof)} roof`;
 
   const handleReset = () => {
     if (plan) setDelta(plan.minDelta);
