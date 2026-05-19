@@ -1,146 +1,317 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import type { FloorplanJSON } from "@/types/floorplan";
 import FloorplanSVG from "@/components/FloorplanSVG";
-import BudgetPanel from "@/components/BudgetPanel";
+import EHNavBar from "@/components/configurator/EHNavBar";
+import SliderRow from "@/components/configurator/SliderRow";
+import SummaryCard from "@/components/configurator/SummaryCard";
+import ViewToggle, { type View } from "@/components/configurator/ViewToggle";
+import PhotoCollage from "@/components/configurator/PhotoCollage";
 import { FLOOR_PLANS, type FloorPlanEntry } from "@/lib/floor-plans";
+import { calculateBudget, countRooms, detectTypology } from "@/lib/budget";
 
-export default function Home() {
+const cap = (s: string) => (s.length === 0 ? s : s[0].toUpperCase() + s.slice(1));
+
+function ConfiguratorScreen() {
   const [plan, setPlan] = useState<FloorplanJSON | null>(null);
   const [delta, setDelta] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [currentEntry, setCurrentEntry] = useState<FloorPlanEntry>(FLOOR_PLANS[0]);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const [view, setView] = useState<View>("plan");
+  const [currentEntry] = useState<FloorPlanEntry>(FLOOR_PLANS[0]);
 
-  const loadFloorPlan = async (entry: FloorPlanEntry) => {
-    setLoading(true);
-    setError(null);
-    setMenuOpen(false);
-    try {
-      const res = await fetch(`/api/parse-dxf?file=${encodeURIComponent(entry.file)}`);
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error ?? "Load failed");
-      }
-      const json: FloorplanJSON = await res.json();
-      setPlan(json);
-      setDelta(json.minDelta);
-      setCurrentEntry(entry);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Unknown error");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const searchParams = useSearchParams();
+  const roofParam = searchParams.get("roof");
+  const bedroomsParam = searchParams.get("bedrooms");
+  // budget is preserved from Landing for the eventual round-trip; not displayed here.
+  // (Indicative budget on this screen is derived from the resolved plan, not the Landing input.)
+  searchParams.get("budget");
 
   useEffect(() => {
-    loadFloorPlan(FLOOR_PLANS[0]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(
+          `/api/parse-dxf?file=${encodeURIComponent(currentEntry.file)}`
+        );
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error ?? "Load failed");
+        }
+        const json: FloorplanJSON = await res.json();
+        if (cancelled) return;
+        setPlan(json);
+        setDelta(json.minDelta);
+      } catch (e) {
+        if (cancelled) return;
+        setError(e instanceof Error ? e.message : "Unknown error");
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentEntry]);
+
+  const derived = useMemo(() => {
+    if (!plan) {
+      return { rooms: null, typology: null, budgetUgx: 0 };
+    }
+    const rooms = countRooms(plan, delta);
+    const typology = detectTypology(plan.name);
+    const budgetUgx = calculateBudget(rooms, typology).coreTotal;
+    return { rooms, typology, budgetUgx };
+  }, [plan, delta]);
 
   const widthMm = plan ? plan.baseWidth + delta : 0;
-  const widthM = (widthMm / 1000).toFixed(2);
+  const footprintM2 = derived.rooms ? derived.rooms.gfa + derived.rooms.terraceArea : 0;
+  const livingM2 = derived.rooms?.gfa ?? 0;
+  const terraceM2 = derived.rooms?.terraceArea ?? 0;
+
+  const detectedRoof = derived.typology?.name.toLowerCase().includes("gable")
+    ? "gable"
+    : derived.typology?.name.toLowerCase().includes("clerestory")
+    ? "clerestory"
+    : derived.typology?.name.toLowerCase().includes("a frame")
+    ? "a-frame"
+    : "monopitch";
+  const roof = roofParam ?? detectedRoof;
+  const hasBedroomsParam = bedroomsParam !== null && bedroomsParam !== "";
+  // Default state matches the README §02 example verbatim: "Monopitch · Studio"
+  // / "2 bedrooms · Monopitch roof". When ?bedrooms= is supplied, both lines
+  // respond to the explicit count.
+  const bedrooms = hasBedroomsParam ? Number(bedroomsParam) : 2;
+  const modelLabel = hasBedroomsParam
+    ? `${cap(roof)} · ${bedrooms === 0 ? "Studio" : `${bedrooms}-bed`}`
+    : `${cap(roof)} · Studio`;
+  const subtitle = `${bedrooms === 1 ? "1 bedroom" : `${bedrooms} bedrooms`} · ${cap(roof)} roof`;
+
+  const handleReset = () => {
+    if (plan) setDelta(plan.minDelta);
+  };
 
   return (
-    <main className="min-h-screen bg-stone-50 font-sans">
-      <header className="border-b border-stone-200 bg-white px-8 py-4 flex items-center gap-4">
-        <h1 className="text-lg font-semibold tracking-tight text-stone-800">EH Configurator</h1>
+    <div
+      style={{
+        height: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        background: "var(--eh-bg-alt)",
+        color: "var(--eh-text)",
+        overflow: "hidden",
+      }}
+    >
+      <EHNavBar step={2} totalSteps={3} />
 
-        {/* Floor plan selector */}
-        <div className="relative" ref={menuRef}>
-          <button
-            onClick={() => setMenuOpen((o) => !o)}
-            className="flex items-center gap-1.5 text-sm text-stone-600 hover:text-stone-900 border border-stone-200 hover:border-stone-300 rounded-lg px-3 py-1.5 bg-white transition-colors"
-          >
-            {currentEntry.name}
-            <svg
-              className={`w-3.5 h-3.5 transition-transform ${menuOpen ? "rotate-180" : ""}`}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
+      <div
+        style={{
+          flex: 1,
+          display: "grid",
+          gridTemplateColumns: "380px 1fr",
+          minHeight: 0,
+        }}
+      >
+        {/* LEFT — controls rail */}
+        <div
+          style={{
+            background: "var(--eh-bg)",
+            borderRight: "1px solid var(--eh-stroke)",
+            padding: "32px 32px 28px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 28,
+            overflow: "auto",
+            minHeight: 0,
+          }}
+        >
+          {/* Title block */}
+          <div>
+            <div
+              style={{
+                fontSize: 11,
+                letterSpacing: ".12em",
+                textTransform: "uppercase",
+                color: "var(--eh-green-700)",
+                fontWeight: 600,
+              }}
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-
-          {menuOpen && (
-            <div className="absolute left-0 top-full mt-1 z-10 bg-white border border-stone-200 rounded-lg shadow-md min-w-[200px] py-1">
-              {FLOOR_PLANS.map((entry) => (
-                <button
-                  key={entry.id}
-                  onClick={() => loadFloorPlan(entry)}
-                  className={`w-full text-left px-4 py-2 text-sm transition-colors ${
-                    entry.id === currentEntry.id
-                      ? "text-stone-900 bg-stone-100 font-medium"
-                      : "text-stone-600 hover:bg-stone-50 hover:text-stone-900"
-                  }`}
-                >
-                  {entry.name}
-                </button>
-              ))}
+              Your design
             </div>
-          )}
-        </div>
-      </header>
-
-      <div className="flex flex-col items-center gap-6 p-8">
-        {loading && (
-          <div className="text-stone-500 text-sm">Loading floor plan…</div>
-        )}
-
-        {error && (
-          <div className="text-red-600 text-sm bg-red-50 border border-red-200 rounded px-4 py-2">
-            {error}
+            <h2
+              style={{
+                fontSize: 26,
+                fontWeight: 600,
+                letterSpacing: "-0.02em",
+                margin: "6px 0 6px",
+              }}
+            >
+              {modelLabel}
+            </h2>
+            <div style={{ fontSize: 13, color: "var(--eh-text-muted)" }}>{subtitle}</div>
           </div>
-        )}
 
-        {plan && (
-          <div className="w-full max-w-5xl flex flex-col gap-6">
-            {/* Controls */}
-            <div className="bg-white rounded-xl border border-stone-200 p-6">
-              <div className="flex items-center justify-between mb-3">
-                <label className="text-sm font-medium text-stone-700">Width</label>
-                <span className="text-sm font-mono text-stone-800 bg-stone-100 px-2 py-0.5 rounded">
-                  {widthM} m
-                </span>
-              </div>
-              <input
-                type="range"
-                min={plan.minDelta}
-                max={plan.maxDelta}
-                step={610}
-                value={delta}
-                onChange={(e) => setDelta(Number(e.target.value))}
-                className="w-full accent-stone-700"
+          {/* Dimensions */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                letterSpacing: ".08em",
+                textTransform: "uppercase",
+                color: "var(--eh-text-muted)",
+              }}
+            >
+              Dimensions
+            </div>
+            {plan ? (
+              <SliderRow
+                label="Width"
+                valueMm={widthMm}
+                minMm={plan.baseWidth + plan.minDelta}
+                maxMm={plan.baseWidth + plan.maxDelta}
+                stepMm={610}
+                onChange={(mm) => setDelta(mm - plan.baseWidth)}
               />
-              <div className="flex justify-between text-xs text-stone-400 mt-1">
-                <span>{((plan.baseWidth + plan.minDelta) / 1000).toFixed(1)} m</span>
-                <span>{((plan.baseWidth + plan.maxDelta) / 1000).toFixed(1)} m</span>
+            ) : (
+              <div style={{ fontSize: 13, color: "var(--eh-text-soft)" }}>
+                {loading ? "Loading…" : error ?? "Plan not available"}
               </div>
-            </div>
-
-            {/* Budget */}
-            <BudgetPanel plan={plan} delta={delta} />
-
-            {/* Floor plan */}
-            <FloorplanSVG plan={plan} delta={delta} />
+            )}
           </div>
-        )}
+
+          {/* Summary */}
+          <SummaryCard
+            footprintM2={footprintM2}
+            livingM2={livingM2}
+            terraceM2={terraceM2}
+            budgetUgx={derived.budgetUgx}
+          />
+
+          {/* CTAs */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: "auto" }}>
+            {/* TODO(next turn): /summary route is built in the Final/Summary turn — 404s until then */}
+            <Link href="/summary" className="ab-cta">
+              Continue to summary →
+            </Link>
+            <button
+              type="button"
+              className="ab-cta"
+              onClick={handleReset}
+              style={{ background: "transparent", color: "var(--eh-green-900)", border: "1.5px solid var(--eh-green-900)" }}
+            >
+              Reset to default
+            </button>
+          </div>
+        </div>
+
+        {/* RIGHT — plan canvas */}
+        <div
+          style={{
+            padding: "28px 36px 36px",
+            display: "flex",
+            flexDirection: "column",
+            minHeight: 0,
+            minWidth: 0,
+          }}
+        >
+          {/* Toolbar */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 18,
+              gap: 16,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
+              <span className="ab-pill ab-pill-soft">
+                {view === "plan" ? "Plan view · 1:50" : "Example images"}
+              </span>
+              <span
+                style={{
+                  fontSize: 13,
+                  color: "var(--eh-text-muted)",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {view === "plan"
+                  ? "Use the slider to change width"
+                  : "From recent Easy Housing builds"}
+              </span>
+            </div>
+            <ViewToggle value={view} onChange={setView} />
+          </div>
+
+          {/* Canvas card */}
+          <div
+            style={{
+              flex: 1,
+              background: "var(--eh-bg)",
+              border: "1px solid var(--eh-stroke)",
+              borderRadius: 24,
+              padding: view === "plan" ? "40px 48px" : 24,
+              minHeight: 0,
+              display: "flex",
+              transition: "padding var(--eh-duration-base) var(--eh-ease)",
+            }}
+          >
+            <div
+              key={view}
+              className="eh-view-fade-enter eh-view-fade-enter-active"
+              style={{ flex: 1, display: "flex", minHeight: 0, minWidth: 0 }}
+            >
+              {view === "plan" ? (
+                plan ? (
+                  <div
+                    style={{
+                      flex: 1,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      minHeight: 0,
+                    }}
+                  >
+                    <FloorplanSVG plan={plan} delta={delta} />
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      flex: 1,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "var(--eh-text-soft)",
+                      fontSize: 14,
+                    }}
+                  >
+                    {loading ? "Loading floor plan…" : error ?? "No plan loaded"}
+                  </div>
+                )
+              ) : (
+                <PhotoCollage />
+              )}
+            </div>
+          </div>
+        </div>
       </div>
-    </main>
+    </div>
+  );
+}
+
+export default function ConfiguratorPage() {
+  return (
+    <Suspense fallback={null}>
+      <ConfiguratorScreen />
+    </Suspense>
   );
 }
