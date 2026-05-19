@@ -120,7 +120,14 @@ export default function LandingScreen() {
               type="button"
               className="ab-cta"
               style={{ padding: "16px 36px", fontSize: 16 }}
-              onClick={() => router.push("/configurator")}
+              onClick={() => {
+                const qs = new URLSearchParams({
+                  roof,
+                  bedrooms: String(bedrooms),
+                  budget: String(budget),
+                });
+                router.push(`/configurator?${qs.toString()}`);
+              }}
             >
               Open the configurator
               <span style={{ fontSize: 18, lineHeight: 1 }}>→</span>
