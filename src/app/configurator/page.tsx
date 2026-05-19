@@ -10,7 +10,7 @@ import SliderRow from "@/components/configurator/SliderRow";
 import SummaryCard from "@/components/configurator/SummaryCard";
 import ViewToggle, { type View } from "@/components/configurator/ViewToggle";
 import PhotoCollage from "@/components/configurator/PhotoCollage";
-import { FLOOR_PLANS, type FloorPlanEntry } from "@/lib/floor-plans";
+import { pickPlanByBedrooms, type FloorPlanEntry } from "@/lib/floor-plans";
 import { calculateBudget, countRooms, detectTypology } from "@/lib/budget";
 
 const cap = (s: string) => (s.length === 0 ? s : s[0].toUpperCase() + s.slice(1));
@@ -21,11 +21,15 @@ function ConfiguratorScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>("plan");
-  const [currentEntry] = useState<FloorPlanEntry>(FLOOR_PLANS[0]);
 
   const searchParams = useSearchParams();
   const roofParam = searchParams.get("roof");
   const bedroomsParam = searchParams.get("bedrooms");
+  const bedroomsNum = bedroomsParam != null && bedroomsParam !== "" ? Number(bedroomsParam) : null;
+  const currentEntry: FloorPlanEntry = useMemo(
+    () => pickPlanByBedrooms(bedroomsNum),
+    [bedroomsNum],
+  );
   // budget is preserved from Landing for the eventual round-trip; not displayed here.
   // (Indicative budget on this screen is derived from the resolved plan, not the Landing input.)
   searchParams.get("budget");
