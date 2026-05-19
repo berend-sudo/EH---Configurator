@@ -2,6 +2,10 @@ export interface Vertex {
   x: number;
   y: number;
   moveX: boolean;
+  // Wall/room vertices coincident with a window corner are attached to that
+  // specific window vertex. At render time, they snap to the window vertex's
+  // computed world position so they always track the (capped) window edge.
+  attach?: { windowIdx: number; vertexIdx: number };
 }
 
 export interface PolylineEntity {

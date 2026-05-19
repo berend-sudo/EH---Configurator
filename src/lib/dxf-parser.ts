@@ -479,6 +479,43 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
     layer.entities.push({ type: "polyline", closed: raw.closed, vertices } as PolylineEntity);
   }
 
+  // ── Attachment pass: tag wall/room/door vertices coincident with window corners
+  // Wall vertices at a window's cutout corner must track that window vertex's
+  // computed world position (including any width cap), not just shift by delta.
+  const ATTACH_TOL_SQ = 5 * 5; // 5 mm
+  const windowsLayer = layerMap.get("Windows");
+  if (windowsLayer) {
+    const winVerts: Array<{ windowIdx: number; vertexIdx: number; x: number; y: number }> = [];
+    let widx = 0;
+    for (const wEnt of windowsLayer.entities) {
+      if (wEnt.type !== "polyline") continue;
+      for (let vi = 0; vi < wEnt.vertices.length; vi++) {
+        const wv = wEnt.vertices[vi];
+        winVerts.push({ windowIdx: widx, vertexIdx: vi, x: wv.x, y: wv.y });
+      }
+      widx++;
+    }
+    layerMap.forEach((layer, layerName) => {
+      if (layerName === "Windows" || layerName === "Furniture") return;
+      for (const ent of layer.entities) {
+        if (ent.type !== "polyline") continue;
+        for (const v of ent.vertices) {
+          let bestSq = ATTACH_TOL_SQ;
+          let best: { windowIdx: number; vertexIdx: number } | undefined;
+          for (const wv of winVerts) {
+            const dx = wv.x - v.x, dy = wv.y - v.y;
+            const sq = dx * dx + dy * dy;
+            if (sq <= bestSq) {
+              bestSq = sq;
+              best = { windowIdx: wv.windowIdx, vertexIdx: wv.vertexIdx };
+            }
+          }
+          if (best) v.attach = best;
+        }
+      }
+    });
+  }
+
   const furnitureLayer = layerMap.get("Furniture")!;
   for (const ins of inserts) {
     const localGeom = blockDefs.get(ins.name) ?? [];
