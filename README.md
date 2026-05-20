@@ -276,6 +276,32 @@ flag stretch with the slider; wall/room vertices coincident with a
 window corner can be `attach`ed to that window so they track the
 capped edge. See `src/lib/dxf-parser.ts` for the full convention.
 
+The parser is forgiving about two common export quirks:
+
+- **Closed shapes exported as loose segments.** Some CAD exports drop
+  the `closed` flag and emit each edge of a rectangle as a separate
+  `LINE` (or 2-control-point `SPLINE`) instead of one closed
+  `POLYLINE`. The stitcher in `src/lib/dxf/stitch-segments.ts`
+  reassembles connected segments into closed polylines, with a 2 mm
+  endpoint-match tolerance (anything looser would risk merging
+  distinct walls). Chains that don't close at all stay as open
+  polylines and render as 1 px strokes — visible, never silently
+  dropped, so you can spot genuine data issues.
+
+- **Per-vertex `moveX` classification dissenting on a rigid polyline.**
+  `decideMoveX` classifies each vertex by nearest `PT Top Left` /
+  `PT Top Right` marker. When ≥ 75 % of a non-Rooms closed polyline's
+  vertices agree, the dissenters are forced to match — a wall is
+  rigid, so its vertices must vote as a unit. Rooms polygons
+  legitimately span both zones (left fixed, right moving) and are
+  exempted from the vote.
+
+Both fixups append entries to the `warnings: string[]` field on the
+parsed JSON and `console.warn` server-side, so silently working around
+real DXF bugs is no longer possible. If a new plan triggers many
+warnings, treat that as a signal to inspect the DXF rather than
+ignore the noise.
+
 ## Adding a new roof type.
 
 The roof picker on Landing and the in-rail switcher on Configurator
