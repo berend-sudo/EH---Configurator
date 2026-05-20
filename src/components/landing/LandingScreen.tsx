@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import EHNavBar from "@/components/EHNavBar";
 import BudgetSlider from "./BudgetSlider";
 import BedroomsCounter from "./BedroomsCounter";
@@ -15,12 +15,34 @@ import {
 } from "./pricing-helpers";
 import { useBudgetTable } from "@/lib/useBudgetTable";
 
+const VALID_ROOFS: readonly RoofType[] = ["monopitch", "gable", "clerestory"];
+
 export default function LandingScreen() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const budgetTable = useBudgetTable();
-  const [budget, setBudget] = useState(75_000_000);
-  const [bedrooms, setBedrooms] = useState(2);
-  const [roof, setRoof] = useState<RoofType>("monopitch");
+
+  // Restore state from URL params when arriving from the configurator's
+  // "Start" back-link, so the round-trip doesn't reset the user's choices.
+  // Defaults fall through if a param is missing or malformed.
+  const initialBudget = (() => {
+    const n = Number(searchParams.get("budget"));
+    return Number.isFinite(n) && n > 0 ? n : 75_000_000;
+  })();
+  const initialBedrooms = (() => {
+    const raw = searchParams.get("bedrooms");
+    if (raw == null || raw === "") return 2;
+    const n = Number(raw);
+    return Number.isFinite(n) && n >= 0 && n <= 4 ? n : 2;
+  })();
+  const initialRoof: RoofType = (() => {
+    const r = searchParams.get("roof");
+    return r && VALID_ROOFS.includes(r as RoofType) ? (r as RoofType) : "monopitch";
+  })();
+
+  const [budget, setBudget] = useState(initialBudget);
+  const [bedrooms, setBedrooms] = useState(initialBedrooms);
+  const [roof, setRoof] = useState<RoofType>(initialRoof);
 
   // If the current roof becomes unaffordable as the budget drops, fall
   // back to the cheapest still-affordable roof. If none are affordable

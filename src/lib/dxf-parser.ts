@@ -363,6 +363,13 @@ function computeDepthVec(
   for (const g of geom) {
     if (g.type === "polyline") {
       for (const v of g.vertices) project(v.x, v.y);
+    } else if (g.type === "spline") {
+      // SPLINEs were previously skipped — but the shower (Douche, 6 splines)
+      // and bed (Bedopstelling, 12 splines) carry most of their outline as
+      // splines, so the depth came out too small and the white background
+      // rectangle ghosted *inside* the real geometry, producing the
+      // "double outline" the user reported.
+      for (const v of g.points) project(v.x, v.y);
     } else if (g.type === "circle") {
       // Approximate the circle by its bounding box corners so that burner
       // / dial circles contribute their full extent to the depth estimate.

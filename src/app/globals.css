@@ -36,7 +36,11 @@ body {
 .ab-cta:active { transform: scale(0.98); }
 .ab-cta:focus-visible { outline: none; box-shadow: var(--eh-shadow-glow); }
 
-.rail { position: relative; height: 6px; background: var(--eh-stroke); border-radius: 999px; }
+/* The native <input type=range> is layered behind .rail (DOM order). Without
+   `pointer-events: none` here, the rail div eats clicks that should fall
+   through to the input, leaving only the 8 px strips above and below the
+   6 px rail draggable — a "ring" of hit area around an unresponsive middle. */
+.rail { position: relative; height: 6px; background: var(--eh-stroke); border-radius: 999px; pointer-events: none; }
 .rail__fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--eh-green-900); border-radius: 999px; }
 .rail__knob {
   position: absolute; top: 50%;

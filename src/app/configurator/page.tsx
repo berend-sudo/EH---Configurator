@@ -130,10 +130,6 @@ function ConfiguratorScreen() {
   const modelLabel = `${cap(roof)} · ${bedrooms === 0 ? "Studio" : `${bedrooms}-bed`}`;
   const subtitle = `${bedrooms === 0 ? "Studio" : bedrooms === 1 ? "1 bedroom" : `${bedrooms} bedrooms`} · ${cap(roof)} roof`;
 
-  const handleReset = () => {
-    if (plan) setDelta(plan.minDelta);
-  };
-
   const updateParams = (next: { bedrooms?: number; roof?: LandingRoof }) => {
     const params = new URLSearchParams(searchParams.toString());
     if (next.bedrooms != null) params.set("bedrooms", String(next.bedrooms));
@@ -152,7 +148,21 @@ function ConfiguratorScreen() {
         overflow: "hidden",
       }}
     >
-      <EHNavBar step={2} totalSteps={3} />
+      <EHNavBar
+        step={2}
+        totalSteps={3}
+        // Landing is always reachable from the configurator (back navigation).
+        // Once Step 3 ships, also pass maxVisitedStep so forward jumps work.
+        onStepChange={(s) => {
+          if (s === 1) {
+            const params = new URLSearchParams();
+            params.set("bedrooms", String(bedrooms));
+            params.set("roof", roof);
+            params.set("budget", String(budget));
+            router.push(`/?${params.toString()}`);
+          }
+        }}
+      />
 
       <div
         style={{
@@ -259,14 +269,6 @@ function ConfiguratorScreen() {
               style={{ opacity: 0.55, cursor: "not-allowed" }}
             >
               Continue to summary →
-            </button>
-            <button
-              type="button"
-              className="ab-cta"
-              onClick={handleReset}
-              style={{ background: "transparent", color: "var(--eh-green-900)", border: "1.5px solid var(--eh-green-900)" }}
-            >
-              Reset to default
             </button>
           </div>
         </div>
