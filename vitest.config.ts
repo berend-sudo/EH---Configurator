@@ -8,7 +8,11 @@ export default defineConfig({
     alias: { "@": path.resolve(__dirname, "./src") },
   },
   test: {
-    environment: "jsdom",
+    // Node environment: the snapshot test renders via renderToStaticMarkup
+    // (pure SSR — no DOM needed), and the fixture loader reads DXFs via
+    // node:fs. Using jsdom here would externalize node: builtins for
+    // browser compat and break the fixture loader on CI.
+    environment: "node",
     globals: true,
     include: ["src/**/*.test.{ts,tsx}"],
   },
