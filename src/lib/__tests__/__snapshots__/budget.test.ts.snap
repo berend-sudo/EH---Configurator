@@ -1,0 +1,117 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`calculateBudget > 'monopitch-1br' budget at minDelta and maxDelta is stable (snapshot) 1`] = `
+{
+  "atMax": {
+    "bathrooms": 1,
+    "bedrooms": 0,
+    "coreTotal": 47720035,
+    "delta": 3050,
+    "gfa": 34.44,
+    "grandTotal": 50980035,
+    "kitchens": 0,
+    "terraceArea": 7.26,
+    "typology": "Mono Pitch",
+    "typologyDetected": true,
+  },
+  "atMin": {
+    "bathrooms": 1,
+    "bedrooms": 0,
+    "coreTotal": 36570715,
+    "delta": 610,
+    "gfa": 25.85,
+    "grandTotal": 39830715,
+    "kitchens": 0,
+    "terraceArea": 4.33,
+    "typology": "Mono Pitch",
+    "typologyDetected": true,
+  },
+}
+`;
+
+exports[`calculateBudget > 'monopitch-2br-v3' budget at minDelta and maxDelta is stable (snapshot) 1`] = `
+{
+  "atMax": {
+    "bathrooms": 1,
+    "bedrooms": 0,
+    "coreTotal": 67564809,
+    "delta": 4270,
+    "gfa": 49.72,
+    "grandTotal": 70824809,
+    "kitchens": 0,
+    "terraceArea": 8.75,
+    "typology": "Mono Pitch",
+    "typologyDetected": true,
+  },
+  "atMin": {
+    "bathrooms": 1,
+    "bedrooms": 0,
+    "coreTotal": 48053501,
+    "delta": 0,
+    "gfa": 34.7,
+    "grandTotal": 51313501,
+    "kitchens": 0,
+    "terraceArea": 3.63,
+    "typology": "Mono Pitch",
+    "typologyDetected": true,
+  },
+}
+`;
+
+exports[`calculateBudget > 'monopitch-3br' budget at minDelta and maxDelta is stable (snapshot) 1`] = `
+{
+  "atMax": {
+    "bathrooms": 1,
+    "bedrooms": 0,
+    "coreTotal": 71020525,
+    "delta": 4270,
+    "gfa": 52.38,
+    "grandTotal": 74280525,
+    "kitchens": 0,
+    "terraceArea": 8.68,
+    "typology": "Mono Pitch",
+    "typologyDetected": true,
+  },
+  "atMin": {
+    "bathrooms": 1,
+    "bedrooms": 0,
+    "coreTotal": 57083875,
+    "delta": 1220,
+    "gfa": 41.65,
+    "grandTotal": 60343875,
+    "kitchens": 0,
+    "terraceArea": 5.02,
+    "typology": "Mono Pitch",
+    "typologyDetected": true,
+  },
+}
+`;
+
+exports[`calculateBudget > 'monopitch-studio-v6' budget at minDelta and maxDelta is stable (snapshot) 1`] = `
+{
+  "atMax": {
+    "bathrooms": 1,
+    "bedrooms": 0,
+    "coreTotal": 39696038,
+    "delta": 2440,
+    "gfa": 28.26,
+    "grandTotal": 42956038,
+    "kitchens": 0,
+    "terraceArea": 5.09,
+    "typology": "Mono Pitch",
+    "typologyDetected": true,
+  },
+  "atMin": {
+    "bathrooms": 1,
+    "bedrooms": 0,
+    "coreTotal": 28546718,
+    "delta": 0,
+    "gfa": 19.67,
+    "grandTotal": 31806718,
+    "kitchens": 0,
+    "terraceArea": 2.17,
+    "typology": "Mono Pitch",
+    "typologyDetected": true,
+  },
+}
+`;

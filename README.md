@@ -19,9 +19,41 @@ npm install
 npm run dev     # http://localhost:3000
 npm run build   # production build (also runs type-checking)
 npm start       # serve the production build
+npm test        # vitest run — unit + geometry snapshots
 ```
 
 Node 18+ is required (Next 14, App Router).
+
+## Tests.
+
+Vitest + jsdom. Three suites, all read the shipped DXFs straight out
+of `public/floorplans/`:
+
+- `src/lib/__tests__/dxf-parser.test.ts` — invariants (every Walls
+  layer non-empty, every room polygon closed, every `attach` reference
+  resolves to a real window vertex, etc.) plus a "layer summary"
+  snapshot per plan.
+- `src/lib/__tests__/budget.test.ts` — monotonicity (GFA and budget
+  grow with delta), a `detectTypology` sanity check, and a per-plan
+  budget snapshot at `minDelta` and `maxDelta` that pins exact UGX
+  totals.
+- `src/components/__tests__/FloorplanSVG.snapshot.test.tsx` — twelve
+  geometry-only SVG snapshots (4 plans × {min, mid, max} delta). The
+  snapshot helper strips `fill`, `stroke`, `style`, classes, and
+  `<defs>` blocks before snapshotting so colors and patterns can move
+  freely but a 1-unit vertex shift fails loudly. This is the safety
+  net the wall/window stretching refactor depends on.
+
+Vercel's build command runs `npm test && npm run build`, so a failing
+snapshot blocks deploy.
+
+There is currently one **known-bug** `it.todo` in `budget.test.ts`:
+`countRooms` matches `"Bedroom"` / `"Kitchen"` but the DXFs use
+`"Bed Room"` / `"Living Room"`, so the bedroom and kitchen counts
+are silently 0. `calculateBudget` doesn't read `bedrooms`, so this
+has zero pricing impact today, but the count is wrong anywhere it
+gets surfaced. The budget snapshots pin the current (buggy) values
+so the eventual fix shows up as a deliberate snapshot diff.
 
 ## Routes.
 
