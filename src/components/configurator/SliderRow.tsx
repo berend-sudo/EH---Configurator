@@ -44,8 +44,15 @@ export default function SliderRow({ label, valueMm, minMm, maxMm, stepMm, onChan
         </span>
       </div>
 
-      {/* Visual rail with an invisible <input type=range> overlay — pattern from globals.css */}
-      <div style={{ position: "relative", height: 22 }}>
+      {/* Visual rail with an invisible <input type=range> overlay — pattern from globals.css.
+          Order matters: rail first, input second. With both absolutely positioned and equal
+          z-index, the later-painted element wins; the input must paint last so it captures
+          pointer events. */}
+      <div style={{ position: "relative", height: 22, display: "flex", alignItems: "center" }}>
+        <div className="rail" style={{ width: "100%" }}>
+          <div className="rail__fill" style={{ width: `${pct}%` }} />
+          <div className="rail__knob" style={{ left: `${pct}%` }} />
+        </div>
         <input
           type="range"
           className="range-native"
@@ -56,10 +63,6 @@ export default function SliderRow({ label, valueMm, minMm, maxMm, stepMm, onChan
           onChange={(e) => onChange(Number(e.target.value))}
           aria-label={label}
         />
-        <div className="rail" style={{ position: "absolute", left: 0, right: 0, top: "50%", transform: "translateY(-50%)" }}>
-          <div className="rail__fill" style={{ width: `${pct}%` }} />
-          <div className="rail__knob" style={{ left: `${pct}%` }} />
-        </div>
       </div>
 
       <div
