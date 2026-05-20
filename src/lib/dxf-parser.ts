@@ -479,6 +479,43 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
     layer.entities.push({ type: "polyline", closed: raw.closed, vertices } as PolylineEntity);
   }
 
+  // ── Normalization pass: enforce consistent moveX across same-x vertex groups
+  //
+  // The PT-marker zone classifier (decideMoveX) decides per-vertex, so a
+  // single polyline can end up with sibling vertices at the SAME x having
+  // different moveX flags — e.g., 2BR walls[3] shipped as [M, M, M, .].
+  // When the slider grows delta, the dissenting vertex stays put while
+  // the others move, and a rectangular wall becomes a diagonal quad (the
+  // green-arrow "morphing wall" the user reported).
+  //
+  // Fix: for every closed polyline EXCEPT Windows (their cap math depends
+  // on per-vertex moveX), group vertices by x within a tight tolerance.
+  // If any group disagrees, set all members to the majority value; on a
+  // tie, prefer moveX=true (under-stretching is more visually obvious
+  // than over-stretching, and the bias matches DXFs we've seen).
+  const X_GROUP_TOL = 0.5; // mm — tighter than wall thickness so groups don't merge across walls
+  layerMap.forEach((layer, layerName) => {
+    if (layerName === "Windows") return;
+    for (const ent of layer.entities) {
+      if (ent.type !== "polyline" || !ent.closed) continue;
+      // Bucket vertices by rounded x
+      const buckets = new Map<number, Vertex[]>();
+      for (const v of ent.vertices) {
+        const key = Math.round(v.x / X_GROUP_TOL) * X_GROUP_TOL;
+        if (!buckets.has(key)) buckets.set(key, []);
+        buckets.get(key)!.push(v);
+      }
+      buckets.forEach((group) => {
+        if (group.length < 2) return;
+        const moves = group.filter((v) => v.moveX).length;
+        const statics = group.length - moves;
+        if (moves === 0 || statics === 0) return; // already consistent
+        const target = moves >= statics; // tie → true
+        for (const v of group) v.moveX = target;
+      });
+    }
+  });
+
   // ── Attachment pass: tag wall/room/door vertices coincident with window corners
   // Wall vertices at a window's cutout corner must track that window vertex's
   // computed world position (including any width cap), not just shift by delta.
