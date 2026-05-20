@@ -19,7 +19,13 @@ const KITCHEN_BASE     = 2_000_000;
 const KITCHEN_PER_UNIT =   500_000;
 export const USD_RATE  =     3_700;
 
-// Mirrors FloorplanSVG.tsx — duplicated to avoid importing from a component file.
+// NOTE: this is NOT identical to the polygonAreaM2 in FloorplanSVG.tsx.
+// The renderer version takes a WindowPositions arg and follows vertices
+// that are `attach`ed to capped windows. This one applies `delta` linearly
+// to every moveX vertex, so at slider values large enough to cap windows
+// the budget here may slightly over-state living area vs. the rendered
+// plan. Phase C of the architecture cleanup will unify them via a shared
+// window-cap-aware geometry resolver (src/lib/floorplan/geometry.ts).
 export function polygonAreaM2(verts: Vertex[], delta: number): number {
   let a = 0;
   for (let i = 0; i < verts.length; i++) {

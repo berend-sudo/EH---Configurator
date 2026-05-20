@@ -7,9 +7,8 @@ real DXF files; areas and budgets are computed from the geometry, not
 made up.
 
 The design tokens, fonts, logos, and high-fidelity HTML artboards live
-in `design_handoff_eh_configurator/`. The agent-facing rules and
-checklist are in `design_handoff_eh_configurator/CLAUDE.md` — read that
-before changing visuals.
+in `docs/design-handoff/`. The agent-facing rules and checklist are in
+`docs/design-handoff/CLAUDE.md` — read that before changing visuals.
 
 ---
 
@@ -66,7 +65,7 @@ public/
   floorplans/                 DXF files served at runtime
   brand/                      Logos
   fonts/                      Poppins
-design_handoff_eh_configurator/
+docs/design-handoff/
   CLAUDE.md                   Agent rules — read before changing visuals
   tokens/                     Design tokens, fonts, logo assets
   design-refs/                HTML artboards and prototype JSX
@@ -254,9 +253,8 @@ DXFs ship today. When the others arrive:
 
 ## Design tokens.
 
-All tokens live in
-`design_handoff_eh_configurator/tokens/colors_and_type.css` and are
-mirrored into `src/app/eh-tokens.css`. Headline values:
+All tokens live in `docs/design-handoff/tokens/colors_and_type.css`
+and are mirrored into `src/app/eh-tokens.css`. Headline values:
 
 **Brand color**
 - `--eh-green: #4DCC7A` — primary, CTAs, accents.
