@@ -7,6 +7,11 @@ import path from "path";
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
+// Server-side memoisation. DXFs ship in `public/floorplans/` and don't change
+// at runtime, so a parsed result is valid for the lifetime of the server
+// process. Saves ~50-100 ms of disk I/O + parsing on warm requests.
+const parsedCache = new Map<string, ReturnType<typeof parseDxf>>();
+
 export async function GET(req: NextRequest) {
   try {
     const fileName = new URL(req.url).searchParams.get("file");
@@ -14,10 +19,20 @@ export async function GET(req: NextRequest) {
     if (!entry) {
       return NextResponse.json({ error: "Unknown floor plan" }, { status: 404 });
     }
-    const filePath = path.join(process.cwd(), "public", "floorplans", entry.file);
-    const text = await readFile(filePath, "utf-8");
-    const json = parseDxf(text, entry.file);
-    return NextResponse.json(json);
+    let json = parsedCache.get(entry.file);
+    if (!json) {
+      const filePath = path.join(process.cwd(), "public", "floorplans", entry.file);
+      const text = await readFile(filePath, "utf-8");
+      json = parseDxf(text, entry.file);
+      parsedCache.set(entry.file, json);
+    }
+    return NextResponse.json(json, {
+      headers: {
+        // Tell the browser the parse is safe to cache too. DXFs are
+        // catalogue-stable; if one ever changes we'd rebuild + redeploy.
+        "Cache-Control": "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400",
+      },
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Parse error";
     return NextResponse.json({ error: msg }, { status: 500 });

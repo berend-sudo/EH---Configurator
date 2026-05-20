@@ -3,6 +3,19 @@ import type { LandingRoof } from "@/lib/budget";
 export type RoofType = LandingRoof;
 export type BudgetTable = Record<number, number>;
 
+// Single source of truth for "is this roof type shippable?" — i.e. do we have
+// real DXFs to render? Consumed by both the Landing RoofPicker and the
+// Configurator PlanSwitcher so the two screens never disagree about what's
+// selectable. Flip the flag to true here when the DXFs ship and the
+// configurator's plan registry knows how to find them.
+export const ROOF_AVAILABILITY: Record<RoofType, boolean> = {
+  monopitch:  true,
+  gable:      false,
+  clerestory: false,
+};
+
+export const isRoofAvailable = (roof: RoofType): boolean => ROOF_AVAILABILITY[roof];
+
 export const minBedroomsFor = (roof: RoofType): number => (roof === "monopitch" ? 0 : 1);
 
 // Until gable / clerestory DXFs exist, every roof shares the same table

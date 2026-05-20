@@ -10,12 +10,19 @@ import SummaryCard from "@/components/configurator/SummaryCard";
 import ViewToggle, { type View } from "@/components/configurator/ViewToggle";
 import PhotoCollage from "@/components/configurator/PhotoCollage";
 import PlanSwitcher from "@/components/configurator/PlanSwitcher";
+import { isRoofAvailable } from "@/components/landing/pricing-helpers";
 import { pickPlanByBedrooms, type FloorPlanEntry } from "@/lib/floor-plans";
 import { calculateBudget, countRooms, detectTypology, type LandingRoof } from "@/lib/budget";
 import { useBudgetTable } from "@/lib/useBudgetTable";
 
 const LANDING_DEFAULT_BUDGET = 75_000_000;
 const VALID_ROOFS: readonly LandingRoof[] = ["monopitch", "gable", "clerestory"];
+
+// Module-scoped cache of parsed plans, keyed by DXF filename. DXFs are
+// immutable at runtime, so we can safely memoise across plan switches and
+// component re-mounts within the same browser session. Stores the Promise
+// (not the resolved value) so concurrent requests for the same file dedupe.
+const planCache = new Map<string, Promise<FloorplanJSON>>();
 
 const cap = (s: string) => (s.length === 0 ? s : s[0].toUpperCase() + s.slice(1));
 
@@ -45,23 +52,36 @@ function ConfiguratorScreen() {
 
   useEffect(() => {
     let cancelled = false;
+    const cached = planCache.get(currentEntry.file);
     const load = async () => {
-      setLoading(true);
       setError(null);
       try {
-        const res = await fetch(
-          `/api/parse-dxf?file=${encodeURIComponent(currentEntry.file)}`
-        );
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.error ?? "Load failed");
+        // Reuse an in-flight or completed parse for the same file. DXFs are
+        // immutable at runtime, so the cache is permanent for the session
+        // — repeat plan switches become instant with no network round-trip
+        // and no server-side DXF re-parse.
+        const promise =
+          cached ??
+          fetch(`/api/parse-dxf?file=${encodeURIComponent(currentEntry.file)}`).then(
+            async (res) => {
+              if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error ?? "Load failed");
+              }
+              return res.json() as Promise<FloorplanJSON>;
+            },
+          );
+        if (!cached) {
+          planCache.set(currentEntry.file, promise);
+          setLoading(true);
         }
-        const json: FloorplanJSON = await res.json();
+        const json = await promise;
         if (cancelled) return;
         setPlan(json);
         setDelta(json.minDelta);
       } catch (e) {
         if (cancelled) return;
+        planCache.delete(currentEntry.file); // let a retry try again
         setError(e instanceof Error ? e.message : "Unknown error");
       } finally {
         if (!cancelled) setLoading(false);
@@ -88,9 +108,24 @@ function ConfiguratorScreen() {
   const livingM2 = derived.rooms?.gfa ?? 0;
   const terraceM2 = derived.rooms?.terraceArea ?? 0;
 
-  const roof: LandingRoof = VALID_ROOFS.includes(roofParam as LandingRoof)
+  // Roof from URL, with two layers of defence:
+  //   1. Unknown value → monopitch.
+  //   2. Known-but-unavailable (gable / clerestory until those DXFs ship) →
+  //      monopitch, with the URL silently rewritten so a refresh sticks.
+  //      Without this, a bookmarked /configurator?roof=gable arrives at a
+  //      screen titled "Gable · 2-bed" but rendering the monopitch DXF,
+  //      with the PlanSwitcher refusing to let the user change back.
+  const rawRoof: LandingRoof = VALID_ROOFS.includes(roofParam as LandingRoof)
     ? (roofParam as LandingRoof)
     : "monopitch";
+  const roof: LandingRoof = isRoofAvailable(rawRoof) ? rawRoof : "monopitch";
+  useEffect(() => {
+    if (roof !== rawRoof) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("roof", roof);
+      router.replace(`${pathname}?${params.toString()}`);
+    }
+  }, [roof, rawRoof, searchParams, router, pathname]);
   const bedrooms = currentEntry.bedrooms;
   const modelLabel = `${cap(roof)} · ${bedrooms === 0 ? "Studio" : `${bedrooms}-bed`}`;
   const subtitle = `${bedrooms === 0 ? "Studio" : bedrooms === 1 ? "1 bedroom" : `${bedrooms} bedrooms`} · ${cap(roof)} roof`;

@@ -1,7 +1,7 @@
 "use client";
 
 import type { LandingRoof } from "@/lib/budget";
-import { priceFor, type BudgetTable } from "@/components/landing/pricing-helpers";
+import { priceFor, isRoofAvailable, type BudgetTable } from "@/components/landing/pricing-helpers";
 
 const BEDROOM_OPTIONS = [
   { value: 0, label: "Studio" },
@@ -10,10 +10,10 @@ const BEDROOM_OPTIONS = [
   { value: 3, label: "3BR" },
 ] as const;
 
-const ROOF_OPTIONS: Array<{ value: LandingRoof; label: string; available: boolean }> = [
-  { value: "monopitch",  label: "Monopitch",  available: true  },
-  { value: "gable",      label: "Gable",      available: false },
-  { value: "clerestory", label: "Clerestory", available: false },
+const ROOF_OPTIONS: Array<{ value: LandingRoof; label: string }> = [
+  { value: "monopitch",  label: "Monopitch"  },
+  { value: "gable",      label: "Gable"      },
+  { value: "clerestory", label: "Clerestory" },
 ];
 
 interface Props {
@@ -84,7 +84,7 @@ export default function PlanSwitcher({ bedrooms, roof, budget, budgetTable, onCh
         <div className="seg" role="tablist" aria-label="Roof">
           {ROOF_OPTIONS.map((opt) => {
             const isActive = opt.value === roof;
-            const disabled = !opt.available && !isActive;
+            const disabled = !isRoofAvailable(opt.value) && !isActive;
             return (
               <button
                 key={opt.value}

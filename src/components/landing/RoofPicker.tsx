@@ -1,6 +1,6 @@
 "use client";
 
-import { isAffordable, type BudgetTable, type RoofType } from "./pricing-helpers";
+import { isAffordable, isRoofAvailable, type BudgetTable, type RoofType } from "./pricing-helpers";
 
 type Props = {
   value: RoofType;
@@ -40,7 +40,9 @@ export default function RoofPicker({ value, onChange, budget, budgetTable }: Pro
         {TYPES.map((t) => {
           const active = t.id === value;
           const affordable = isAffordable(budgetTable, t.id, budget);
-          const disabled = !affordable && !active;
+          const available = isRoofAvailable(t.id);
+          const disabled = (!affordable || !available) && !active;
+          const tooltip = !available ? "Coming soon" : !affordable ? "Over budget" : undefined;
           const strokeColor = disabled
             ? "var(--eh-text-soft)"
             : active
@@ -56,6 +58,7 @@ export default function RoofPicker({ value, onChange, budget, budgetTable }: Pro
               aria-pressed={active}
               aria-disabled={disabled || undefined}
               disabled={disabled}
+              title={tooltip}
               style={{
                 padding: "14px 10px",
                 borderRadius: 14,

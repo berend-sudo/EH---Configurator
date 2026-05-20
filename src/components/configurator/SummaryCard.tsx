@@ -47,20 +47,29 @@ export default function SummaryCard({ footprintM2, livingM2, terraceM2, budgetUg
       <Row label="Terrace" value={fmtArea(terraceM2)} />
       <div
         style={{
-          display: "flex",
-          alignItems: "baseline",
-          justifyContent: "space-between",
           paddingTop: 14,
           marginTop: 6,
         }}
       >
-        <div style={{ fontSize: 13, fontWeight: 600 }}>Indicative budget</div>
         <div
           style={{
-            fontSize: 18,
+            fontSize: 11,
+            fontWeight: 600,
+            letterSpacing: ".08em",
+            textTransform: "uppercase",
+            color: "var(--eh-text-muted)",
+          }}
+        >
+          Indicative budget
+        </div>
+        <div
+          style={{
+            fontSize: 22,
             fontWeight: 600,
             color: "var(--eh-green-900)",
             fontVariantNumeric: "tabular-nums",
+            marginTop: 4,
+            whiteSpace: "nowrap",
           }}
         >
           {fmtUGX(budgetUgx)}
