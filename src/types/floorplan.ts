@@ -67,4 +67,8 @@ export interface FloorplanJSON {
   minDelta: number;
   maxDelta: number;
   layers: FloorplanLayer[];
+  /** Non-fatal issues observed during parsing — surfaced for debugging.
+   *  Entries describe data the parser preserved but couldn't fully resolve
+   *  (e.g. segments that almost closed but stayed open, missing PT zones). */
+  warnings?: string[];
 }

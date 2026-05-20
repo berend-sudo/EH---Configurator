@@ -9,6 +9,7 @@ import type {
   GeomCircle,
   Vertex,
 } from "@/types/floorplan";
+import { stitchSegments } from "./dxf/stitch-segments";
 
 // ── Pair parsing ─────────────────────────────────────────────────────────────
 
@@ -382,6 +383,16 @@ function computeDepthVec(
 export function parseDxf(content: string, filename: string): FloorplanJSON {
   const pairs = parsePairs(content);
 
+  // Non-fatal anomalies surfaced through the JSON `warnings` field and the
+  // server-side console. Silent drops are how the LINE/SPLINE bug went
+  // unnoticed for so long; every "this looks off but we kept going" branch
+  // should leave a breadcrumb here.
+  const warnings: string[] = [];
+  const warn = (msg: string) => {
+    warnings.push(msg);
+    if (typeof console !== "undefined") console.warn(`[dxf-parser ${filename}] ${msg}`);
+  };
+
   const ptRight: { x: number; y: number }[] = [];
   const ptLeft:  { x: number; y: number }[] = [];
   const polylines: { layer: string; closed: boolean; vertices: { x: number; y: number }[] }[] = [];
@@ -497,25 +508,10 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
   // ── Segment stitcher ────────────────────────────────────────────────────────
   //
   // DXF exports sometimes drop the `closed` flag on a POLYLINE and emit each
-  // edge as a separate LINE (or 2-control-point SPLINE) instead. Visually
-  // these collections of segments are the architect's intended closed wall /
-  // window / door / room polygons; we need to reassemble them or those walls
-  // simply don't render.
-  //
-  // Algorithm: per layer, group segments by endpoint proximity. Walk each
-  // connected component starting from any unused segment, extending both
-  // forward and backward through any segment whose endpoint matches the
-  // current chain tip (within 2 mm — the user's reported export drift bound).
-  // A chain whose front and back tips also meet within 2 mm closes into a
-  // polygon. Loose chains (no cycle) survive as open polylines and render as
-  // 1 px strokes — visible, never silently dropped.
+  // edge as a separate LINE (or 2-control-point SPLINE). Reassemble them.
+  // Algorithm lives in ./dxf/stitch-segments so it's unit-testable in
+  // isolation. Tolerance 2 mm matches the observed export drift bound.
   const STITCH_TOL_MM = 2;
-  const STITCH_TOL_SQ = STITCH_TOL_MM * STITCH_TOL_MM;
-  const ptEq = (a: { x: number; y: number }, b: { x: number; y: number }) => {
-    const dx = a.x - b.x, dy = a.y - b.y;
-    return dx * dx + dy * dy <= STITCH_TOL_SQ;
-  };
-
   const segmentsByLayer = new Map<string, typeof segments>();
   for (const s of segments) {
     if (!segmentsByLayer.has(s.layer)) segmentsByLayer.set(s.layer, []);
@@ -523,65 +519,12 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
   }
 
   segmentsByLayer.forEach((segs, layerName) => {
-    const used = new Set<number>();
-    for (let i = 0; i < segs.length; i++) {
-      if (used.has(i)) continue;
-      used.add(i);
-
-      // Start the chain with this segment's full vertex list (preserves curves
-      // for >2-vertex SPLINEs).
-      const chain: { x: number; y: number }[] = [...segs[i].vertices];
-      let front = chain[chain.length - 1];
-      let back = chain[0];
-
-      // Extend forward: keep finding a segment whose start or end matches `front`.
-      let extended = true;
-      while (extended) {
-        extended = false;
-        for (let j = 0; j < segs.length; j++) {
-          if (used.has(j)) continue;
-          const sv = segs[j].vertices;
-          if (ptEq(sv[0], front)) {
-            for (let k = 1; k < sv.length; k++) chain.push(sv[k]);
-            front = chain[chain.length - 1];
-            used.add(j); extended = true; break;
-          }
-          if (ptEq(sv[sv.length - 1], front)) {
-            for (let k = sv.length - 2; k >= 0; k--) chain.push(sv[k]);
-            front = chain[chain.length - 1];
-            used.add(j); extended = true; break;
-          }
-        }
-      }
-
-      // Extend backward (skip if forward already closed the loop).
-      if (!ptEq(front, back)) {
-        extended = true;
-        while (extended) {
-          extended = false;
-          for (let j = 0; j < segs.length; j++) {
-            if (used.has(j)) continue;
-            const sv = segs[j].vertices;
-            if (ptEq(sv[sv.length - 1], back)) {
-              for (let k = sv.length - 2; k >= 0; k--) chain.unshift(sv[k]);
-              back = chain[0];
-              used.add(j); extended = true; break;
-            }
-            if (ptEq(sv[0], back)) {
-              for (let k = 1; k < sv.length; k++) chain.unshift(sv[k]);
-              back = chain[0];
-              used.add(j); extended = true; break;
-            }
-          }
-        }
-      }
-
-      // Closed if the two tips meet (within tolerance). Drop the duplicate
-      // closing vertex so vertex count matches what an explicit POLYLINE
-      // would have emitted.
-      const closed = chain.length >= 3 && ptEq(chain[0], chain[chain.length - 1]);
-      if (closed) chain.pop();
-      polylines.push({ layer: layerName, closed, vertices: chain });
+    const { polylines: stitched, nearMisses } = stitchSegments(segs, STITCH_TOL_MM);
+    for (const p of stitched) {
+      polylines.push({ layer: layerName, closed: p.closed, vertices: p.vertices });
+    }
+    for (const nm of nearMisses) {
+      warn(`stitcher: ${layerName} chain of ${nm.vertexCount} vertices almost closed (gap ${nm.gapMm.toFixed(2)} mm > tol ${STITCH_TOL_MM} mm) — left open. Check DXF export.`);
     }
   });
 
@@ -599,6 +542,17 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
     LAYER_ORDER.map((name) => [name, { name, entities: [] }])
   );
 
+  // PT zones gate stretch behaviour. Both empty is an exporter setup bug;
+  // we degrade gracefully (everything moveX=true if right-only is missing,
+  // moveX=false if left-only is missing) but the user wants to know.
+  if (ptRight.length === 0 && ptLeft.length === 0) {
+    warn("No PT Top Left / PT Top Right markers found — every vertex will be classified as moveX=false (nothing stretches with the slider).");
+  } else if (ptRight.length === 0) {
+    warn("No PT Top Right markers found — every vertex defaults to moveX=false.");
+  } else if (ptLeft.length === 0) {
+    warn("No PT Top Left markers found — every vertex defaults to moveX=true.");
+  }
+
   for (const raw of polylines) {
     const layer = layerMap.get(raw.layer);
     if (!layer) continue;
@@ -607,6 +561,29 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
       y: v.y,
       moveX: decideMoveX(v.x, v.y, ptRight, ptLeft),
     }));
+
+    // Polyline-level moveX consensus.
+    //
+    // `decideMoveX` classifies vertices independently by nearest PT marker.
+    // A rigid wall, though, should move as a unit — its vertices belong to
+    // one zone or the other. When ≥ 75 % of a polyline's vertices agree
+    // (and it's not a Rooms polygon — those legitimately span both zones,
+    // with left vertices fixed and right vertices moving so the room
+    // stretches with the slider) force the dissenters to match. This is
+    // what kept 2BR walls[3] morphing into a diagonal: 3 of 4 vertices said
+    // "move", one said "stay". With the vote we get a clean rectangle.
+    if (raw.closed && !raw.layer.startsWith("Rooms") && vertices.length >= 3) {
+      const moves = vertices.filter((v) => v.moveX).length;
+      const ratio = moves / vertices.length;
+      if (ratio >= 0.75 && ratio < 1) {
+        for (const v of vertices) v.moveX = true;
+        warn(`moveX consensus on ${raw.layer}: forced ${vertices.length - moves} of ${vertices.length} vertices to moveX=true to keep the polyline rigid (was ${moves} move / ${vertices.length - moves} static).`);
+      } else if (ratio > 0 && ratio <= 0.25) {
+        for (const v of vertices) v.moveX = false;
+        warn(`moveX consensus on ${raw.layer}: forced ${moves} of ${vertices.length} vertices to moveX=false to keep the polyline rigid (was ${moves} move / ${vertices.length - moves} static).`);
+      }
+    }
+
     layer.entities.push({ type: "polyline", closed: raw.closed, vertices } as PolylineEntity);
   }
 
@@ -737,5 +714,6 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
     minDelta,
     maxDelta,
     layers: LAYER_ORDER.map((nm) => layerMap.get(nm)!).filter((l) => l.entities.length > 0),
+    ...(warnings.length > 0 && { warnings }),
   };
 }
