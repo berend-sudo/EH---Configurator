@@ -1,4 +1,8 @@
-import type { FloorplanJSON, Vertex } from "@/types/floorplan";
+import type { FloorplanJSON } from "@/types/floorplan";
+import {
+  buildWindowPositions,
+  polygonAreaM2,
+} from "@/lib/floorplan/geometry";
 
 // Rates from the "Price Calc" sheet (Typology Calculator, rows 87-92).
 // Gables price ~9% cheaper per m² than Mono Pitch / Clerestory.
@@ -19,23 +23,10 @@ const KITCHEN_BASE     = 2_000_000;
 const KITCHEN_PER_UNIT =   500_000;
 export const USD_RATE  =     3_700;
 
-// NOTE: this is NOT identical to the polygonAreaM2 in FloorplanSVG.tsx.
-// The renderer version takes a WindowPositions arg and follows vertices
-// that are `attach`ed to capped windows. This one applies `delta` linearly
-// to every moveX vertex, so at slider values large enough to cap windows
-// the budget here may slightly over-state living area vs. the rendered
-// plan. Phase C of the architecture cleanup will unify them via a shared
-// window-cap-aware geometry resolver (src/lib/floorplan/geometry.ts).
-export function polygonAreaM2(verts: Vertex[], delta: number): number {
-  let a = 0;
-  for (let i = 0; i < verts.length; i++) {
-    const j = (i + 1) % verts.length;
-    const xi = verts[i].x + (verts[i].moveX ? delta : 0);
-    const xj = verts[j].x + (verts[j].moveX ? delta : 0);
-    a += xi * verts[j].y - xj * verts[i].y;
-  }
-  return Math.abs(a) / 2 / 1_000_000;
-}
+// Area math is delegated to @/lib/floorplan/geometry's window-cap-aware
+// polygonAreaM2. Phase A noted the divergence; phase C3 unifies it so the
+// quoted budget matches the rendered plan even at maxDelta where windows
+// hit the 1.8 m cap.
 
 export type TypologyName =
   | "Mono Pitch"
@@ -95,18 +86,25 @@ export interface CountRoomsResult {
 }
 
 export function countRooms(plan: FloorplanJSON, delta: number): CountRoomsResult {
+  // Resolve the window positions once so polygonAreaM2 follows vertices that
+  // are `attach`ed to capped windows. Doing this upfront is O(windows) and
+  // matches what FloorplanSVG does for every render.
+  const wp = buildWindowPositions(plan, delta);
   let gfa = 0, terraceArea = 0, bedrooms = 0, bathrooms = 0, kitchens = 0;
   for (const layer of plan.layers) {
     if (!layer.name.startsWith("Rooms")) continue;
     const isTerrace = layer.name.includes("Terrace");
     for (const entity of layer.entities) {
       if (entity.type !== "polyline" || !entity.closed) continue;
-      const area = polygonAreaM2(entity.vertices, delta);
+      const area = polygonAreaM2(entity.vertices, delta, wp);
       if (isTerrace) terraceArea += area;
       else gfa += area;
-      if (layer.name.includes("Bath"))    bathrooms++;
-      if (layer.name.includes("Kitchen")) kitchens++;
-      if (layer.name.includes("Bedroom")) bedrooms++;
+      // Layer names follow the README convention (`Rooms$Bed Room`,
+      // `Rooms$Bath Room`, `Rooms$Living Room`, `Rooms$Terrace`). Match
+      // them with their actual spaces.
+      if (layer.name.includes("Bath Room"))    bathrooms++;
+      if (layer.name.includes("Kitchen"))      kitchens++;
+      if (layer.name.includes("Bed Room"))     bedrooms++;
     }
   }
   return { gfa, terraceArea, bedrooms, bathrooms, kitchens };

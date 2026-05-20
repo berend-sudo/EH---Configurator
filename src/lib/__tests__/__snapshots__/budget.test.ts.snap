@@ -4,7 +4,7 @@ exports[`calculateBudget > 'monopitch-1br' budget at minDelta and maxDelta is st
 {
   "atMax": {
     "bathrooms": 1,
-    "bedrooms": 0,
+    "bedrooms": 1,
     "coreTotal": 47720035,
     "delta": 3050,
     "gfa": 34.44,
@@ -16,7 +16,7 @@ exports[`calculateBudget > 'monopitch-1br' budget at minDelta and maxDelta is st
   },
   "atMin": {
     "bathrooms": 1,
-    "bedrooms": 0,
+    "bedrooms": 1,
     "coreTotal": 36570715,
     "delta": 610,
     "gfa": 25.85,
@@ -33,7 +33,7 @@ exports[`calculateBudget > 'monopitch-2br-v3' budget at minDelta and maxDelta is
 {
   "atMax": {
     "bathrooms": 1,
-    "bedrooms": 0,
+    "bedrooms": 2,
     "coreTotal": 67564809,
     "delta": 4270,
     "gfa": 49.72,
@@ -45,7 +45,7 @@ exports[`calculateBudget > 'monopitch-2br-v3' budget at minDelta and maxDelta is
   },
   "atMin": {
     "bathrooms": 1,
-    "bedrooms": 0,
+    "bedrooms": 2,
     "coreTotal": 48053501,
     "delta": 0,
     "gfa": 34.7,
@@ -62,7 +62,7 @@ exports[`calculateBudget > 'monopitch-3br' budget at minDelta and maxDelta is st
 {
   "atMax": {
     "bathrooms": 1,
-    "bedrooms": 0,
+    "bedrooms": 3,
     "coreTotal": 71020525,
     "delta": 4270,
     "gfa": 52.38,
@@ -74,7 +74,7 @@ exports[`calculateBudget > 'monopitch-3br' budget at minDelta and maxDelta is st
   },
   "atMin": {
     "bathrooms": 1,
-    "bedrooms": 0,
+    "bedrooms": 3,
     "coreTotal": 57083875,
     "delta": 1220,
     "gfa": 41.65,
@@ -91,7 +91,7 @@ exports[`calculateBudget > 'monopitch-studio-v6' budget at minDelta and maxDelta
 {
   "atMax": {
     "bathrooms": 1,
-    "bedrooms": 0,
+    "bedrooms": 1,
     "coreTotal": 39696038,
     "delta": 2440,
     "gfa": 28.26,
@@ -103,7 +103,7 @@ exports[`calculateBudget > 'monopitch-studio-v6' budget at minDelta and maxDelta
   },
   "atMin": {
     "bathrooms": 1,
-    "bedrooms": 0,
+    "bedrooms": 1,
     "coreTotal": 28546718,
     "delta": 0,
     "gfa": 19.67,

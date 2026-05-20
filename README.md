@@ -47,13 +47,10 @@ of `public/floorplans/`:
 Vercel's build command runs `npm test && npm run build`, so a failing
 snapshot blocks deploy.
 
-There is currently one **known-bug** `it.todo` in `budget.test.ts`:
-`countRooms` matches `"Bedroom"` / `"Kitchen"` but the DXFs use
-`"Bed Room"` / `"Living Room"`, so the bedroom and kitchen counts
-are silently 0. `calculateBudget` doesn't read `bedrooms`, so this
-has zero pricing impact today, but the count is wrong anywhere it
-gets surfaced. The budget snapshots pin the current (buggy) values
-so the eventual fix shows up as a deliberate snapshot diff.
+Geometry helpers (`@/lib/floorplan/geometry`) are unit-tested in
+`src/lib/floorplan/__tests__/geometry.test.ts` — 36 cases covering
+the window-cap math, vertex attach, polygon area, spline path,
+door wall-edge detection, and dimension-chain building.
 
 ## Routes.
 
@@ -82,7 +79,12 @@ src/
     api/budget-table/route.ts Precomputed budget per bedroom count
   components/
     EHNavBar.tsx              Shared top nav (light + dark variants)
-    FloorplanSVG.tsx          Renders the plan, dimensions, labels
+    FloorplanSVG/             Plan renderer, one file per concern:
+      index.tsx                 Root component + orchestration
+      RoomPatterns.tsx          SVG <defs> with fill patterns
+      layers.tsx                Per-entity renderers (Wall, Window,
+                                Door, Room, Furniture) + dispatcher
+      annotations.tsx           RoomLabels + DimensionLines
     landing/                  Landing-only widgets (BudgetSlider,
                               BedroomsCounter, RoofPicker, …)
     configurator/             Configurator-only widgets (SliderRow,
@@ -90,6 +92,10 @@ src/
   lib/
     dxf-parser.ts             DXF → typed JSON (walls, rooms, …)
     floor-plans.ts            Registry of DXF files keyed by bedrooms
+    floorplan/
+      geometry.ts             Pure geometry helpers: delta application,
+                              window cap, vertex attach, polygon area,
+                              spline path, dimension chains
     budget.ts                 Cost rates + countRooms + calculateBudget
     budget-table.ts           Server-only: precomputes the price table
     useBudgetTable.ts         Client hook that fetches the API
@@ -173,6 +179,42 @@ email, phone, timeline, consent), with a *"Generate PDF"* CTA. The
 PDF itself is three A4 pages: Cover, Plan, Spec & budget. None of
 this is in the code yet — when it lands it should reuse `FloorplanSVG`
 for the plan thumbnail and `/api/budget-table` for the spec totals.
+
+---
+
+## Geometry resolution.
+
+The renderer never makes up coordinates; everything traces back to the
+DXF through one pipeline:
+
+1. **Parse** — `src/lib/dxf-parser.ts` reads the DXF and produces a
+   `FloorplanJSON`. Vertices carry a `moveX` flag (stretches with the
+   slider) and optionally an `attach` reference (snaps to a window
+   vertex). Window polylines stay in their base position; the cap is
+   applied later.
+2. **Resolve** — `src/lib/floorplan/geometry.ts` exposes three pure
+   functions that turn `(plan, delta)` into world coords:
+   - `buildWindowPositions(plan, delta)` returns a map keyed by
+     window index. The 1.8 m cap kicks in here for windows with only
+     one moving edge.
+   - `vertWorld(v, delta, wp)` resolves one vertex — `attach` first,
+     then `moveX ? x+delta : x`. The whole renderer goes through this.
+   - `polygonAreaM2(verts, delta, wp)` is the same as `vertWorld`
+     applied around a polygon perimeter and reduced via shoelace.
+     Both the configurator's live budget (`countRooms` in
+     `budget.ts`) and the room-label area readouts use this — quoted
+     UGX matches displayed area at every slider position, including
+     when windows hit the cap.
+3. **Render** — `src/components/FloorplanSVG/` is a thin walker:
+   `index.tsx` builds `wp` once, then dispatches each entity through
+   `layers.ts`'s `renderEntity`. Per-layer renderers (wall, window,
+   door, room, furniture) and the annotation layers (room labels,
+   dimension lines) all call into the geometry helpers — no math
+   lives in the renderer.
+
+Adding a new geometry primitive (say, a curved wall) means: extend
+the parser to emit it, add a resolver helper, add a per-entity
+renderer. The three layers are independent.
 
 ---
 
