@@ -1,8 +1,13 @@
 "use client";
 
-import { isAffordable, type RoofType } from "./pricing-helpers";
+import { isAffordable, type BudgetTable, type RoofType } from "./pricing-helpers";
 
-type Props = { value: RoofType; onChange: (r: RoofType) => void; budget: number };
+type Props = {
+  value: RoofType;
+  onChange: (r: RoofType) => void;
+  budget: number;
+  budgetTable: BudgetTable | null;
+};
 
 const TYPES: { id: RoofType; label: string; path: string }[] = [
   { id: "monopitch", label: "Monopitch", path: "M 6 28 L 6 14 L 50 6 L 50 28 Z" },
@@ -16,7 +21,7 @@ const TYPES: { id: RoofType; label: string; path: string }[] = [
   },
 ];
 
-export default function RoofPicker({ value, onChange, budget }: Props) {
+export default function RoofPicker({ value, onChange, budget, budgetTable }: Props) {
   return (
     <div>
       <div
@@ -34,7 +39,7 @@ export default function RoofPicker({ value, onChange, budget }: Props) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
         {TYPES.map((t) => {
           const active = t.id === value;
-          const affordable = isAffordable(t.id, budget);
+          const affordable = isAffordable(budgetTable, t.id, budget);
           const disabled = !affordable && !active;
           const strokeColor = disabled
             ? "var(--eh-text-soft)"

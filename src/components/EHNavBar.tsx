@@ -34,7 +34,10 @@ export default function EHNavBar({
         padding: "20px 48px",
         borderBottom: onDark ? "1px solid rgba(255,255,255,0.10)" : "1px solid var(--eh-stroke)",
         color: onDark ? "#fff" : "var(--eh-text)",
-        background: onDark ? "var(--eh-bg-deep)" : "var(--eh-bg)",
+        // Transparent on dark so the parent's hero background (gradient/photo)
+        // shows through. Solid bg in light mode so the bar sits flat above the
+        // page surface.
+        background: onDark ? "transparent" : "var(--eh-bg)",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>

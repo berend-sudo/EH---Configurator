@@ -148,29 +148,7 @@ export function calculateBudget(rooms: CountRoomsResult, typology: TypologyInfo)
   };
 }
 
-// ── Landing-stage pricing ─────────────────────────────────────────────────
-// The Landing screen captures (roof, bedrooms, budget) before any DXF is
-// loaded. This wrapper synthesises the inputs `calculateBudget` needs, so
-// no cost numbers leak into the UI layer. The configurator step refines
-// the estimate against the real plan.
+// Roof identifier shared between Landing and Configurator URLs.
+// Per-roof pricing tables ship once we have non-Monopitch DXFs; until then
+// see `computeBudgetTable` in `lib/budget-table.ts`.
 export type LandingRoof = "monopitch" | "gable" | "clerestory";
-
-const LANDING_GFA_BASE    = 30; // m² for a Studio (0 bedrooms)
-const LANDING_GFA_PER_BED = 12; // additional m² per bedroom
-const LANDING_BATHROOMS   = 1;
-const LANDING_KITCHENS    = 1;
-
-const ROOF_TO_TYPOLOGY: Record<LandingRoof, { name: TypologyName; sqmRate: number }> = {
-  monopitch:  { name: "Mono Pitch",          sqmRate: RATE_MONO_PITCH },
-  gable:      { name: "Standard Gable",      sqmRate: RATE_GABLE      },
-  clerestory: { name: "Standard Clerestory", sqmRate: RATE_CLERESTORY },
-};
-
-export function priceForLanding({ roof, bedrooms }: { roof: LandingRoof; bedrooms: number }): number {
-  const gfa = LANDING_GFA_BASE + LANDING_GFA_PER_BED * Math.max(0, bedrooms);
-  const t = ROOF_TO_TYPOLOGY[roof];
-  return calculateBudget(
-    { gfa, terraceArea: 0, bedrooms, bathrooms: LANDING_BATHROOMS, kitchens: LANDING_KITCHENS },
-    { name: t.name, sqmRate: t.sqmRate, detected: true },
-  ).coreTotal;
-}

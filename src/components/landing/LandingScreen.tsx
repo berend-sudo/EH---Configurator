@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import EHNavBar from "./EHNavBar";
+import EHNavBar from "@/components/EHNavBar";
 import BudgetSlider from "./BudgetSlider";
 import BedroomsCounter from "./BedroomsCounter";
 import RoofPicker from "./RoofPicker";
@@ -13,9 +13,11 @@ import {
   ROOF_FALLBACK_ORDER,
   type RoofType,
 } from "./pricing-helpers";
+import { useBudgetTable } from "@/lib/useBudgetTable";
 
 export default function LandingScreen() {
   const router = useRouter();
+  const budgetTable = useBudgetTable();
   const [budget, setBudget] = useState(75_000_000);
   const [bedrooms, setBedrooms] = useState(2);
   const [roof, setRoof] = useState<RoofType>("monopitch");
@@ -25,14 +27,14 @@ export default function LandingScreen() {
   // (e.g. budget pinned below every roof's min cost) leave the selection
   // alone so the user keeps a stable choice while every card is greyed.
   useEffect(() => {
-    if (!isAffordable(roof, budget)) {
-      const next = ROOF_FALLBACK_ORDER.find((r) => isAffordable(r, budget));
+    if (!isAffordable(budgetTable, roof, budget)) {
+      const next = ROOF_FALLBACK_ORDER.find((r) => isAffordable(budgetTable, r, budget));
       if (next) setRoof(next);
     }
-  }, [budget, roof]);
+  }, [budgetTable, budget, roof]);
 
   const minBed = minBedroomsFor(roof);
-  const maxBed = maxBedroomsFor(budget, roof);
+  const maxBed = maxBedroomsFor(budgetTable, budget, roof);
   useEffect(() => {
     if (bedrooms > maxBed) setBedrooms(maxBed);
     else if (bedrooms < minBed) setBedrooms(minBed);
@@ -113,7 +115,7 @@ export default function LandingScreen() {
             <BudgetSlider value={budget} onChange={setBudget} />
             <BedroomsCounter value={bedrooms} onChange={setBedrooms} min={minBed} max={maxBed} />
           </div>
-          <RoofPicker value={roof} onChange={setRoof} budget={budget} />
+          <RoofPicker value={roof} onChange={setRoof} budget={budget} budgetTable={budgetTable} />
 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginTop: 36 }}>
             <button

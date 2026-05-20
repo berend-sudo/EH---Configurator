@@ -1,11 +1,10 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { FloorplanJSON } from "@/types/floorplan";
 import FloorplanSVG from "@/components/FloorplanSVG";
-import EHNavBar from "@/components/configurator/EHNavBar";
+import EHNavBar from "@/components/EHNavBar";
 import SliderRow from "@/components/configurator/SliderRow";
 import SummaryCard from "@/components/configurator/SummaryCard";
 import ViewToggle, { type View } from "@/components/configurator/ViewToggle";
@@ -13,6 +12,7 @@ import PhotoCollage from "@/components/configurator/PhotoCollage";
 import PlanSwitcher from "@/components/configurator/PlanSwitcher";
 import { pickPlanByBedrooms, type FloorPlanEntry } from "@/lib/floor-plans";
 import { calculateBudget, countRooms, detectTypology, type LandingRoof } from "@/lib/budget";
+import { useBudgetTable } from "@/lib/useBudgetTable";
 
 const LANDING_DEFAULT_BUDGET = 75_000_000;
 const VALID_ROOFS: readonly LandingRoof[] = ["monopitch", "gable", "clerestory"];
@@ -29,6 +29,7 @@ function ConfiguratorScreen() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const budgetTable = useBudgetTable();
   const roofParam = searchParams.get("roof");
   const bedroomsParam = searchParams.get("bedrooms");
   const budgetParam = searchParams.get("budget");
@@ -170,6 +171,7 @@ function ConfiguratorScreen() {
             bedrooms={bedrooms}
             roof={roof}
             budget={budget}
+            budgetTable={budgetTable}
             onChange={updateParams}
           />
 
@@ -212,10 +214,17 @@ function ConfiguratorScreen() {
 
           {/* CTAs */}
           <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: "auto" }}>
-            {/* TODO(next turn): /summary route is built in the Final/Summary turn — 404s until then */}
-            <Link href="/summary" className="ab-cta">
+            {/* /summary route doesn't exist yet — disabled placeholder. */}
+            <button
+              type="button"
+              className="ab-cta"
+              disabled
+              aria-disabled
+              title="Coming soon"
+              style={{ opacity: 0.55, cursor: "not-allowed" }}
+            >
               Continue to summary →
-            </Link>
+            </button>
             <button
               type="button"
               className="ab-cta"

@@ -1,6 +1,7 @@
 "use client";
 
-import { priceForLanding, type LandingRoof } from "@/lib/budget";
+import type { LandingRoof } from "@/lib/budget";
+import { priceFor, type BudgetTable } from "@/components/landing/pricing-helpers";
 
 const BEDROOM_OPTIONS = [
   { value: 0, label: "Studio" },
@@ -19,10 +20,11 @@ interface Props {
   bedrooms: number;
   roof: LandingRoof;
   budget: number;
+  budgetTable: BudgetTable | null;
   onChange: (next: { bedrooms?: number; roof?: LandingRoof }) => void;
 }
 
-export default function PlanSwitcher({ bedrooms, roof, budget, onChange }: Props) {
+export default function PlanSwitcher({ bedrooms, roof, budget, budgetTable, onChange }: Props) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Bedrooms row */}
@@ -40,7 +42,8 @@ export default function PlanSwitcher({ bedrooms, roof, budget, onChange }: Props
         </div>
         <div className="seg" role="tablist" aria-label="Bedrooms">
           {BEDROOM_OPTIONS.map((opt) => {
-            const affordable = priceForLanding({ roof, bedrooms: opt.value }) <= budget;
+            const price = priceFor(budgetTable, roof, opt.value);
+            const affordable = price == null || price <= budget;
             const isActive = opt.value === bedrooms;
             const disabled = !affordable && !isActive;
             return (
