@@ -39,6 +39,22 @@ export default function FloorplanSVG({ plan, delta, pxPerMm = 0.1 }: Props) {
 
   const wp = buildWindowPositions(plan, delta);
 
+  // Continuous perimeter wall background.
+  //
+  // The shipped DXFs only carry wall polylines for corners + interior
+  // partitions; large stretches of the outer perimeter are absent (verified:
+  // ~5m gaps on 2BR and 3BR top walls). Without this background you see
+  // white holes between windows. Render order:
+  //   1. RoomPatterns defs
+  //   2. THIS perimeter wall rect (filled wall colour)
+  //   3. Plan layers — rooms paint over the interior with patterns; the
+  //      127 mm inset between room polygon and outer edge stays wall
+  //      colour, which is exactly the wall ring. Terrace polygons
+  //      legitimately extend to the outer edge on their open sides, so
+  //      they cover the wall colour there — correct architectural result.
+  //   4. Windows, doors, etc. on top.
+  const wallFill = "#003B2B";
+
   return (
     <svg
       viewBox={`0 0 ${svgW} ${svgH}`}
@@ -47,6 +63,14 @@ export default function FloorplanSVG({ plan, delta, pxPerMm = 0.1 }: Props) {
       preserveAspectRatio="xMidYMid meet"
     >
       <RoomPatterns scale={scale} drawH={drawH} padY={padY} />
+
+      <rect
+        x={padX}
+        y={padY}
+        width={drawW}
+        height={drawH}
+        fill={wallFill}
+      />
 
       {plan.layers.map((layer) => {
         // The Windows layer contains only polylines (by construction in dxf-parser),
