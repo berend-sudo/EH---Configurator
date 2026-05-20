@@ -92,9 +92,12 @@ three inputs.
   - **Budget slider** — range **42M–115M UGX**, default **75M**, step
     500k. (Spec called for 18M–75M; the slider was widened to match
     the real DXF-derived prices, see Budget pipeline below.)
-  - **Bedrooms counter** — Studio (0) through 3BR (max). Monopitch
-    allows 0, other roofs require ≥ 1. Auto-clamps to whatever the
-    current budget can afford.
+  - **Bedrooms counter** — Studio (0) through whatever the current
+    roof + budget allow. The bounds vary per roof: Monopitch allows
+    0–3 (Studio plus 1BR / 2BR / 3BR), Clerestory will go up to 4BR
+    once its DXFs land, Gable's range TBD. Lower bound is 0 for
+    Monopitch and ≥ 1 for the others. Auto-clamps when the budget
+    drops below the current selection.
   - **Roof type picker** — three cards: Monopitch, Gable, Clerestory.
     Gable and Clerestory are visible but greyed-out until their DXFs
     ship — see "Adding a new roof type" below.
@@ -207,7 +210,11 @@ already expose Monopitch, Gable, and Clerestory, but only Monopitch
 DXFs ship today. When the others arrive:
 
 1. Drop the new DXFs in `public/floorplans/` and register them in
-   `FLOOR_PLANS`.
+   `FLOOR_PLANS`. Note the bedroom range varies per roof — Monopitch
+   ships 0–3, Clerestory is expected up to 4. Encode the new upper
+   bound in a `maxBedroomsForRoof(roof)` helper (mirror of the
+   existing `minBedroomsFor`) and use it in the Landing counter and
+   the configurator's `PlanSwitcher`.
 2. Extend `computeBudgetTable` in `src/lib/budget-table.ts` to return
    a per-roof table (the type signature is the only thing that needs
    to change — the loop already exists).
@@ -333,10 +340,10 @@ approximations of brand imagery, stock photography.
 - Roof type doesn't yet drive the visual model. The selection rides
   on the URL but every shipped DXF is Monopitch, so the canvas is the
   same regardless. See "Adding a new roof type" above.
-- The bedrooms upper bound is **3**, not the spec's 4 — no 4BR DXF
-  ships. `BedroomsCounter`'s `showMaxHint` (which triggers at
-  `max < 4`) is therefore always on for Monopitch budgets that allow
-  3BR. Either trim the hint to `max < N_PLANS` or ship a 4BR DXF.
+- The bedrooms upper bound is currently **3** (Monopitch only). The
+  hard-coded `4` in `BedroomsCounter`'s *"max N for this budget"*
+  hint and in `maxBedroomsFor` should become a per-roof value once
+  Clerestory's 4BR DXF arrives. See "Adding a new roof type".
 
 ## Tone of voice.
 
