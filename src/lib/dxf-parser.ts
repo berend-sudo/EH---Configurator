@@ -385,6 +385,9 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
   const ptRight: { x: number; y: number }[] = [];
   const ptLeft:  { x: number; y: number }[] = [];
   const polylines: { layer: string; closed: boolean; vertices: { x: number; y: number }[] }[] = [];
+  // Free-standing LINE / SPLINE entities on Walls/Windows/Doors/Rooms. Stitched
+  // into closed (or open) polylines after the parse loop completes.
+  const segments: { layer: string; vertices: { x: number; y: number }[] }[] = [];
   const inserts: { name: string; x: number; y: number; rotation: number; scaleX: number; scaleY: number }[] = [];
   const blockDefs = new Map<string, LocalGeom[]>();
 
@@ -434,6 +437,43 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
         i = end; continue;
       }
 
+      // DXF export sometimes drops the `closed` flag on POLYLINEs and emits
+      // each edge as a separate LINE or 2-control-point SPLINE. The stitcher
+      // pass below reassembles connected chains into the closed polygons the
+      // architect originally drew.
+      if (code === 0 && value === "LINE") {
+        let j = i + 1, layer = "", x1 = 0, y1 = 0, x2 = 0, y2 = 0;
+        while (j < pairs.length && pairs[j].code !== 0) {
+          if (pairs[j].code === 8)  layer = pairs[j].value;
+          if (pairs[j].code === 10) x1 = n(pairs[j].value);
+          if (pairs[j].code === 20) y1 = n(pairs[j].value);
+          if (pairs[j].code === 11) x2 = n(pairs[j].value);
+          if (pairs[j].code === 21) y2 = n(pairs[j].value);
+          j++;
+        }
+        if (layer === "Walls" || layer === "Doors" || layer === "Windows" || layer.startsWith("Rooms")) {
+          segments.push({ layer, vertices: [{ x: x1, y: y1 }, { x: x2, y: y2 }] });
+        }
+        i = j; continue;
+      }
+
+      if (code === 0 && value === "SPLINE") {
+        let j = i + 1, layer = "";
+        const xs: number[] = [], ys: number[] = [];
+        while (j < pairs.length && pairs[j].code !== 0) {
+          if (pairs[j].code === 8)  layer = pairs[j].value;
+          if (pairs[j].code === 10) xs.push(n(pairs[j].value));
+          if (pairs[j].code === 20) ys.push(n(pairs[j].value));
+          j++;
+        }
+        if ((layer === "Walls" || layer === "Doors" || layer === "Windows" || layer.startsWith("Rooms"))
+            && xs.length >= 2 && xs.length === ys.length) {
+          const verts = xs.map((x, k) => ({ x, y: ys[k] }));
+          segments.push({ layer, vertices: verts });
+        }
+        i = j; continue;
+      }
+
       if (code === 0 && value === "INSERT") {
         let j = i + 1, layer = "", name = "", ix = 0, iy = 0, rot = 0, sx = 1, sy = 1;
         while (j < pairs.length && pairs[j].code !== 0) {
@@ -453,6 +493,97 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
 
     i++;
   }
+
+  // ── Segment stitcher ────────────────────────────────────────────────────────
+  //
+  // DXF exports sometimes drop the `closed` flag on a POLYLINE and emit each
+  // edge as a separate LINE (or 2-control-point SPLINE) instead. Visually
+  // these collections of segments are the architect's intended closed wall /
+  // window / door / room polygons; we need to reassemble them or those walls
+  // simply don't render.
+  //
+  // Algorithm: per layer, group segments by endpoint proximity. Walk each
+  // connected component starting from any unused segment, extending both
+  // forward and backward through any segment whose endpoint matches the
+  // current chain tip (within 2 mm — the user's reported export drift bound).
+  // A chain whose front and back tips also meet within 2 mm closes into a
+  // polygon. Loose chains (no cycle) survive as open polylines and render as
+  // 1 px strokes — visible, never silently dropped.
+  const STITCH_TOL_MM = 2;
+  const STITCH_TOL_SQ = STITCH_TOL_MM * STITCH_TOL_MM;
+  const ptEq = (a: { x: number; y: number }, b: { x: number; y: number }) => {
+    const dx = a.x - b.x, dy = a.y - b.y;
+    return dx * dx + dy * dy <= STITCH_TOL_SQ;
+  };
+
+  const segmentsByLayer = new Map<string, typeof segments>();
+  for (const s of segments) {
+    if (!segmentsByLayer.has(s.layer)) segmentsByLayer.set(s.layer, []);
+    segmentsByLayer.get(s.layer)!.push(s);
+  }
+
+  segmentsByLayer.forEach((segs, layerName) => {
+    const used = new Set<number>();
+    for (let i = 0; i < segs.length; i++) {
+      if (used.has(i)) continue;
+      used.add(i);
+
+      // Start the chain with this segment's full vertex list (preserves curves
+      // for >2-vertex SPLINEs).
+      const chain: { x: number; y: number }[] = [...segs[i].vertices];
+      let front = chain[chain.length - 1];
+      let back = chain[0];
+
+      // Extend forward: keep finding a segment whose start or end matches `front`.
+      let extended = true;
+      while (extended) {
+        extended = false;
+        for (let j = 0; j < segs.length; j++) {
+          if (used.has(j)) continue;
+          const sv = segs[j].vertices;
+          if (ptEq(sv[0], front)) {
+            for (let k = 1; k < sv.length; k++) chain.push(sv[k]);
+            front = chain[chain.length - 1];
+            used.add(j); extended = true; break;
+          }
+          if (ptEq(sv[sv.length - 1], front)) {
+            for (let k = sv.length - 2; k >= 0; k--) chain.push(sv[k]);
+            front = chain[chain.length - 1];
+            used.add(j); extended = true; break;
+          }
+        }
+      }
+
+      // Extend backward (skip if forward already closed the loop).
+      if (!ptEq(front, back)) {
+        extended = true;
+        while (extended) {
+          extended = false;
+          for (let j = 0; j < segs.length; j++) {
+            if (used.has(j)) continue;
+            const sv = segs[j].vertices;
+            if (ptEq(sv[sv.length - 1], back)) {
+              for (let k = sv.length - 2; k >= 0; k--) chain.unshift(sv[k]);
+              back = chain[0];
+              used.add(j); extended = true; break;
+            }
+            if (ptEq(sv[0], back)) {
+              for (let k = 1; k < sv.length; k++) chain.unshift(sv[k]);
+              back = chain[0];
+              used.add(j); extended = true; break;
+            }
+          }
+        }
+      }
+
+      // Closed if the two tips meet (within tolerance). Drop the duplicate
+      // closing vertex so vertex count matches what an explicit POLYLINE
+      // would have emitted.
+      const closed = chain.length >= 3 && ptEq(chain[0], chain[chain.length - 1]);
+      if (closed) chain.pop();
+      polylines.push({ layer: layerName, closed, vertices: chain });
+    }
+  });
 
   let maxX = 0, maxY = 0;
   for (const p of polylines) {
@@ -478,43 +609,6 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
     }));
     layer.entities.push({ type: "polyline", closed: raw.closed, vertices } as PolylineEntity);
   }
-
-  // ── Normalization pass: enforce consistent moveX across same-x vertex groups
-  //
-  // The PT-marker zone classifier (decideMoveX) decides per-vertex, so a
-  // single polyline can end up with sibling vertices at the SAME x having
-  // different moveX flags — e.g., 2BR walls[3] shipped as [M, M, M, .].
-  // When the slider grows delta, the dissenting vertex stays put while
-  // the others move, and a rectangular wall becomes a diagonal quad (the
-  // green-arrow "morphing wall" the user reported).
-  //
-  // Fix: for every closed polyline EXCEPT Windows (their cap math depends
-  // on per-vertex moveX), group vertices by x within a tight tolerance.
-  // If any group disagrees, set all members to the majority value; on a
-  // tie, prefer moveX=true (under-stretching is more visually obvious
-  // than over-stretching, and the bias matches DXFs we've seen).
-  const X_GROUP_TOL = 0.5; // mm — tighter than wall thickness so groups don't merge across walls
-  layerMap.forEach((layer, layerName) => {
-    if (layerName === "Windows") return;
-    for (const ent of layer.entities) {
-      if (ent.type !== "polyline" || !ent.closed) continue;
-      // Bucket vertices by rounded x
-      const buckets = new Map<number, Vertex[]>();
-      for (const v of ent.vertices) {
-        const key = Math.round(v.x / X_GROUP_TOL) * X_GROUP_TOL;
-        if (!buckets.has(key)) buckets.set(key, []);
-        buckets.get(key)!.push(v);
-      }
-      buckets.forEach((group) => {
-        if (group.length < 2) return;
-        const moves = group.filter((v) => v.moveX).length;
-        const statics = group.length - moves;
-        if (moves === 0 || statics === 0) return; // already consistent
-        const target = moves >= statics; // tie → true
-        for (const v of group) v.moveX = target;
-      });
-    }
-  });
 
   // ── Attachment pass: tag wall/room/door vertices coincident with window corners
   // Wall vertices at a window's cutout corner must track that window vertex's

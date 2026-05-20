@@ -35,7 +35,7 @@ exports[`dxf-parser whole-tree snapshots > 'monopitch-1br' layer summary 1`] = `
   {
     "blocks": 0,
     "name": "Walls",
-    "polylines": 13,
+    "polylines": 16,
   },
   {
     "blocks": 0,
@@ -80,12 +80,12 @@ exports[`dxf-parser whole-tree snapshots > 'monopitch-2br-v3' layer summary 1`] 
   {
     "blocks": 0,
     "name": "Walls",
-    "polylines": 14,
+    "polylines": 17,
   },
   {
     "blocks": 0,
     "name": "Windows",
-    "polylines": 5,
+    "polylines": 7,
   },
 ]
 `;
@@ -125,12 +125,12 @@ exports[`dxf-parser whole-tree snapshots > 'monopitch-3br' layer summary 1`] = `
   {
     "blocks": 0,
     "name": "Walls",
-    "polylines": 17,
+    "polylines": 21,
   },
   {
     "blocks": 0,
     "name": "Windows",
-    "polylines": 6,
+    "polylines": 8,
   },
 ]
 `;
