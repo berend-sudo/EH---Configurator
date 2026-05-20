@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { FloorplanJSON } from "@/types/floorplan";
 import FloorplanSVG from "@/components/FloorplanSVG";
 import EHNavBar from "@/components/configurator/EHNavBar";
@@ -10,8 +10,12 @@ import SliderRow from "@/components/configurator/SliderRow";
 import SummaryCard from "@/components/configurator/SummaryCard";
 import ViewToggle, { type View } from "@/components/configurator/ViewToggle";
 import PhotoCollage from "@/components/configurator/PhotoCollage";
+import PlanSwitcher from "@/components/configurator/PlanSwitcher";
 import { pickPlanByBedrooms, type FloorPlanEntry } from "@/lib/floor-plans";
-import { calculateBudget, countRooms, detectTypology } from "@/lib/budget";
+import { calculateBudget, countRooms, detectTypology, type LandingRoof } from "@/lib/budget";
+
+const LANDING_DEFAULT_BUDGET = 75_000_000;
+const VALID_ROOFS: readonly LandingRoof[] = ["monopitch", "gable", "clerestory"];
 
 const cap = (s: string) => (s.length === 0 ? s : s[0].toUpperCase() + s.slice(1));
 
@@ -22,17 +26,21 @@ function ConfiguratorScreen() {
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>("plan");
 
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const roofParam = searchParams.get("roof");
   const bedroomsParam = searchParams.get("bedrooms");
+  const budgetParam = searchParams.get("budget");
   const bedroomsNum = bedroomsParam != null && bedroomsParam !== "" ? Number(bedroomsParam) : null;
   const currentEntry: FloorPlanEntry = useMemo(
     () => pickPlanByBedrooms(bedroomsNum),
     [bedroomsNum],
   );
-  // budget is preserved from Landing for the eventual round-trip; not displayed here.
-  // (Indicative budget on this screen is derived from the resolved plan, not the Landing input.)
-  searchParams.get("budget");
+  const budget = (() => {
+    const n = budgetParam != null ? Number(budgetParam) : NaN;
+    return Number.isFinite(n) && n > 0 ? n : LANDING_DEFAULT_BUDGET;
+  })();
 
   useEffect(() => {
     let cancelled = false;
@@ -79,26 +87,22 @@ function ConfiguratorScreen() {
   const livingM2 = derived.rooms?.gfa ?? 0;
   const terraceM2 = derived.rooms?.terraceArea ?? 0;
 
-  const detectedRoof = derived.typology?.name.toLowerCase().includes("gable")
-    ? "gable"
-    : derived.typology?.name.toLowerCase().includes("clerestory")
-    ? "clerestory"
-    : derived.typology?.name.toLowerCase().includes("a frame")
-    ? "a-frame"
+  const roof: LandingRoof = VALID_ROOFS.includes(roofParam as LandingRoof)
+    ? (roofParam as LandingRoof)
     : "monopitch";
-  const roof = roofParam ?? detectedRoof;
-  const hasBedroomsParam = bedroomsParam !== null && bedroomsParam !== "";
-  // Default state matches the README §02 example verbatim: "Monopitch · Studio"
-  // / "2 bedrooms · Monopitch roof". When ?bedrooms= is supplied, both lines
-  // respond to the explicit count.
-  const bedrooms = hasBedroomsParam ? Number(bedroomsParam) : 2;
-  const modelLabel = hasBedroomsParam
-    ? `${cap(roof)} · ${bedrooms === 0 ? "Studio" : `${bedrooms}-bed`}`
-    : `${cap(roof)} · Studio`;
-  const subtitle = `${bedrooms === 1 ? "1 bedroom" : `${bedrooms} bedrooms`} · ${cap(roof)} roof`;
+  const bedrooms = currentEntry.bedrooms;
+  const modelLabel = `${cap(roof)} · ${bedrooms === 0 ? "Studio" : `${bedrooms}-bed`}`;
+  const subtitle = `${bedrooms === 0 ? "Studio" : bedrooms === 1 ? "1 bedroom" : `${bedrooms} bedrooms`} · ${cap(roof)} roof`;
 
   const handleReset = () => {
     if (plan) setDelta(plan.minDelta);
+  };
+
+  const updateParams = (next: { bedrooms?: number; roof?: LandingRoof }) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (next.bedrooms != null) params.set("bedrooms", String(next.bedrooms));
+    if (next.roof != null) params.set("roof", next.roof);
+    router.replace(`${pathname}?${params.toString()}`);
   };
 
   return (
@@ -160,6 +164,14 @@ function ConfiguratorScreen() {
             </h2>
             <div style={{ fontSize: 13, color: "var(--eh-text-muted)" }}>{subtitle}</div>
           </div>
+
+          {/* Plan switcher (bedrooms + roof) */}
+          <PlanSwitcher
+            bedrooms={bedrooms}
+            roof={roof}
+            budget={budget}
+            onChange={updateParams}
+          />
 
           {/* Dimensions */}
           <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
