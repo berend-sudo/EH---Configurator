@@ -7,6 +7,8 @@ interface Props {
   delta: number;
   /** Pixels per millimetre — controls absolute viewBox size. */
   pxPerMm?: number;
+  /** Hide the dimension lines (used for the compact summary thumbnail). */
+  showDims?: boolean;
 }
 
 // ── Coordinate helpers ────────────────────────────────────────────────────────
@@ -681,14 +683,16 @@ function renderEntity(
 }
 
 // ── Root component ────────────────────────────────────────────────────────────
-export default function FloorplanSVG({ plan, delta, pxPerMm = 0.1 }: Props) {
+export default function FloorplanSVG({ plan, delta, pxPerMm = 0.1, showDims = true }: Props) {
   // Fixed mm→viewBox-px scale. ViewBox grows with delta so the building, dim
   // lines and labels all sit at consistent visual proportions. The SVG element
   // itself fills the container width via CSS, so the *displayed* px-per-mm
   // varies, but the layout stays correct.
   const scale = pxPerMm;
-  const padX = 100;  // viewBox px
-  const padY = 100;
+  // Dimension lines sit ~60px outside the building; drop the padding when
+  // they're hidden so the plan fills the thumbnail card.
+  const padX = showDims ? 100 : 24;  // viewBox px
+  const padY = showDims ? 100 : 24;
   const totalWidth = plan.baseWidth + delta;
 
   const drawW = totalWidth * scale;
@@ -719,7 +723,9 @@ export default function FloorplanSVG({ plan, delta, pxPerMm = 0.1 }: Props) {
       })}
 
       <RoomLabels plan={plan} delta={delta} scale={scale} drawH={drawH} padX={padX} padY={padY} wp={wp} />
-      <DimensionLines plan={plan} delta={delta} scale={scale} drawH={drawH} padX={padX} padY={padY} wp={wp} />
+      {showDims && (
+        <DimensionLines plan={plan} delta={delta} scale={scale} drawH={drawH} padX={padX} padY={padY} wp={wp} />
+      )}
     </svg>
   );
 }
