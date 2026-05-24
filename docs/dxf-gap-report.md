@@ -13,12 +13,12 @@ _Generated from src/lib/typologies.ts. Scheme: `EH_<TYP>[-<SUB>]_<BR>BR_v<n>.dxf
 
 ## A2. Other DXFs in the repo (root-level, not served)
 
-| file | classification | suggested new name |
+| old name | classification | → new path |
 |---|---|---|
-| `Monopitch - Studio v4.dxf` | root-level archive (not served by the app) | `EH_MNP_0BR_v4.dxf` |
-| `Monopitch - Studio v5.dxf` | root-level archive (not served by the app) | `EH_MNP_0BR_v5.dxf` |
+| `Monopitch - Studio v4.dxf` | superseded studio archive (not served) | `archive/EH_MNP_0BR_v4.dxf` |
+| `Monopitch - Studio v5.dxf` | superseded studio archive (not served) | `archive/EH_MNP_0BR_v5.dxf` |
 
-**Unclassifiable (manual review — not floor plans):**
+**Left as-is (manual review — not floor plans):**
 
 - `Furniture.dxf` — furniture overlay block — not a typology floor plan
 - `Furniture v2.dxf` — furniture overlay block — not a typology floor plan
