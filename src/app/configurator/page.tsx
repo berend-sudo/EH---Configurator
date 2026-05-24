@@ -10,14 +10,16 @@ import SummaryCard from "@/components/configurator/SummaryCard";
 import ViewToggle, { type View } from "@/components/configurator/ViewToggle";
 import PhotoCollage from "@/components/configurator/PhotoCollage";
 import PlanSwitcher from "@/components/configurator/PlanSwitcher";
-import { pickPlanByBedrooms, type FloorPlanEntry } from "@/lib/floor-plans";
-import { calculateBudget, countRooms, detectTypology, type LandingRoof } from "@/lib/budget";
-import { useBudgetTable } from "@/lib/useBudgetTable";
+import { pickPlan, type FloorPlanEntry } from "@/lib/floor-plans";
+import { calculateBudget, countRooms, typologyInfoFor } from "@/lib/budget";
+import {
+  dxfFilename,
+  selectionFromParams,
+  selectionLabel,
+  type Selection,
+} from "@/lib/typologies";
 
 const LANDING_DEFAULT_BUDGET = 75_000_000;
-const VALID_ROOFS: readonly LandingRoof[] = ["monopitch", "gable", "clerestory"];
-
-const cap = (s: string) => (s.length === 0 ? s : s[0].toUpperCase() + s.slice(1));
 
 function ConfiguratorScreen() {
   const [plan, setPlan] = useState<FloorplanJSON | null>(null);
@@ -29,14 +31,23 @@ function ConfiguratorScreen() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const budgetTable = useBudgetTable();
-  const roofParam = searchParams.get("roof");
+  const typologyParam = searchParams.get("typology");
+  const subtypeParam = searchParams.get("subtype");
   const bedroomsParam = searchParams.get("bedrooms");
   const budgetParam = searchParams.get("budget");
+  const versionParam = searchParams.get("v");
+  const version = (() => {
+    const n = versionParam != null ? Number(versionParam) : NaN;
+    return Number.isInteger(n) && n > 0 ? n : 1;
+  })();
+  const selection: Selection = useMemo(
+    () => selectionFromParams(typologyParam, subtypeParam),
+    [typologyParam, subtypeParam],
+  );
   const bedroomsNum = bedroomsParam != null && bedroomsParam !== "" ? Number(bedroomsParam) : null;
   const currentEntry: FloorPlanEntry = useMemo(
-    () => pickPlanByBedrooms(bedroomsNum),
-    [bedroomsNum],
+    () => pickPlan(selection, bedroomsNum),
+    [selection, bedroomsNum],
   );
   const budget = (() => {
     const n = budgetParam != null ? Number(budgetParam) : NaN;
@@ -75,34 +86,37 @@ function ConfiguratorScreen() {
 
   const derived = useMemo(() => {
     if (!plan) {
-      return { rooms: null, typology: null, budgetUgx: 0 };
+      return { rooms: null, budgetUgx: 0 };
     }
     const rooms = countRooms(plan, delta);
-    const typology = detectTypology(plan.name);
+    const typology = typologyInfoFor(selection);
     const budgetUgx = calculateBudget(rooms, typology).coreTotal;
-    return { rooms, typology, budgetUgx };
-  }, [plan, delta]);
+    return { rooms, budgetUgx };
+  }, [plan, delta, selection]);
 
   const widthMm = plan ? plan.baseWidth + delta : 0;
   const footprintM2 = derived.rooms ? derived.rooms.gfa + derived.rooms.terraceArea : 0;
   const livingM2 = derived.rooms?.gfa ?? 0;
   const terraceM2 = derived.rooms?.terraceArea ?? 0;
 
-  const roof: LandingRoof = VALID_ROOFS.includes(roofParam as LandingRoof)
-    ? (roofParam as LandingRoof)
-    : "monopitch";
   const bedrooms = currentEntry.bedrooms;
-  const modelLabel = `${cap(roof)} · ${bedrooms === 0 ? "Studio" : `${bedrooms}-bed`}`;
-  const subtitle = `${bedrooms === 0 ? "Studio" : bedrooms === 1 ? "1 bedroom" : `${bedrooms} bedrooms`} · ${cap(roof)} roof`;
+  const roofLabel = selectionLabel(selection);
+  const modelLabel = `${roofLabel} · ${bedrooms === 0 ? "Studio" : `${bedrooms}-bed`}`;
+  const subtitle = `${bedrooms === 0 ? "Studio" : bedrooms === 1 ? "1 bedroom" : `${bedrooms} bedrooms`} · ${roofLabel} roof`;
+  const dxfName = dxfFilename(selection, bedrooms, version);
 
   const handleReset = () => {
     if (plan) setDelta(plan.minDelta);
   };
 
-  const updateParams = (next: { bedrooms?: number; roof?: LandingRoof }) => {
+  const updateParams = (next: { bedrooms?: number; selection?: Selection }) => {
     const params = new URLSearchParams(searchParams.toString());
     if (next.bedrooms != null) params.set("bedrooms", String(next.bedrooms));
-    if (next.roof != null) params.set("roof", next.roof);
+    if (next.selection) {
+      params.set("typology", next.selection.typology);
+      if (next.selection.subtype) params.set("subtype", next.selection.subtype);
+      else params.delete("subtype");
+    }
     router.replace(`${pathname}?${params.toString()}`);
   };
 
@@ -169,9 +183,8 @@ function ConfiguratorScreen() {
           {/* Plan switcher (bedrooms + roof) */}
           <PlanSwitcher
             bedrooms={bedrooms}
-            roof={roof}
+            selection={selection}
             budget={budget}
-            budgetTable={budgetTable}
             onChange={updateParams}
           />
 
@@ -210,6 +223,7 @@ function ConfiguratorScreen() {
             livingM2={livingM2}
             terraceM2={terraceM2}
             budgetUgx={derived.budgetUgx}
+            dxfName={dxfName}
           />
 
           {/* CTAs */}

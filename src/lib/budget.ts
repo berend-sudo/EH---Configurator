@@ -1,4 +1,5 @@
 import type { FloorplanJSON, Vertex } from "@/types/floorplan";
+import { selectionLabel, type Selection, type TypologyId } from "@/lib/typologies";
 
 // Rates from the "Price Calc" sheet (Typology Calculator, rows 87-92).
 // Gables price ~9% cheaper per m² than Mono Pitch / Clerestory.
@@ -41,9 +42,27 @@ export type TypologyName =
   | "A Frame";
 
 export interface TypologyInfo {
-  name: TypologyName;
+  name: string;
   sqmRate: number;
   detected: boolean; // false when we fell back to the default
+}
+
+// Per-typology m² rate, keyed by the new typology ids. The geometry-based
+// indicative budget reads its rate from the user's Selection (the plan
+// filenames no longer encode the typology).
+export const RATE_BY_TYPOLOGY: Record<TypologyId, number> = {
+  monopitch: RATE_MONO_PITCH,
+  gable: RATE_GABLE,
+  aframe: RATE_A_FRAME,
+  clerestory: RATE_CLERESTORY,
+};
+
+export function typologyInfoFor(sel: Selection): TypologyInfo {
+  return {
+    name: selectionLabel(sel),
+    sqmRate: RATE_BY_TYPOLOGY[sel.typology],
+    detected: true,
+  };
 }
 
 export function detectTypology(planName: string): TypologyInfo {
@@ -147,8 +166,3 @@ export function calculateBudget(rooms: CountRoomsResult, typology: TypologyInfo)
     grandTotal: coreTotal + tiling + sanitaryWares + kitchenBlock,
   };
 }
-
-// Roof identifier shared between Landing and Configurator URLs.
-// Per-roof pricing tables ship once we have non-Monopitch DXFs; until then
-// see `computeBudgetTable` in `lib/budget-table.ts`.
-export type LandingRoof = "monopitch" | "gable" | "clerestory";

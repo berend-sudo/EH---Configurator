@@ -45,6 +45,7 @@
   /* -- Neutrals --------------------------------------------- */
   --eh-bg:              #FFFFFF;
   --eh-bg-alt:          #FAF9F6;   /* warm off-white */
+  --eh-card:            #FFFFFF;   /* card / tile surface */
   --eh-bg-deep:         #003B2B;   /* deep brand surface */
   --eh-stroke:          #E7EAE5;
   --eh-stroke-strong:   #C8D0C9;

@@ -5,36 +5,37 @@ import { useRouter } from "next/navigation";
 import EHNavBar from "@/components/EHNavBar";
 import BudgetSlider from "./BudgetSlider";
 import BedroomsCounter from "./BedroomsCounter";
-import RoofPicker from "./RoofPicker";
+import TypologyPicker from "./TypologyPicker";
 import {
   minBedroomsFor,
   maxBedroomsFor,
-  isAffordable,
-  ROOF_FALLBACK_ORDER,
-  type RoofType,
-} from "./pricing-helpers";
-import { useBudgetTable } from "@/lib/useBudgetTable";
+  resolveAffordableSelection,
+  selectionToParams,
+  type Selection,
+} from "@/lib/typologies";
 
 export default function LandingScreen() {
   const router = useRouter();
-  const budgetTable = useBudgetTable();
   const [budget, setBudget] = useState(75_000_000);
   const [bedrooms, setBedrooms] = useState(2);
-  const [roof, setRoof] = useState<RoofType>("monopitch");
+  const [selection, setSelection] = useState<Selection>({
+    typology: "monopitch",
+    subtype: null,
+  });
 
-  // If the current roof becomes unaffordable as the budget drops, fall
-  // back to the cheapest still-affordable roof. If none are affordable
-  // (e.g. budget pinned below every roof's min cost) leave the selection
-  // alone so the user keeps a stable choice while every card is greyed.
+  // As the budget drops, fall back to the cheapest still-affordable subtype
+  // within the typology — or the cheapest typology if the whole one is out
+  // of reach. If nothing is affordable the selection is left untouched so
+  // the user keeps a stable choice while every tile is greyed.
   useEffect(() => {
-    if (!isAffordable(budgetTable, roof, budget)) {
-      const next = ROOF_FALLBACK_ORDER.find((r) => isAffordable(budgetTable, r, budget));
-      if (next) setRoof(next);
+    const next = resolveAffordableSelection(budget, selection);
+    if (next.typology !== selection.typology || next.subtype !== selection.subtype) {
+      setSelection(next);
     }
-  }, [budgetTable, budget, roof]);
+  }, [budget, selection]);
 
-  const minBed = minBedroomsFor(roof);
-  const maxBed = maxBedroomsFor(budgetTable, budget, roof);
+  const minBed = minBedroomsFor(selection);
+  const maxBed = maxBedroomsFor(budget, selection);
   useEffect(() => {
     if (bedrooms > maxBed) setBedrooms(maxBed);
     else if (bedrooms < minBed) setBedrooms(minBed);
@@ -115,7 +116,7 @@ export default function LandingScreen() {
             <BudgetSlider value={budget} onChange={setBudget} />
             <BedroomsCounter value={bedrooms} onChange={setBedrooms} min={minBed} max={maxBed} />
           </div>
-          <RoofPicker value={roof} onChange={setRoof} budget={budget} budgetTable={budgetTable} />
+          <TypologyPicker selection={selection} onChange={setSelection} budget={budget} />
 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginTop: 36 }}>
             <button
@@ -124,7 +125,7 @@ export default function LandingScreen() {
               style={{ padding: "16px 36px", fontSize: 16 }}
               onClick={() => {
                 const qs = new URLSearchParams({
-                  roof,
+                  ...selectionToParams(selection),
                   bedrooms: String(bedrooms),
                   budget: String(budget),
                 });

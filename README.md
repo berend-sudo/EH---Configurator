@@ -28,17 +28,17 @@ Node 18+ is required (Next 14, App Router).
 
 | Path                | What it is                                                    |
 | ------------------- | ------------------------------------------------------------- |
-| `/`                 | Landing — budget slider, bedrooms counter, roof picker.       |
-| `/configurator`     | Width slider, plan canvas, in-rail bedrooms/roof switcher.    |
+| `/`                 | Landing — budget slider, bedrooms counter, typology picker.   |
+| `/configurator`     | Width slider, plan canvas, in-rail bedrooms/typology switcher.|
 | `/api/parse-dxf`    | Reads a DXF from `public/floorplans/` and returns geometry.   |
-| `/api/budget-table` | Returns `{ bedrooms: corePriceUGX }` for the shipped plans.   |
 
 `/summary` (Step 3 — client info + PDF) is **not yet built**. The
 "Continue to summary →" button on the configurator is a disabled
 placeholder until it ships.
 
-The configurator reads `?bedrooms=`, `?roof=`, `?budget=` from the URL —
-those are the source of truth, so deep links are stable and shareable.
+The configurator reads `?typology=`, `?subtype=`, `?bedrooms=`, `?budget=`
+(and optional `?v=`) from the URL — those are the source of truth, so deep
+links are stable and shareable. `subtype` is omitted for Monopitch.
 
 ## Where things live.
 
@@ -48,20 +48,19 @@ src/
     page.tsx                  Landing route (server) → <LandingScreen/>
     configurator/page.tsx     Configurator route (client)
     api/parse-dxf/route.ts    DXF → FloorplanJSON
-    api/budget-table/route.ts Precomputed budget per bedroom count
   components/
     EHNavBar.tsx              Shared top nav (light + dark variants)
     FloorplanSVG.tsx          Renders the plan, dimensions, labels
     landing/                  Landing-only widgets (BudgetSlider,
-                              BedroomsCounter, RoofPicker, …)
+                              BedroomsCounter, TypologyPicker, …)
     configurator/             Configurator-only widgets (SliderRow,
                               PlanSwitcher, SummaryCard, ViewToggle, …)
   lib/
     dxf-parser.ts             DXF → typed JSON (walls, rooms, …)
-    floor-plans.ts            Registry of DXF files keyed by bedrooms
+    typologies.ts             Source of truth: TYPOLOGIES data, Selection,
+                              dxfFilename(), pricing + affordability helpers
+    floor-plans.ts            Registry of DXF files, selection-aware picker
     budget.ts                 Cost rates + countRooms + calculateBudget
-    budget-table.ts           Server-only: precomputes the price table
-    useBudgetTable.ts         Client hook that fetches the API
 public/
   floorplans/                 DXF files served at runtime
   brand/                      Logos
