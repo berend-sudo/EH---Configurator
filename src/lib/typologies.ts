@@ -46,6 +46,12 @@ export interface Subtype extends Dimensions {
   code: string;
   /** Base price (UGX). See PRICING note below. */
   basePrice: number;
+  /**
+   * Optional per-subtype minimum bedrooms. Overrides the typology's
+   * minBedrooms when present. E.g. only A-frame Small offers a studio (0),
+   * while Normal/Large require at least 1.
+   */
+  minBedrooms?: number;
 }
 
 export interface Typology {
@@ -174,6 +180,8 @@ export const TYPOLOGIES: Record<TypologyId, Typology> = {
     iconPath: "M 6 28 L 28 6 L 50 28 Z",
     // A-frame also supports a 0-bedroom (studio) layout — confirmed by the
     // EH_AFR-SML_0BR plan. So Monopitch is no longer the *only* studio.
+    // Typology floor = min across subtypes (0, from Small). Normal/Large
+    // override to 1 via their own minBedrooms below.
     minBedrooms: 0,
     basePrice: 0,
     dims: null,
@@ -182,6 +190,7 @@ export const TYPOLOGIES: Record<TypologyId, Typology> = {
         label: "Small",
         code: "SML",
         basePrice: 30_000_000, // PLACEHOLDER
+        minBedrooms: 0, // only A-frame subtype offering a studio layout
         depthMm: 3663,
         roofPitchDeg: 60,
         ceilingLowMm: 0, // ceiling-low = 0 (no straight wall; roof meets floor)
@@ -196,6 +205,7 @@ export const TYPOLOGIES: Record<TypologyId, Typology> = {
         label: "Normal",
         code: "NML",
         basePrice: 36_000_000, // PLACEHOLDER
+        minBedrooms: 1, // no studio for Normal A-frame
         depthMm: 4884,
         roofPitchDeg: 60,
         ceilingLowMm: 0,
@@ -210,6 +220,7 @@ export const TYPOLOGIES: Record<TypologyId, Typology> = {
         label: "Large",
         code: "LRG",
         basePrice: 44_000_000, // PLACEHOLDER
+        minBedrooms: 1, // no studio for Large A-frame
         depthMm: 6106,
         roofPitchDeg: 60,
         ceilingLowMm: 0,
@@ -308,6 +319,8 @@ export function depthLabel(sel: Selection): string | null {
 
 /** Minimum bedrooms for a selection's typology (0 for Monopitch & A-frame, else 1). */
 export function minBedroomsFor(sel: Selection): number {
+  const sub = subtypeOf(sel);
+  if (sub && sub.minBedrooms != null) return sub.minBedrooms;
   return TYPOLOGIES[sel.typology].minBedrooms;
 }
 
@@ -450,7 +463,7 @@ export function cheapestAffordableSubtype(
   const typ = TYPOLOGIES[typology];
   if (!typ.subtypes) return null;
   const affordable = Object.entries(typ.subtypes)
-    .filter(([, s]) => s.basePrice + BEDROOM_COST * typ.minBedrooms <= budget)
+    .filter(([id]) => isSelectionAffordable(budget, { typology, subtype: id }))
     .sort((a, b) => a[1].basePrice - b[1].basePrice);
   return affordable.length ? affordable[0][0] : null;
 }

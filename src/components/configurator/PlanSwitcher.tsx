@@ -1,7 +1,7 @@
 "use client";
 
 import TypologyPicker from "@/components/landing/TypologyPicker";
-import { priceFor, type Selection } from "@/lib/typologies";
+import { priceFor, minBedroomsFor, type Selection } from "@/lib/typologies";
 
 const BEDROOM_OPTIONS = [
   { value: 0, label: "Studio" },
@@ -36,9 +36,15 @@ export default function PlanSwitcher({ bedrooms, selection, budget, onChange }: 
         </div>
         <div className="seg" role="tablist" aria-label="Bedrooms">
           {BEDROOM_OPTIONS.map((opt) => {
+            const belowMin = opt.value < minBedroomsFor(selection);
             const affordable = priceFor(selection, opt.value) <= budget;
             const isActive = opt.value === bedrooms;
-            const disabled = !affordable && !isActive;
+            const disabled = (belowMin || !affordable) && !isActive;
+            const title = belowMin
+              ? "Not available for this size"
+              : !affordable
+              ? "Needs more budget"
+              : undefined;
             return (
               <button
                 key={opt.value}
@@ -47,7 +53,7 @@ export default function PlanSwitcher({ bedrooms, selection, budget, onChange }: 
                 aria-selected={isActive}
                 className={isActive ? "is-active" : ""}
                 disabled={disabled}
-                title={disabled ? "Needs more budget" : undefined}
+                title={title}
                 style={disabled ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
                 onClick={() => {
                   if (disabled || isActive) return;
