@@ -123,6 +123,16 @@ function ConfiguratorScreen() {
     currentEntry.bedrooms === bedrooms;
   const dxfName = dxfFilename(selection, bedrooms, exactMatch ? currentEntry!.version : version);
 
+  // When the served plan isn't the exact requested variant, name what's
+  // actually on screen so the user knows it's a stand-in (until that DXF lands).
+  const servedLabel =
+    currentEntry != null
+      ? `${selectionLabel(currentEntry.selection)} · ${
+          currentEntry.bedrooms === 0 ? "Studio" : `${currentEntry.bedrooms}-bed`
+        }`
+      : null;
+  const showFallbackNotice = plan != null && currentEntry != null && !exactMatch;
+
   const handleReset = () => {
     if (plan) setDelta(plan.minDelta);
   };
@@ -196,6 +206,27 @@ function ConfiguratorScreen() {
               {modelLabel}
             </h2>
             <div style={{ fontSize: 13, color: "var(--eh-text-muted)" }}>{subtitle}</div>
+            {showFallbackNotice && (
+              <div
+                role="status"
+                style={{
+                  marginTop: 12,
+                  padding: "10px 12px",
+                  borderRadius: 12,
+                  background: "var(--eh-green-50)",
+                  border: "1px solid var(--eh-stroke)",
+                  fontSize: 12,
+                  lineHeight: 1.45,
+                  color: "var(--eh-text-muted)",
+                }}
+              >
+                <span style={{ fontWeight: 600, color: "var(--eh-green-900)" }}>
+                  Closest available plan.
+                </span>{" "}
+                The {roofLabel} {bedrooms === 0 ? "studio" : `${bedrooms}-bed`} drawing
+                isn&apos;t ready yet — showing {servedLabel} so you can preview the layout.
+              </div>
+            )}
           </div>
 
           {/* Plan switcher (bedrooms + roof) */}
