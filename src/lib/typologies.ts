@@ -336,6 +336,44 @@ export function dxfFilename(sel: Selection, bedrooms: number, version = 1): stri
   return `EH_${typ.code}${subPart}_${bedrooms}BR_v${version}.dxf`;
 }
 
+/**
+ * Inverse of dxfFilename(): parse a scheme-conformant filename back into a
+ * { selection, bedrooms, version }. Returns null when the name doesn't match
+ * the scheme or carries codes unknown to the data model — so a directory
+ * scan can safely skip stray files. Codes are validated against TYPOLOGIES.
+ */
+export function parseDxfFilename(
+  file: string,
+): { selection: Selection; bedrooms: number; version: number } | null {
+  const m = /^EH_([A-Za-z]{3})(?:-([A-Za-z]{3}))?_(\d+)BR_v(\d+)\.dxf$/i.exec(file);
+  if (!m) return null;
+  const [, typCode, subCode, brStr, vStr] = m;
+
+  const tid = (Object.keys(TYPOLOGIES) as TypologyId[]).find(
+    (id) => TYPOLOGIES[id].code.toUpperCase() === typCode.toUpperCase(),
+  );
+  if (!tid) return null;
+  const typ = TYPOLOGIES[tid];
+
+  let subtype: string | null = null;
+  if (typ.subtypes) {
+    if (!subCode) return null; // subtyped typology requires a sub code
+    const sid = Object.keys(typ.subtypes).find(
+      (s) => typ.subtypes![s].code.toUpperCase() === subCode.toUpperCase(),
+    );
+    if (!sid) return null;
+    subtype = sid;
+  } else if (subCode) {
+    return null; // Monopitch must not carry a sub code
+  }
+
+  return {
+    selection: { typology: tid, subtype },
+    bedrooms: Number(brStr),
+    version: Number(vStr),
+  };
+}
+
 // ----------------------------------------------------------------------------
 // PRICING helpers — basePrice + BEDROOM_COST premium model.
 // NOTE: base prices are PLACEHOLDERS (see PRICING note above). The model and

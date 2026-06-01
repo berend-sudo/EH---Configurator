@@ -1,55 +1,57 @@
-import { dxfFilename, type Selection } from "@/lib/typologies";
+import { selectionLabel, type Selection } from "@/lib/typologies";
 
 export interface FloorPlanEntry {
   selection: Selection;
   bedrooms: number;
   version: number;
   name: string;
-  /** On-disk filename in public/floorplans/ — always derived via dxfFilename(). */
+  /** On-disk filename in public/floorplans/, conforming to the DXF scheme. */
   file: string;
 }
 
-// The DXFs physically present in public/floorplans/. All are Monopitch today.
-// `file` is derived through dxfFilename() so the naming scheme has one owner.
-const ENTRIES: Omit<FloorPlanEntry, "file">[] = [
-  { selection: { typology: "monopitch", subtype: null }, bedrooms: 0, version: 6, name: "Monopitch Studio" },
-  { selection: { typology: "monopitch", subtype: null }, bedrooms: 1, version: 1, name: "Monopitch 1-Bedroom" },
-  { selection: { typology: "monopitch", subtype: null }, bedrooms: 2, version: 3, name: "Monopitch 2-Bedroom" },
-  { selection: { typology: "monopitch", subtype: null }, bedrooms: 3, version: 1, name: "Monopitch 3-Bedroom" },
-  { selection: { typology: "aframe",    subtype: "large" }, bedrooms: 1, version: 1, name: "A-frame Large 1-Bedroom" },
-];
-
-export const FLOOR_PLANS: FloorPlanEntry[] = ENTRIES.map((e) => ({
-  ...e,
-  file: dxfFilename(e.selection, e.bedrooms, e.version),
-}));
+// NOTE: the registry is no longer hardcoded — it is scanned from
+// public/floorplans/ (see lib/floor-plan-scan.ts, exposed at
+// /api/floor-plans) so that uploading a correctly-named DXF is all it takes
+// to make a plan available. pickPlan() below operates on that scanned list.
 
 /**
- * Pick the plan to render for a selection + bedroom count.
- * Exact subtype match wins; otherwise falls back to the closest existing
- * plan (today: Monopitch) so every selection still renders something.
+ * Pick the best plan for a selection + bedroom count from the available set.
+ * Ranking (lower is better):
+ *   tier 0 — same typology AND subtype   (exact variant)
+ *   tier 1 — same typology, other subtype (closest sibling)
+ *   tier 2 — any other typology           (last-resort, e.g. Monopitch)
+ * within a tier, the nearest bedroom count wins.
+ *
+ * TODO(subtype-plans): tiers 1–2 are fallbacks for selections that don't yet
+ * have their own DXF. They disappear naturally as the missing plans land.
  */
 export function pickPlan(
+  plans: FloorPlanEntry[],
   sel: Selection,
   bedrooms: number | null | undefined,
-): FloorPlanEntry {
-  const br = bedrooms == null || Number.isNaN(bedrooms) ? 0 : bedrooms;
+): FloorPlanEntry | null {
+  if (plans.length === 0) return null;
+  const br = bedrooms == null || Number.isNaN(bedrooms) ? null : bedrooms;
 
-  const exact = FLOOR_PLANS.find(
-    (p) =>
-      p.selection.typology === sel.typology &&
-      p.selection.subtype === sel.subtype &&
-      p.bedrooms === br,
-  );
-  if (exact) return exact;
+  const score = (p: FloorPlanEntry): number => {
+    const sameTyp = p.selection.typology === sel.typology;
+    const sameSub = p.selection.subtype === sel.subtype;
+    const tier = sameTyp && sameSub ? 0 : sameTyp ? 1 : 2;
+    const bedDiff = br == null ? 0 : Math.abs(p.bedrooms - br);
+    return tier * 1000 + bedDiff;
+  };
 
-  // TODO(subtype-plans): no subtype-specific DXF exists yet. Reuse the closest
-  // existing plan (currently all Monopitch) with the same bedroom count.
-  const sameBedrooms = FLOOR_PLANS.find((p) => p.bedrooms === br);
-  if (sameBedrooms) return sameBedrooms;
+  return [...plans].sort((a, b) => {
+    const d = score(a) - score(b);
+    if (d !== 0) return d;
+    // stable-ish tie-break: prefer the higher version (newest drawing)
+    return b.version - a.version;
+  })[0];
+}
 
-  // TODO(subtype-plans): fall back to the nearest available bedroom count.
-  return [...FLOOR_PLANS].sort(
-    (a, b) => Math.abs(a.bedrooms - br) - Math.abs(b.bedrooms - br),
-  )[0];
+/** Build a display name from a scanned entry's selection + bedroom count. */
+export function planName(sel: Selection, bedrooms: number): string {
+  const label = selectionLabel(sel);
+  const bed = bedrooms === 0 ? "Studio" : `${bedrooms}-Bedroom`;
+  return `${label} ${bed}`;
 }

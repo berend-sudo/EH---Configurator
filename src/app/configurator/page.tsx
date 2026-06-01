@@ -11,9 +11,11 @@ import ViewToggle, { type View } from "@/components/configurator/ViewToggle";
 import PhotoCollage from "@/components/configurator/PhotoCollage";
 import PlanSwitcher from "@/components/configurator/PlanSwitcher";
 import { pickPlan, type FloorPlanEntry } from "@/lib/floor-plans";
+import { useFloorPlans } from "@/lib/useFloorPlans";
 import { calculateBudget, countRooms, typologyInfoFor } from "@/lib/budget";
 import {
   dxfFilename,
+  minBedroomsFor,
   selectionFromParams,
   selectionLabel,
   type Selection,
@@ -44,25 +46,31 @@ function ConfiguratorScreen() {
     () => selectionFromParams(typologyParam, subtypeParam),
     [typologyParam, subtypeParam],
   );
-  const bedroomsNum = bedroomsParam != null && bedroomsParam !== "" ? Number(bedroomsParam) : null;
-  const currentEntry: FloorPlanEntry = useMemo(
-    () => pickPlan(selection, bedroomsNum),
-    [selection, bedroomsNum],
+  // Bedrooms the user asked for (URL), clamped to the typology's minimum.
+  const requestedBedrooms = (() => {
+    const n = bedroomsParam != null && bedroomsParam !== "" ? Number(bedroomsParam) : NaN;
+    const min = minBedroomsFor(selection);
+    return Number.isFinite(n) ? Math.max(min, n) : min;
+  })();
+  const plans = useFloorPlans();
+  const currentEntry: FloorPlanEntry | null = useMemo(
+    () => (plans ? pickPlan(plans, selection, requestedBedrooms) : null),
+    [plans, selection, requestedBedrooms],
   );
+  const planFile = currentEntry?.file ?? null;
   const budget = (() => {
     const n = budgetParam != null ? Number(budgetParam) : NaN;
     return Number.isFinite(n) && n > 0 ? n : LANDING_DEFAULT_BUDGET;
   })();
 
   useEffect(() => {
+    if (!planFile) return;
     let cancelled = false;
     const load = async () => {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(
-          `/api/parse-dxf?file=${encodeURIComponent(currentEntry.file)}`
-        );
+        const res = await fetch(`/api/parse-dxf?file=${encodeURIComponent(planFile)}`);
         if (!res.ok) {
           const err = await res.json();
           throw new Error(err.error ?? "Load failed");
@@ -82,7 +90,7 @@ function ConfiguratorScreen() {
     return () => {
       cancelled = true;
     };
-  }, [currentEntry]);
+  }, [planFile]);
 
   const derived = useMemo(() => {
     if (!plan) {
@@ -100,11 +108,20 @@ function ConfiguratorScreen() {
   const terraceM2 = derived.rooms?.terraceArea ?? 0;
   const mezzanineM2 = derived.rooms?.mezzanineAreaM2 ?? 0;
 
-  const bedrooms = currentEntry.bedrooms;
+  // Displayed bedroom count = the user's request. The served plan may be a
+  // closest-match fallback with a different count until that exact DXF exists.
+  const bedrooms = requestedBedrooms;
   const roofLabel = selectionLabel(selection);
   const modelLabel = `${roofLabel} · ${bedrooms === 0 ? "Studio" : `${bedrooms}-bed`}`;
   const subtitle = `${bedrooms === 0 ? "Studio" : bedrooms === 1 ? "1 bedroom" : `${bedrooms} bedrooms`} · ${roofLabel} roof`;
-  const dxfName = dxfFilename(selection, bedrooms, version);
+  // Canonical filename for the current selection. Prefer the served plan's
+  // version when it's an exact typology+subtype+bedrooms match.
+  const exactMatch =
+    currentEntry != null &&
+    currentEntry.selection.typology === selection.typology &&
+    currentEntry.selection.subtype === selection.subtype &&
+    currentEntry.bedrooms === bedrooms;
+  const dxfName = dxfFilename(selection, bedrooms, exactMatch ? currentEntry!.version : version);
 
   const handleReset = () => {
     if (plan) setDelta(plan.minDelta);
@@ -213,7 +230,7 @@ function ConfiguratorScreen() {
               />
             ) : (
               <div style={{ fontSize: 13, color: "var(--eh-text-soft)" }}>
-                {loading ? "Loading…" : error ?? "Plan not available"}
+                {loading || plans == null ? "Loading…" : error ?? "Plan not available"}
               </div>
             )}
           </div>
@@ -335,7 +352,7 @@ function ConfiguratorScreen() {
                       fontSize: 14,
                     }}
                   >
-                    {loading ? "Loading floor plan…" : error ?? "No plan loaded"}
+                    {loading || plans == null ? "Loading floor plan…" : error ?? "No plan loaded"}
                   </div>
                 )
               ) : (
