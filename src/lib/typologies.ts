@@ -84,7 +84,7 @@ export const TYPOLOGIES: Record<TypologyId, Typology> = {
     label: "Monopitch",
     code: "MNP",
     iconPath: "M 6 28 L 6 14 L 50 6 L 50 28 Z",
-    minBedrooms: 0, // only typology supporting a 0-bedroom (studio) layout
+    minBedrooms: 0, // supports a 0-bedroom (studio) layout (so does A-frame)
     basePrice: 26_000_000, // PLACEHOLDER
     dims: {
       depthMm: 4972,
@@ -172,7 +172,9 @@ export const TYPOLOGIES: Record<TypologyId, Typology> = {
     code: "AFR",
     // No front/back eaves; steep 60° sides. Simple peaked triangle.
     iconPath: "M 6 28 L 28 6 L 50 28 Z",
-    minBedrooms: 1,
+    // A-frame also supports a 0-bedroom (studio) layout — confirmed by the
+    // EH_AFR-SML_0BR plan. So Monopitch is no longer the *only* studio.
+    minBedrooms: 0,
     basePrice: 0,
     dims: null,
     subtypes: {
@@ -304,7 +306,7 @@ export function depthLabel(sel: Selection): string | null {
   return `${(mm / 1000).toFixed(2)} m`;
 }
 
-/** Minimum bedrooms for a selection's typology (0 for Monopitch, else 1). */
+/** Minimum bedrooms for a selection's typology (0 for Monopitch & A-frame, else 1). */
 export function minBedroomsFor(sel: Selection): number {
   return TYPOLOGIES[sel.typology].minBedrooms;
 }
