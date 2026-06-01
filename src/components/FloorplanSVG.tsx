@@ -7,6 +7,8 @@ interface Props {
   delta: number;
   /** Pixels per millimetre — controls absolute viewBox size. */
   pxPerMm?: number;
+  /** Show the mezzanine overlay + double-height annotation. Default true. */
+  showMezzanine?: boolean;
 }
 
 // ── Coordinate helpers ────────────────────────────────────────────────────────
@@ -436,14 +438,15 @@ function renderFurniturePolyline(
 
 // ── Room labels ───────────────────────────────────────────────────────────────
 function RoomLabels({
-  plan, delta, scale, drawH, padX, padY, wp,
+  plan, delta, scale, drawH, padX, padY, wp, showMezzanine,
 }: {
   plan: FloorplanJSON; delta: number; scale: number;
   drawH: number; padX: number; padY: number; wp: WindowPositions;
+  showMezzanine: boolean;
 }) {
   const labels: React.ReactNode[] = [];
 
-  const hasMezz = plan.mezzanine != null;
+  const hasMezz = plan.mezzanine != null && showMezzanine;
 
   for (const layer of plan.layers) {
     if (!layer.name.startsWith("Rooms")) continue;
@@ -508,12 +511,13 @@ function RoomLabels({
 // hatch fill + dashed footprint + label chip. No furniture, no railing —
 // the stair (when present) is a furniture block on its own layer.
 function MezzanineOverlay({
-  plan, delta, scale, drawH, padX, padY, wp,
+  plan, delta, scale, drawH, padX, padY, wp, show,
 }: {
   plan: FloorplanJSON; delta: number; scale: number;
   drawH: number; padX: number; padY: number; wp: WindowPositions;
+  show: boolean;
 }) {
-  if (!plan.mezzanine) return null;
+  if (!show || !plan.mezzanine) return null;
 
   // Use the live polylines from the layer so moveX vertices track the width
   // slider (consistent with how rooms render).
@@ -813,7 +817,7 @@ function renderEntity(
 }
 
 // ── Root component ────────────────────────────────────────────────────────────
-export default function FloorplanSVG({ plan, delta, pxPerMm = 0.1 }: Props) {
+export default function FloorplanSVG({ plan, delta, pxPerMm = 0.1, showMezzanine = true }: Props) {
   // Fixed mm→viewBox-px scale. ViewBox grows with delta so the building, dim
   // lines and labels all sit at consistent visual proportions. The SVG element
   // itself fills the container width via CSS, so the *displayed* px-per-mm
@@ -850,8 +854,8 @@ export default function FloorplanSVG({ plan, delta, pxPerMm = 0.1 }: Props) {
         });
       })}
 
-      <MezzanineOverlay plan={plan} delta={delta} scale={scale} drawH={drawH} padX={padX} padY={padY} wp={wp} />
-      <RoomLabels plan={plan} delta={delta} scale={scale} drawH={drawH} padX={padX} padY={padY} wp={wp} />
+      <MezzanineOverlay plan={plan} delta={delta} scale={scale} drawH={drawH} padX={padX} padY={padY} wp={wp} show={showMezzanine} />
+      <RoomLabels plan={plan} delta={delta} scale={scale} drawH={drawH} padX={padX} padY={padY} wp={wp} showMezzanine={showMezzanine} />
       <DimensionLines plan={plan} delta={delta} scale={scale} drawH={drawH} padX={padX} padY={padY} wp={wp} />
     </svg>
   );

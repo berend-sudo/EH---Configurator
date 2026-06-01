@@ -29,6 +29,7 @@ function ConfiguratorScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>("plan");
+  const [showMezzanine, setShowMezzanine] = useState(true);
 
   const router = useRouter();
   const pathname = usePathname();
@@ -338,7 +339,31 @@ function ConfiguratorScreen() {
                   : "From recent Easy Housing builds"}
               </span>
             </div>
-            <ViewToggle value={view} onChange={setView} />
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              {plan?.mezzanine && view === "plan" && (
+                <div className="seg" role="tablist" aria-label="Mezzanine visibility">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={!showMezzanine}
+                    className={!showMezzanine ? "is-active" : ""}
+                    onClick={() => setShowMezzanine(false)}
+                  >
+                    Plan only
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={showMezzanine}
+                    className={showMezzanine ? "is-active" : ""}
+                    onClick={() => setShowMezzanine(true)}
+                  >
+                    With mezzanine
+                  </button>
+                </div>
+              )}
+              <ViewToggle value={view} onChange={setView} />
+            </div>
           </div>
 
           {/* Canvas card */}
@@ -370,7 +395,7 @@ function ConfiguratorScreen() {
                       minHeight: 0,
                     }}
                   >
-                    <FloorplanSVG plan={plan} delta={delta} />
+                    <FloorplanSVG plan={plan} delta={delta} showMezzanine={showMezzanine} />
                   </div>
                 ) : (
                   <div
