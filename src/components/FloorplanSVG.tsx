@@ -232,6 +232,15 @@ function RoomPatterns({
         <rect width="10000" height={plankH} fill="#D4C4A0" />
         <rect y={plankH} width="10000" height={jointH} fill="#6B5A3A" />
       </pattern>
+
+      {/* Mezzanine — 45° diagonal hatch, derived tints of --eh-green-900 /
+          --eh-green. ~15 cm period in world to match the reference cadence
+          (viewBox is in scaled-mm: 0.1 SVG units per mm). */}
+      <pattern id="pat-mezz" width={15} height={15} patternUnits="userSpaceOnUse"
+        patternTransform="rotate(45)">
+        <rect width={15} height={15} fill="rgba(77,204,122,0.07)" />
+        <line x1="0" y1="0" x2="0" y2={15} stroke="rgba(0,59,43,0.13)" strokeWidth={0.9} />
+      </pattern>
     </defs>
   );
 }
@@ -434,9 +443,14 @@ function RoomLabels({
 }) {
   const labels: React.ReactNode[] = [];
 
+  const hasMezz = plan.mezzanine != null;
+
   for (const layer of plan.layers) {
     if (!layer.name.startsWith("Rooms")) continue;
+    // Mezzanine is labelled by its own chip inside MezzanineOverlay.
+    if (layer.name.includes("Mezzanine")) continue;
     const displayName = roomDisplayName(layer.name);
+    const isLiving = layer.name.includes("Living");
 
     for (let i = 0; i < layer.entities.length; i++) {
       const entity = layer.entities[i];
@@ -471,12 +485,127 @@ function RoomLabels({
           >
             {line2}
           </text>
+          {isLiving && hasMezz && (
+            <text
+              x={cx} y={cy + bgH / 2 + fontSize}
+              textAnchor="middle" fontSize={fontSize - 1}
+              fontFamily="sans-serif" fill="#4A5C56" fontWeight="300"
+              fontStyle="italic"
+            >
+              double-height
+            </text>
+          )}
         </g>
       );
     }
   }
 
   return <>{labels}</>;
+}
+
+// ── Mezzanine overlay ─────────────────────────────────────────────────────────
+// Renders the "line of floor above" convention onto the ground-floor plan:
+// hatch fill + dashed footprint + label chip. No furniture, no railing —
+// the stair (when present) is a furniture block on its own layer.
+function MezzanineOverlay({
+  plan, delta, scale, drawH, padX, padY, wp,
+}: {
+  plan: FloorplanJSON; delta: number; scale: number;
+  drawH: number; padX: number; padY: number; wp: WindowPositions;
+}) {
+  if (!plan.mezzanine) return null;
+
+  // Use the live polylines from the layer so moveX vertices track the width
+  // slider (consistent with how rooms render).
+  const layer = plan.layers.find((l) => l.name.includes("Mezzanine"));
+  if (!layer) return null;
+
+  const parts: React.ReactNode[] = [];
+  let totalAreaM2 = 0;
+
+  for (let i = 0; i < layer.entities.length; i++) {
+    const entity = layer.entities[i];
+    if (entity.type !== "polyline" || !entity.closed) continue;
+    const world = applyDelta(entity.vertices, delta, wp);
+    const pts = world
+      .map((v) => `${sxT(v.x, scale, padX)},${syT(v.y, scale, drawH, padY)}`)
+      .join(" ");
+    totalAreaM2 += polygonAreaM2(entity.vertices, delta, wp);
+    parts.push(
+      <polygon
+        key={`mezz-fill-${i}`}
+        points={pts}
+        fill="url(#pat-mezz)"
+        stroke="none"
+      />,
+      <polygon
+        key={`mezz-edge-${i}`}
+        points={pts}
+        fill="none"
+        stroke="var(--eh-green-900)"
+        strokeWidth={2.4}
+        strokeDasharray="12 7"
+        opacity={0.6}
+      />,
+    );
+  }
+
+  // Single label chip, centred on the union of footprint centroids. For a
+  // small footprint, suppress the sub-line so the chip doesn't overflow.
+  const chip = (() => {
+    if (layer.entities.length === 0) return null;
+    let cxSum = 0, cySum = 0, n = 0;
+    let bbMin = { x: Infinity, y: Infinity }, bbMax = { x: -Infinity, y: -Infinity };
+    for (const ent of layer.entities) {
+      if (ent.type !== "polyline") continue;
+      const world = applyDelta(ent.vertices, delta, wp);
+      for (const v of world) {
+        cxSum += v.x; cySum += v.y; n++;
+        if (v.x < bbMin.x) bbMin.x = v.x;
+        if (v.y < bbMin.y) bbMin.y = v.y;
+        if (v.x > bbMax.x) bbMax.x = v.x;
+        if (v.y > bbMax.y) bbMax.y = v.y;
+      }
+    }
+    if (n === 0) return null;
+    const cx = sxT(cxSum / n, scale, padX);
+    const cy = syT(cySum / n, scale, drawH, padY);
+    const footprintWSvg = (bbMax.x - bbMin.x) * scale;
+    const footprintHSvg = (bbMax.y - bbMin.y) * scale;
+    const compact = footprintWSvg < 180 || footprintHSvg < 70;
+    const chipW = compact ? 100 : 150;
+    const chipH = compact ? 26 : 48;
+    return (
+      <g key="mezz-chip">
+        <rect
+          x={cx - chipW / 2} y={cy - chipH / 2}
+          width={chipW} height={chipH} rx={9}
+          fill="rgba(255,255,255,0.86)"
+          stroke="var(--eh-green-900)" strokeWidth={0.8}
+        />
+        <text
+          x={cx} y={compact ? cy + 4 : cy - 4}
+          textAnchor="middle" fontSize={12}
+          fontFamily="sans-serif" fontWeight="600"
+          fill="var(--eh-green-900)"
+        >
+          Mezzanine over
+        </text>
+        {!compact && (
+          <text
+            x={cx} y={cy + 12}
+            textAnchor="middle" fontSize={10}
+            fontFamily="sans-serif" fontWeight="300"
+            fill="var(--eh-text-muted)"
+          >
+            {totalAreaM2.toFixed(1)} m² · open to living below
+          </text>
+        )}
+      </g>
+    );
+  })();
+
+  return <>{parts}{chip}</>;
 }
 
 // ── Dimension lines ───────────────────────────────────────────────────────────
@@ -658,6 +787,9 @@ function renderEntity(
   key: string, wp: WindowPositions,
 ): React.ReactNode {
   if (layerName.startsWith("Rooms")) {
+    // The mezzanine is rendered by MezzanineOverlay below — skip here so we
+    // don't draw it twice (and so it doesn't carry the regular room fill).
+    if (layerName.includes("Mezzanine")) return null;
     if (entity.type !== "polyline") return null;
     return renderRoom(entity, layerName, delta, scale, drawH, padX, padY, key, wp);
   }
@@ -718,6 +850,7 @@ export default function FloorplanSVG({ plan, delta, pxPerMm = 0.1 }: Props) {
         });
       })}
 
+      <MezzanineOverlay plan={plan} delta={delta} scale={scale} drawH={drawH} padX={padX} padY={padY} wp={wp} />
       <RoomLabels plan={plan} delta={delta} scale={scale} drawH={drawH} padX={padX} padY={padY} wp={wp} />
       <DimensionLines plan={plan} delta={delta} scale={scale} drawH={drawH} padX={padX} padY={padY} wp={wp} />
     </svg>

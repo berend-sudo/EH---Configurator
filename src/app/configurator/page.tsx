@@ -98,6 +98,7 @@ function ConfiguratorScreen() {
   const footprintM2 = derived.rooms ? derived.rooms.gfa + derived.rooms.terraceArea : 0;
   const livingM2 = derived.rooms?.gfa ?? 0;
   const terraceM2 = derived.rooms?.terraceArea ?? 0;
+  const mezzanineM2 = derived.rooms?.mezzanineAreaM2 ?? 0;
 
   const bedrooms = currentEntry.bedrooms;
   const roofLabel = selectionLabel(selection);
@@ -222,6 +223,7 @@ function ConfiguratorScreen() {
             footprintM2={footprintM2}
             livingM2={livingM2}
             terraceM2={terraceM2}
+            mezzanineM2={mezzanineM2}
             budgetUgx={derived.budgetUgx}
             dxfName={dxfName}
           />

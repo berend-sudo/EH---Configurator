@@ -2,6 +2,8 @@ interface Props {
   footprintM2: number;
   livingM2: number;
   terraceM2: number;
+  /** Mezzanine area (m²) when the plan has one. Renders nothing when 0. */
+  mezzanineM2: number;
   budgetUgx: number;
   dxfName: string;
 }
@@ -33,7 +35,7 @@ function Row({ label, value, sub }: { label: string; value: string; sub?: string
 const fmtArea = (n: number) => `${n.toFixed(2)} m²`;
 const fmtUGX = (n: number) => "UGX " + Math.round(n).toLocaleString("en-US");
 
-export default function SummaryCard({ footprintM2, livingM2, terraceM2, budgetUgx, dxfName }: Props) {
+export default function SummaryCard({ footprintM2, livingM2, terraceM2, mezzanineM2, budgetUgx, dxfName }: Props) {
   return (
     <div
       style={{
@@ -46,6 +48,7 @@ export default function SummaryCard({ footprintM2, livingM2, terraceM2, budgetUg
       <Row label="Footprint" value={fmtArea(footprintM2)} />
       <Row label="Living area" value={fmtArea(livingM2)} sub="incl. kitchen" />
       <Row label="Terrace" value={fmtArea(terraceM2)} />
+      {mezzanineM2 > 0 && <Row label="Mezzanine" value={fmtArea(mezzanineM2)} sub="open to living below" />}
       <div
         style={{
           display: "flex",

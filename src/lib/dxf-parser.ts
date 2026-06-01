@@ -598,6 +598,29 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
   const name = filename.replace(/\.dxf$/i, "");
   const id = name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
+  // Derive the mezzanine record from the Rooms$Mezzanine sublayer (if any).
+  // Spec area = shoelace at delta=0 (raw vertices). The runtime, delta-aware
+  // area is computed by countRooms; this is the model's intrinsic spec.
+  const mezzLayer = layerMap.get("Rooms$Mezzanine");
+  const mezzPolys = mezzLayer
+    ? mezzLayer.entities
+        .filter((e): e is PolylineEntity => e.type === "polyline" && e.closed)
+        .map((e) => ({ vertices: e.vertices.map((v) => ({ x: v.x, y: v.y })) }))
+    : [];
+  let mezzAreaMm2 = 0;
+  for (const poly of mezzPolys) {
+    let a = 0;
+    const verts = poly.vertices;
+    for (let i = 0; i < verts.length; i++) {
+      const j = (i + 1) % verts.length;
+      a += verts[i].x * verts[j].y - verts[j].x * verts[i].y;
+    }
+    mezzAreaMm2 += Math.abs(a) / 2;
+  }
+  const mezzanine = mezzPolys.length > 0
+    ? { footprints: mezzPolys, areaM2: mezzAreaMm2 / 1_000_000 }
+    : null;
+
   return {
     id,
     name,
@@ -606,5 +629,6 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
     minDelta,
     maxDelta,
     layers: LAYER_ORDER.map((nm) => layerMap.get(nm)!).filter((l) => l.entities.length > 0),
+    mezzanine,
   };
 }

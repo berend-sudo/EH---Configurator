@@ -105,16 +105,25 @@ export interface CountRoomsResult {
   bedrooms: number;
   bathrooms: number;
   kitchens: number;
+  /** Sum of all Rooms$Mezzanine footprint areas (m²). The mezzanine is NOT
+   *  folded into gfa — it's the upper-floor extent, not ground-floor area. */
+  mezzanineAreaM2: number;
 }
 
 export function countRooms(plan: FloorplanJSON, delta: number): CountRoomsResult {
   let gfa = 0, terraceArea = 0, bedrooms = 0, bathrooms = 0, kitchens = 0;
+  let mezzanineAreaM2 = 0;
   for (const layer of plan.layers) {
     if (!layer.name.startsWith("Rooms")) continue;
     const isTerrace = layer.name.includes("Terrace");
+    const isMezzanine = layer.name.includes("Mezzanine");
     for (const entity of layer.entities) {
       if (entity.type !== "polyline" || !entity.closed) continue;
       const area = polygonAreaM2(entity.vertices, delta);
+      if (isMezzanine) {
+        mezzanineAreaM2 += area;
+        continue; // mezzanine is upper-floor; don't fold into gfa
+      }
       if (isTerrace) terraceArea += area;
       else gfa += area;
       if (layer.name.includes("Bath"))    bathrooms++;
@@ -122,7 +131,16 @@ export function countRooms(plan: FloorplanJSON, delta: number): CountRoomsResult
       if (layer.name.includes("Bedroom")) bedrooms++;
     }
   }
-  return { gfa, terraceArea, bedrooms, bathrooms, kitchens };
+  return { gfa, terraceArea, bedrooms, bathrooms, kitchens, mezzanineAreaM2 };
+}
+
+// Mezzanine pricing hook — the single place a mezzanine surcharge could be
+// applied. Defaults to 0 (no-op) until the team gives a number; never invent
+// one. If a mezzanine is "already in the base plan price", leave at 0.
+// TODO(pricing): replace with the confirmed mezzanine surcharge.
+export const MEZZANINE_COST = 0;
+export function mezzanineSurcharge(plan: FloorplanJSON): number {
+  return plan.mezzanine ? MEZZANINE_COST : 0;
 }
 
 export interface BudgetLineItem { label: string; amount: number; }

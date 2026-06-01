@@ -16,6 +16,7 @@ const ENTRIES: Omit<FloorPlanEntry, "file">[] = [
   { selection: { typology: "monopitch", subtype: null }, bedrooms: 1, version: 1, name: "Monopitch 1-Bedroom" },
   { selection: { typology: "monopitch", subtype: null }, bedrooms: 2, version: 3, name: "Monopitch 2-Bedroom" },
   { selection: { typology: "monopitch", subtype: null }, bedrooms: 3, version: 1, name: "Monopitch 3-Bedroom" },
+  { selection: { typology: "aframe",    subtype: "large" }, bedrooms: 1, version: 1, name: "A-frame Large 1-Bedroom" },
 ];
 
 export const FLOOR_PLANS: FloorPlanEntry[] = ENTRIES.map((e) => ({
