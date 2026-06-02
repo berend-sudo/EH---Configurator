@@ -9,6 +9,7 @@ import type {
   GeomCircle,
   Vertex,
 } from "@/types/floorplan";
+import { stitchSegments } from "@/lib/dxf/stitch-segments";
 
 // ── Pair parsing ─────────────────────────────────────────────────────────────
 
@@ -26,13 +27,24 @@ function parsePairs(content: string): Pair[] {
 
 function n(s: string) { return parseFloat(s) || 0; }
 
-/** Layers whose entity geometry we render (walls, doors, windows, furniture, rooms). */
+/** Layers whose POLYLINE geometry we render (walls, doors, windows, furniture, rooms). */
 function isPlanLayer(layer: string): boolean {
   return (
     layer === "Walls" ||
     layer === "Doors" ||
     layer === "Windows" ||
     layer === "Furniture" ||
+    layer.startsWith("Rooms")
+  );
+}
+
+/** Layers whose loose LINE/SPLINE segments get stitched into closed polylines.
+ *  Furniture is excluded — its geometry comes from block INSERTs / polylines. */
+function isStitchLayer(layer: string): boolean {
+  return (
+    layer === "Walls" ||
+    layer === "Doors" ||
+    layer === "Windows" ||
     layer.startsWith("Rooms")
   );
 }
@@ -396,6 +408,9 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
   const ptRight: { x: number; y: number }[] = [];
   const ptLeft:  { x: number; y: number }[] = [];
   const polylines: { layer: string; closed: boolean; vertices: { x: number; y: number }[] }[] = [];
+  // Free-standing LINE / SPLINE entities on Walls/Doors/Windows/Rooms layers —
+  // stitched back into closed (or open) polylines after the parse loop.
+  const segments: { layer: string; vertices: { x: number; y: number }[] }[] = [];
   const inserts: { name: string; x: number; y: number; rotation: number; scaleX: number; scaleY: number }[] = [];
   const blockDefs = new Map<string, LocalGeom[]>();
 
@@ -445,10 +460,12 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
         i = end; continue;
       }
 
-      // Walls / Windows are frequently authored as loose LINE and SPLINE
-      // segments at the entity level (not POLYLINE), especially in the newer
-      // gable/aframe/clerestory drawings — e.g. Gable Large stores ~92 wall
-      // splines. Collect them too, otherwise those walls silently vanish.
+      // DXF export often drops the `closed` flag on a POLYLINE and emits each
+      // edge as a separate LINE or 2-control-point SPLINE — the newer
+      // gable/aframe/clerestory drawings store most walls this way (Gable Large
+      // has ~92 wall splines). Collect them as segments; the stitcher pass
+      // after the loop reassembles connected chains into the closed polygons
+      // the architect drew, so walls render filled instead of as bare outlines.
       if (code === 0 && value === "LINE") {
         let j = i + 1, layer = "", x1 = 0, y1 = 0, x2 = 0, y2 = 0;
         while (j < pairs.length && pairs[j].code !== 0) {
@@ -459,29 +476,23 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
           else if (pairs[j].code === 21) y2 = n(pairs[j].value);
           j++;
         }
-        if (isPlanLayer(layer)) {
-          polylines.push({ layer, closed: false, vertices: [{ x: x1, y: y1 }, { x: x2, y: y2 }] });
+        if (isStitchLayer(layer)) {
+          segments.push({ layer, vertices: [{ x: x1, y: y1 }, { x: x2, y: y2 }] });
         }
         i = j; continue;
       }
 
       if (code === 0 && value === "SPLINE") {
         let j = i + 1, layer = "";
-        const fit: { x: number; y: number }[] = [];
-        const ctrl: { x: number; y: number }[] = [];
-        let fx: number | null = null, cpx: number | null = null;
+        const xs: number[] = [], ys: number[] = [];
         while (j < pairs.length && pairs[j].code !== 0) {
-          const c = pairs[j].code, v = pairs[j].value;
-          if (c === 8) layer = v;
-          else if (c === 11) fx = n(v);
-          else if (c === 21 && fx !== null) { fit.push({ x: fx, y: n(v) }); fx = null; }
-          else if (c === 10) cpx = n(v);
-          else if (c === 20 && cpx !== null) { ctrl.push({ x: cpx, y: n(v) }); cpx = null; }
+          if (pairs[j].code === 8)  layer = pairs[j].value;
+          else if (pairs[j].code === 10) xs.push(n(pairs[j].value));
+          else if (pairs[j].code === 20) ys.push(n(pairs[j].value));
           j++;
         }
-        const pts = fit.length > 0 ? fit : ctrl;
-        if (pts.length > 1 && isPlanLayer(layer)) {
-          polylines.push({ layer, closed: false, vertices: pts });
+        if (isStitchLayer(layer) && xs.length >= 2 && xs.length === ys.length) {
+          segments.push({ layer, vertices: xs.map((x, k) => ({ x, y: ys[k] })) });
         }
         i = j; continue;
       }
@@ -505,6 +516,25 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
 
     i++;
   }
+
+  // ── Segment stitcher ────────────────────────────────────────────────────────
+  // Reassemble the loose LINE/SPLINE edges collected above into the closed
+  // polygons the architect originally drew, grouped per layer, so walls and
+  // windows render as filled shapes rather than bare outlines. 2 mm tolerance
+  // matches the observed export drift. Algorithm lives in ./dxf/stitch-segments.
+  const STITCH_TOL_MM = 2;
+  const segmentsByLayer = new Map<string, typeof segments>();
+  for (const s of segments) {
+    const arr = segmentsByLayer.get(s.layer);
+    if (arr) arr.push(s);
+    else segmentsByLayer.set(s.layer, [s]);
+  }
+  segmentsByLayer.forEach((segs, layerName) => {
+    const { polylines: stitched } = stitchSegments(segs, STITCH_TOL_MM);
+    for (const p of stitched) {
+      polylines.push({ layer: layerName, closed: p.closed, vertices: p.vertices });
+    }
+  });
 
   let maxX = 0, maxY = 0;
   for (const p of polylines) {
