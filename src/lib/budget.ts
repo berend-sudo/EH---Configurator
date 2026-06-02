@@ -1,4 +1,5 @@
 import type { FloorplanJSON, Vertex } from "@/types/floorplan";
+import { selectionLabel, type Selection, type TypologyId } from "@/lib/typologies";
 
 // Rates from the "Price Calc" sheet (Typology Calculator, rows 87-92).
 // Gables price ~9% cheaper per m² than Mono Pitch / Clerestory.
@@ -17,7 +18,6 @@ const TILE_PER_BATH    =   960_000; // 80,000 × 12
 const SANITARY_PER_BATH = 2_300_000;
 const KITCHEN_BASE     = 2_000_000;
 const KITCHEN_PER_UNIT =   500_000;
-export const USD_RATE  =     3_700;
 
 // Mirrors FloorplanSVG.tsx — duplicated to avoid importing from a component file.
 export function polygonAreaM2(verts: Vertex[], delta: number): number {
@@ -31,53 +31,28 @@ export function polygonAreaM2(verts: Vertex[], delta: number): number {
   return Math.abs(a) / 2 / 1_000_000;
 }
 
-export type TypologyName =
-  | "Mono Pitch"
-  | "Compact Gable"
-  | "Standard Gable"
-  | "Large Gable"
-  | "Standard Clerestory"
-  | "Large Clerestory"
-  | "A Frame";
-
 export interface TypologyInfo {
-  name: TypologyName;
+  name: string;
   sqmRate: number;
-  detected: boolean; // false when we fell back to the default
+  detected: boolean; // reserved: always true now that typology comes from the Selection
 }
 
-export function detectTypology(planName: string): TypologyInfo {
-  const n = planName.toLowerCase();
+// Per-typology m² rate, keyed by the new typology ids. The geometry-based
+// indicative budget reads its rate from the user's Selection (the plan
+// filenames no longer encode the typology).
+export const RATE_BY_TYPOLOGY: Record<TypologyId, number> = {
+  monopitch: RATE_MONO_PITCH,
+  gable: RATE_GABLE,
+  aframe: RATE_A_FRAME,
+  clerestory: RATE_CLERESTORY,
+};
 
-  if (n.includes("clerestory")) {
-    const isLarge = n.includes("large");
-    return {
-      name: isLarge ? "Large Clerestory" : "Standard Clerestory",
-      sqmRate: RATE_CLERESTORY,
-      detected: true,
-    };
-  }
-
-  if (n.includes("a frame") || n.includes("a-frame") || n.includes("aframe")) {
-    return { name: "A Frame", sqmRate: RATE_A_FRAME, detected: true };
-  }
-
-  if (n.includes("gable")) {
-    if (n.includes("compact") || n.includes("small")) {
-      return { name: "Compact Gable", sqmRate: RATE_GABLE, detected: true };
-    }
-    if (n.includes("large")) {
-      return { name: "Large Gable", sqmRate: RATE_GABLE, detected: true };
-    }
-    return { name: "Standard Gable", sqmRate: RATE_GABLE, detected: true };
-  }
-
-  if (n.includes("monopitch") || n.includes("mono pitch") || n.includes("mono-pitch")) {
-    return { name: "Mono Pitch", sqmRate: RATE_MONO_PITCH, detected: true };
-  }
-
-  // Fallback: assume Mono Pitch but flag as undetected so the UI can warn.
-  return { name: "Mono Pitch", sqmRate: RATE_MONO_PITCH, detected: false };
+export function typologyInfoFor(sel: Selection): TypologyInfo {
+  return {
+    name: selectionLabel(sel),
+    sqmRate: RATE_BY_TYPOLOGY[sel.typology],
+    detected: true,
+  };
 }
 
 export interface CountRoomsResult {
@@ -86,16 +61,25 @@ export interface CountRoomsResult {
   bedrooms: number;
   bathrooms: number;
   kitchens: number;
+  /** Sum of all Rooms$Mezzanine footprint areas (m²). The mezzanine is NOT
+   *  folded into gfa — it's the upper-floor extent, not ground-floor area. */
+  mezzanineAreaM2: number;
 }
 
 export function countRooms(plan: FloorplanJSON, delta: number): CountRoomsResult {
   let gfa = 0, terraceArea = 0, bedrooms = 0, bathrooms = 0, kitchens = 0;
+  let mezzanineAreaM2 = 0;
   for (const layer of plan.layers) {
     if (!layer.name.startsWith("Rooms")) continue;
     const isTerrace = layer.name.includes("Terrace");
+    const isMezzanine = layer.name.includes("Mezzanine");
     for (const entity of layer.entities) {
       if (entity.type !== "polyline" || !entity.closed) continue;
       const area = polygonAreaM2(entity.vertices, delta);
+      if (isMezzanine) {
+        mezzanineAreaM2 += area;
+        continue; // mezzanine is upper-floor; don't fold into gfa
+      }
       if (isTerrace) terraceArea += area;
       else gfa += area;
       if (layer.name.includes("Bath"))    bathrooms++;
@@ -103,7 +87,16 @@ export function countRooms(plan: FloorplanJSON, delta: number): CountRoomsResult
       if (layer.name.includes("Bedroom")) bedrooms++;
     }
   }
-  return { gfa, terraceArea, bedrooms, bathrooms, kitchens };
+  return { gfa, terraceArea, bedrooms, bathrooms, kitchens, mezzanineAreaM2 };
+}
+
+// Mezzanine pricing hook — the single place a mezzanine surcharge could be
+// applied. Defaults to 0 (no-op) until the team gives a number; never invent
+// one. If a mezzanine is "already in the base plan price", leave at 0.
+// TODO(pricing): replace with the confirmed mezzanine surcharge.
+export const MEZZANINE_COST = 0;
+export function mezzanineSurcharge(plan: FloorplanJSON): number {
+  return plan.mezzanine ? MEZZANINE_COST : 0;
 }
 
 export interface BudgetLineItem { label: string; amount: number; }
@@ -147,8 +140,3 @@ export function calculateBudget(rooms: CountRoomsResult, typology: TypologyInfo)
     grandTotal: coreTotal + tiling + sanitaryWares + kitchenBlock,
   };
 }
-
-// Roof identifier shared between Landing and Configurator URLs.
-// Per-roof pricing tables ship once we have non-Monopitch DXFs; until then
-// see `computeBudgetTable` in `lib/budget-table.ts`.
-export type LandingRoof = "monopitch" | "gable" | "clerestory";

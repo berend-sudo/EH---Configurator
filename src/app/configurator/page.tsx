@@ -10,14 +10,18 @@ import SummaryCard from "@/components/configurator/SummaryCard";
 import ViewToggle, { type View } from "@/components/configurator/ViewToggle";
 import PhotoCollage from "@/components/configurator/PhotoCollage";
 import PlanSwitcher from "@/components/configurator/PlanSwitcher";
-import { pickPlanByBedrooms, type FloorPlanEntry } from "@/lib/floor-plans";
-import { calculateBudget, countRooms, detectTypology, type LandingRoof } from "@/lib/budget";
-import { useBudgetTable } from "@/lib/useBudgetTable";
+import BudgetSlider from "@/components/landing/BudgetSlider";
+import { pickPlan, resolveAvailableBedrooms, type FloorPlanEntry } from "@/lib/floor-plans";
+import { useFloorPlans } from "@/lib/useFloorPlans";
+import { calculateBudget, countRooms, typologyInfoFor } from "@/lib/budget";
+import {
+  minBedroomsFor,
+  selectionFromParams,
+  selectionLabel,
+  type Selection,
+} from "@/lib/typologies";
 
 const LANDING_DEFAULT_BUDGET = 75_000_000;
-const VALID_ROOFS: readonly LandingRoof[] = ["monopitch", "gable", "clerestory"];
-
-const cap = (s: string) => (s.length === 0 ? s : s[0].toUpperCase() + s.slice(1));
 
 function ConfiguratorScreen() {
   const [plan, setPlan] = useState<FloorplanJSON | null>(null);
@@ -25,33 +29,44 @@ function ConfiguratorScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>("plan");
+  const [showMezzanine, setShowMezzanine] = useState(true);
 
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const budgetTable = useBudgetTable();
-  const roofParam = searchParams.get("roof");
+  const typologyParam = searchParams.get("typology");
+  const subtypeParam = searchParams.get("subtype");
   const bedroomsParam = searchParams.get("bedrooms");
   const budgetParam = searchParams.get("budget");
-  const bedroomsNum = bedroomsParam != null && bedroomsParam !== "" ? Number(bedroomsParam) : null;
-  const currentEntry: FloorPlanEntry = useMemo(
-    () => pickPlanByBedrooms(bedroomsNum),
-    [bedroomsNum],
+  const selection: Selection = useMemo(
+    () => selectionFromParams(typologyParam, subtypeParam),
+    [typologyParam, subtypeParam],
   );
+  // Bedrooms the user asked for (URL), clamped to the typology's minimum.
+  const requestedBedrooms = (() => {
+    const n = bedroomsParam != null && bedroomsParam !== "" ? Number(bedroomsParam) : NaN;
+    const min = minBedroomsFor(selection);
+    return Number.isFinite(n) ? Math.max(min, n) : min;
+  })();
+  const plans = useFloorPlans();
+  const currentEntry: FloorPlanEntry | null = useMemo(
+    () => (plans ? pickPlan(plans, selection, requestedBedrooms) : null),
+    [plans, selection, requestedBedrooms],
+  );
+  const planFile = currentEntry?.file ?? null;
   const budget = (() => {
     const n = budgetParam != null ? Number(budgetParam) : NaN;
     return Number.isFinite(n) && n > 0 ? n : LANDING_DEFAULT_BUDGET;
   })();
 
   useEffect(() => {
+    if (!planFile) return;
     let cancelled = false;
     const load = async () => {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(
-          `/api/parse-dxf?file=${encodeURIComponent(currentEntry.file)}`
-        );
+        const res = await fetch(`/api/parse-dxf?file=${encodeURIComponent(planFile)}`);
         if (!res.ok) {
           const err = await res.json();
           throw new Error(err.error ?? "Load failed");
@@ -71,38 +86,74 @@ function ConfiguratorScreen() {
     return () => {
       cancelled = true;
     };
-  }, [currentEntry]);
+  }, [planFile]);
 
   const derived = useMemo(() => {
     if (!plan) {
-      return { rooms: null, typology: null, budgetUgx: 0 };
+      return { rooms: null, budgetUgx: 0 };
     }
     const rooms = countRooms(plan, delta);
-    const typology = detectTypology(plan.name);
+    const typology = typologyInfoFor(selection);
     const budgetUgx = calculateBudget(rooms, typology).coreTotal;
-    return { rooms, typology, budgetUgx };
-  }, [plan, delta]);
+    return { rooms, budgetUgx };
+  }, [plan, delta, selection]);
 
   const widthMm = plan ? plan.baseWidth + delta : 0;
   const footprintM2 = derived.rooms ? derived.rooms.gfa + derived.rooms.terraceArea : 0;
   const livingM2 = derived.rooms?.gfa ?? 0;
   const terraceM2 = derived.rooms?.terraceArea ?? 0;
+  const mezzanineM2 = derived.rooms?.mezzanineAreaM2 ?? 0;
 
-  const roof: LandingRoof = VALID_ROOFS.includes(roofParam as LandingRoof)
-    ? (roofParam as LandingRoof)
-    : "monopitch";
-  const bedrooms = currentEntry.bedrooms;
-  const modelLabel = `${cap(roof)} · ${bedrooms === 0 ? "Studio" : `${bedrooms}-bed`}`;
-  const subtitle = `${bedrooms === 0 ? "Studio" : bedrooms === 1 ? "1 bedroom" : `${bedrooms} bedrooms`} · ${cap(roof)} roof`;
+  // Displayed bedroom count = the user's request. The served plan may be a
+  // closest-match fallback with a different count until that exact DXF exists.
+  const bedrooms = requestedBedrooms;
+  const roofLabel = selectionLabel(selection);
+  const modelLabel = `${roofLabel} · ${bedrooms === 0 ? "Studio" : `${bedrooms}-bed`}`;
+  const subtitle = `${bedrooms === 0 ? "Studio" : bedrooms === 1 ? "1 bedroom" : `${bedrooms} bedrooms`} · ${roofLabel} roof`;
+  // Whether the served plan is the exact requested variant (drives the
+  // "closest available plan" notice below).
+  const exactMatch =
+    currentEntry != null &&
+    currentEntry.selection.typology === selection.typology &&
+    currentEntry.selection.subtype === selection.subtype &&
+    currentEntry.bedrooms === bedrooms;
+
+  // When the served plan isn't the exact requested variant, name what's
+  // actually on screen so the user knows it's a stand-in (until that DXF lands).
+  const servedLabel =
+    currentEntry != null
+      ? `${selectionLabel(currentEntry.selection)} · ${
+          currentEntry.bedrooms === 0 ? "Studio" : `${currentEntry.bedrooms}-bed`
+        }`
+      : null;
+  const showFallbackNotice = plan != null && currentEntry != null && !exactMatch;
 
   const handleReset = () => {
     if (plan) setDelta(plan.minDelta);
   };
 
-  const updateParams = (next: { bedrooms?: number; roof?: LandingRoof }) => {
+  const updateParams = (next: { bedrooms?: number; selection?: Selection; budget?: number }) => {
     const params = new URLSearchParams(searchParams.toString());
-    if (next.bedrooms != null) params.set("bedrooms", String(next.bedrooms));
-    if (next.roof != null) params.set("roof", next.roof);
+    if (next.budget != null) params.set("budget", String(next.budget));
+    if (next.selection) {
+      params.set("typology", next.selection.typology);
+      if (next.selection.subtype) params.set("subtype", next.selection.subtype);
+      else params.delete("subtype");
+      // Switching typology/subtype can leave the current bedroom count without
+      // a plan (e.g. Gable Standard 4BR → Large, which only ships 3BR). Clamp
+      // to the nearest available count for the new selection so the seg can't
+      // keep showing a stale, plan-less option.
+      const desired = next.bedrooms ?? bedrooms;
+      const clamped = plans
+        ? Math.max(
+            minBedroomsFor(next.selection),
+            resolveAvailableBedrooms(plans, next.selection, desired),
+          )
+        : desired;
+      params.set("bedrooms", String(clamped));
+    } else if (next.bedrooms != null) {
+      params.set("bedrooms", String(next.bedrooms));
+    }
     router.replace(`${pathname}?${params.toString()}`);
   };
 
@@ -117,7 +168,15 @@ function ConfiguratorScreen() {
         overflow: "hidden",
       }}
     >
-      <EHNavBar step={2} totalSteps={3} />
+      <EHNavBar
+        step={2}
+        totalSteps={3}
+        onStepChange={(s) => {
+          // Step 1 ("Start") returns to the landing screen. Step 3 ("Details")
+          // isn't reachable yet (no /summary), so it stays disabled.
+          if (s === 1) router.push("/");
+        }}
+      />
 
       <div
         style={{
@@ -164,16 +223,40 @@ function ConfiguratorScreen() {
               {modelLabel}
             </h2>
             <div style={{ fontSize: 13, color: "var(--eh-text-muted)" }}>{subtitle}</div>
+            {showFallbackNotice && (
+              <div
+                role="status"
+                style={{
+                  marginTop: 12,
+                  padding: "10px 12px",
+                  borderRadius: 12,
+                  background: "var(--eh-green-50)",
+                  border: "1px solid var(--eh-stroke)",
+                  fontSize: 12,
+                  lineHeight: 1.45,
+                  color: "var(--eh-text-muted)",
+                }}
+              >
+                <span style={{ fontWeight: 600, color: "var(--eh-green-900)" }}>
+                  Closest available plan.
+                </span>{" "}
+                The {roofLabel} {bedrooms === 0 ? "studio" : `${bedrooms}-bed`} drawing
+                isn&apos;t ready yet — showing {servedLabel} so you can preview the layout.
+              </div>
+            )}
           </div>
 
           {/* Plan switcher (bedrooms + roof) */}
           <PlanSwitcher
             bedrooms={bedrooms}
-            roof={roof}
+            selection={selection}
             budget={budget}
-            budgetTable={budgetTable}
+            plans={plans ?? undefined}
             onChange={updateParams}
           />
+
+          {/* Budget — adjustable here too; gates the switcher above. */}
+          <BudgetSlider value={budget} onChange={(b) => updateParams({ budget: b })} />
 
           {/* Dimensions */}
           <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
@@ -199,7 +282,7 @@ function ConfiguratorScreen() {
               />
             ) : (
               <div style={{ fontSize: 13, color: "var(--eh-text-soft)" }}>
-                {loading ? "Loading…" : error ?? "Plan not available"}
+                {loading || plans == null ? "Loading…" : error ?? "Plan not available"}
               </div>
             )}
           </div>
@@ -209,6 +292,7 @@ function ConfiguratorScreen() {
             footprintM2={footprintM2}
             livingM2={livingM2}
             terraceM2={terraceM2}
+            mezzanineM2={mezzanineM2}
             budgetUgx={derived.budgetUgx}
           />
 
@@ -274,7 +358,31 @@ function ConfiguratorScreen() {
                   : "From recent Easy Housing builds"}
               </span>
             </div>
-            <ViewToggle value={view} onChange={setView} />
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              {plan?.mezzanine && view === "plan" && (
+                <div className="seg" role="tablist" aria-label="Mezzanine visibility">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={!showMezzanine}
+                    className={!showMezzanine ? "is-active" : ""}
+                    onClick={() => setShowMezzanine(false)}
+                  >
+                    Plan only
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={showMezzanine}
+                    className={showMezzanine ? "is-active" : ""}
+                    onClick={() => setShowMezzanine(true)}
+                  >
+                    With mezzanine
+                  </button>
+                </div>
+              )}
+              <ViewToggle value={view} onChange={setView} />
+            </div>
           </div>
 
           {/* Canvas card */}
@@ -306,7 +414,7 @@ function ConfiguratorScreen() {
                       minHeight: 0,
                     }}
                   >
-                    <FloorplanSVG plan={plan} delta={delta} />
+                    <FloorplanSVG plan={plan} delta={delta} showMezzanine={showMezzanine} />
                   </div>
                 ) : (
                   <div
@@ -319,7 +427,7 @@ function ConfiguratorScreen() {
                       fontSize: 14,
                     }}
                   >
-                    {loading ? "Loading floor plan…" : error ?? "No plan loaded"}
+                    {loading || plans == null ? "Loading floor plan…" : error ?? "No plan loaded"}
                   </div>
                 )
               ) : (

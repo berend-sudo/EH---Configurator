@@ -1,22 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseDxf } from "@/lib/dxf-parser";
-import { FLOOR_PLANS } from "@/lib/floor-plans";
+import { FLOORPLANS_DIR } from "@/lib/floor-plan-scan";
 import { readFile } from "fs/promises";
 import path from "path";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
+// Accept a bare .dxf filename only — no path separators or traversal. The
+// file must live directly in public/floorplans/.
+function isSafeDxfName(name: string | null): name is string {
+  return (
+    !!name &&
+    /\.dxf$/i.test(name) &&
+    !name.includes("/") &&
+    !name.includes("\\") &&
+    !name.includes("..")
+  );
+}
+
 export async function GET(req: NextRequest) {
   try {
     const fileName = new URL(req.url).searchParams.get("file");
-    const entry = FLOOR_PLANS.find((p) => p.file === fileName);
-    if (!entry) {
+    if (!isSafeDxfName(fileName)) {
+      return NextResponse.json({ error: "Invalid file name" }, { status: 400 });
+    }
+    const filePath = path.join(FLOORPLANS_DIR, fileName);
+    let text: string;
+    try {
+      text = await readFile(filePath, "utf-8");
+    } catch {
       return NextResponse.json({ error: "Unknown floor plan" }, { status: 404 });
     }
-    const filePath = path.join(process.cwd(), "public", "floorplans", entry.file);
-    const text = await readFile(filePath, "utf-8");
-    const json = parseDxf(text, entry.file);
+    const json = parseDxf(text, fileName);
     return NextResponse.json(json);
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Parse error";
