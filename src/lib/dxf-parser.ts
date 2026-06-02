@@ -26,6 +26,17 @@ function parsePairs(content: string): Pair[] {
 
 function n(s: string) { return parseFloat(s) || 0; }
 
+/** Layers whose entity geometry we render (walls, doors, windows, furniture, rooms). */
+function isPlanLayer(layer: string): boolean {
+  return (
+    layer === "Walls" ||
+    layer === "Doors" ||
+    layer === "Windows" ||
+    layer === "Furniture" ||
+    layer.startsWith("Rooms")
+  );
+}
+
 // ── Zone classifier: nearest PT wins ─────────────────────────────────────────
 
 function decideMoveX(
@@ -428,10 +439,51 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
 
       if (code === 0 && value === "POLYLINE") {
         const { layer, closed, vertices, end } = readPolyline(pairs, i + 1);
-        if (layer === "Walls" || layer === "Doors" || layer === "Windows" || layer === "Furniture" || layer.startsWith("Rooms")) {
+        if (isPlanLayer(layer)) {
           polylines.push({ layer, closed, vertices });
         }
         i = end; continue;
+      }
+
+      // Walls / Windows are frequently authored as loose LINE and SPLINE
+      // segments at the entity level (not POLYLINE), especially in the newer
+      // gable/aframe/clerestory drawings — e.g. Gable Large stores ~92 wall
+      // splines. Collect them too, otherwise those walls silently vanish.
+      if (code === 0 && value === "LINE") {
+        let j = i + 1, layer = "", x1 = 0, y1 = 0, x2 = 0, y2 = 0;
+        while (j < pairs.length && pairs[j].code !== 0) {
+          if (pairs[j].code === 8)  layer = pairs[j].value;
+          else if (pairs[j].code === 10) x1 = n(pairs[j].value);
+          else if (pairs[j].code === 20) y1 = n(pairs[j].value);
+          else if (pairs[j].code === 11) x2 = n(pairs[j].value);
+          else if (pairs[j].code === 21) y2 = n(pairs[j].value);
+          j++;
+        }
+        if (isPlanLayer(layer)) {
+          polylines.push({ layer, closed: false, vertices: [{ x: x1, y: y1 }, { x: x2, y: y2 }] });
+        }
+        i = j; continue;
+      }
+
+      if (code === 0 && value === "SPLINE") {
+        let j = i + 1, layer = "";
+        const fit: { x: number; y: number }[] = [];
+        const ctrl: { x: number; y: number }[] = [];
+        let fx: number | null = null, cpx: number | null = null;
+        while (j < pairs.length && pairs[j].code !== 0) {
+          const c = pairs[j].code, v = pairs[j].value;
+          if (c === 8) layer = v;
+          else if (c === 11) fx = n(v);
+          else if (c === 21 && fx !== null) { fit.push({ x: fx, y: n(v) }); fx = null; }
+          else if (c === 10) cpx = n(v);
+          else if (c === 20 && cpx !== null) { ctrl.push({ x: cpx, y: n(v) }); cpx = null; }
+          j++;
+        }
+        const pts = fit.length > 0 ? fit : ctrl;
+        if (pts.length > 1 && isPlanLayer(layer)) {
+          polylines.push({ layer, closed: false, vertices: pts });
+        }
+        i = j; continue;
       }
 
       if (code === 0 && value === "INSERT") {

@@ -389,21 +389,34 @@ function renderDoor(
 
 function renderBlockBackground(
   entity: BlockEntity,
-  delta: number, scale: number, drawH: number, padX: number, padY: number,
+  scale: number, drawH: number, sPadX: number, padY: number,
+  key: string,
 ): React.ReactNode {
-  if (!entity.tl || !entity.tr) return null;
-  const { tl, tr, depthVec, moveX } = entity;
-  const shift = moveX ? delta : 0;
-  const corners = [
-    { x: tl.x + shift,              y: tl.y },
-    { x: tr.x + shift,              y: tr.y },
-    { x: tr.x + depthVec.x + shift, y: tr.y + depthVec.y },
-    { x: tl.x + depthVec.x + shift, y: tl.y + depthVec.y },
-  ];
-  const pts = corners
-    .map((c) => `${sxT(c.x, scale, padX)},${syT(c.y, scale, drawH, padY)}`)
-    .join(" ");
-  return <polygon points={pts} fill="white" stroke="none" />;
+  // Mask the room hatch under the furniture using the block's own closed
+  // outlines (and disc shapes), so the white follows the furniture silhouette
+  // instead of its oriented bounding box — the bbox over-painted the corners,
+  // leaving a white rectangle around the piece.
+  const masks: React.ReactNode[] = [];
+  entity.geom.forEach((g, gi) => {
+    if (g.type === "polyline" && g.closed && g.vertices.length >= 3) {
+      const pts = g.vertices
+        .map((v) => `${sxT(v.x, scale, sPadX)},${syT(v.y, scale, drawH, padY)}`)
+        .join(" ");
+      masks.push(<polygon key={`${key}-bg-${gi}`} points={pts} fill="white" stroke="none" />);
+    } else if (g.type === "circle") {
+      masks.push(
+        <circle
+          key={`${key}-bg-${gi}`}
+          cx={sxT(g.cx, scale, sPadX)}
+          cy={syT(g.cy, scale, drawH, padY)}
+          r={g.r * scale}
+          fill="white"
+          stroke="none"
+        />,
+      );
+    }
+  });
+  return masks;
 }
 
 function renderFurnitureBlock(
@@ -415,7 +428,7 @@ function renderFurnitureBlock(
   const sPadX = entity.moveX ? padX + delta * scale : padX;
   return (
     <g key={key}>
-      {renderBlockBackground(entity, delta, scale, drawH, padX, padY)}
+      {renderBlockBackground(entity, scale, drawH, sPadX, padY, key)}
       {entity.geom.map((g, gi) =>
         renderGeom(g, scale, drawH, sPadX, padY, "#001F17", 0.8, `${key}-${gi}`)
       )}
