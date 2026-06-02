@@ -5,7 +5,6 @@ interface Props {
   /** Mezzanine area (m²) when the plan has one. Renders nothing when 0. */
   mezzanineM2: number;
   budgetUgx: number;
-  dxfName: string;
 }
 
 function Row({ label, value, sub }: { label: string; value: string; sub?: string }) {
@@ -35,7 +34,7 @@ function Row({ label, value, sub }: { label: string; value: string; sub?: string
 const fmtArea = (n: number) => `${n.toFixed(2)} m²`;
 const fmtUGX = (n: number) => "UGX " + Math.round(n).toLocaleString("en-US");
 
-export default function SummaryCard({ footprintM2, livingM2, terraceM2, mezzanineM2, budgetUgx, dxfName }: Props) {
+export default function SummaryCard({ footprintM2, livingM2, terraceM2, mezzanineM2, budgetUgx }: Props) {
   return (
     <div
       style={{
@@ -68,29 +67,6 @@ export default function SummaryCard({ footprintM2, livingM2, terraceM2, mezzanin
           }}
         >
           {fmtUGX(budgetUgx)}
-        </div>
-      </div>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "baseline",
-          justifyContent: "space-between",
-          gap: 12,
-          marginTop: 12,
-          paddingTop: 12,
-          borderTop: "1px solid var(--eh-stroke)",
-        }}
-      >
-        <div style={{ fontSize: 11, color: "var(--eh-text-soft)" }}>Plan file</div>
-        <div
-          style={{
-            fontSize: 12,
-            fontWeight: 500,
-            color: "var(--eh-text-muted)",
-            fontFamily: "var(--font-mono, ui-monospace, monospace)",
-          }}
-        >
-          {dxfName}
         </div>
       </div>
     </div>

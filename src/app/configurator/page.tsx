@@ -10,11 +10,11 @@ import SummaryCard from "@/components/configurator/SummaryCard";
 import ViewToggle, { type View } from "@/components/configurator/ViewToggle";
 import PhotoCollage from "@/components/configurator/PhotoCollage";
 import PlanSwitcher from "@/components/configurator/PlanSwitcher";
-import { pickPlan, type FloorPlanEntry } from "@/lib/floor-plans";
+import BudgetSlider from "@/components/landing/BudgetSlider";
+import { pickPlan, resolveAvailableBedrooms, type FloorPlanEntry } from "@/lib/floor-plans";
 import { useFloorPlans } from "@/lib/useFloorPlans";
 import { calculateBudget, countRooms, typologyInfoFor } from "@/lib/budget";
 import {
-  dxfFilename,
   minBedroomsFor,
   selectionFromParams,
   selectionLabel,
@@ -38,11 +38,6 @@ function ConfiguratorScreen() {
   const subtypeParam = searchParams.get("subtype");
   const bedroomsParam = searchParams.get("bedrooms");
   const budgetParam = searchParams.get("budget");
-  const versionParam = searchParams.get("v");
-  const version = (() => {
-    const n = versionParam != null ? Number(versionParam) : NaN;
-    return Number.isInteger(n) && n > 0 ? n : 1;
-  })();
   const selection: Selection = useMemo(
     () => selectionFromParams(typologyParam, subtypeParam),
     [typologyParam, subtypeParam],
@@ -115,14 +110,13 @@ function ConfiguratorScreen() {
   const roofLabel = selectionLabel(selection);
   const modelLabel = `${roofLabel} · ${bedrooms === 0 ? "Studio" : `${bedrooms}-bed`}`;
   const subtitle = `${bedrooms === 0 ? "Studio" : bedrooms === 1 ? "1 bedroom" : `${bedrooms} bedrooms`} · ${roofLabel} roof`;
-  // Canonical filename for the current selection. Prefer the served plan's
-  // version when it's an exact typology+subtype+bedrooms match.
+  // Whether the served plan is the exact requested variant (drives the
+  // "closest available plan" notice below).
   const exactMatch =
     currentEntry != null &&
     currentEntry.selection.typology === selection.typology &&
     currentEntry.selection.subtype === selection.subtype &&
     currentEntry.bedrooms === bedrooms;
-  const dxfName = dxfFilename(selection, bedrooms, exactMatch ? currentEntry!.version : version);
 
   // When the served plan isn't the exact requested variant, name what's
   // actually on screen so the user knows it's a stand-in (until that DXF lands).
@@ -138,13 +132,27 @@ function ConfiguratorScreen() {
     if (plan) setDelta(plan.minDelta);
   };
 
-  const updateParams = (next: { bedrooms?: number; selection?: Selection }) => {
+  const updateParams = (next: { bedrooms?: number; selection?: Selection; budget?: number }) => {
     const params = new URLSearchParams(searchParams.toString());
-    if (next.bedrooms != null) params.set("bedrooms", String(next.bedrooms));
+    if (next.budget != null) params.set("budget", String(next.budget));
     if (next.selection) {
       params.set("typology", next.selection.typology);
       if (next.selection.subtype) params.set("subtype", next.selection.subtype);
       else params.delete("subtype");
+      // Switching typology/subtype can leave the current bedroom count without
+      // a plan (e.g. Gable Standard 4BR → Large, which only ships 3BR). Clamp
+      // to the nearest available count for the new selection so the seg can't
+      // keep showing a stale, plan-less option.
+      const desired = next.bedrooms ?? bedrooms;
+      const clamped = plans
+        ? Math.max(
+            minBedroomsFor(next.selection),
+            resolveAvailableBedrooms(plans, next.selection, desired),
+          )
+        : desired;
+      params.set("bedrooms", String(clamped));
+    } else if (next.bedrooms != null) {
+      params.set("bedrooms", String(next.bedrooms));
     }
     router.replace(`${pathname}?${params.toString()}`);
   };
@@ -160,7 +168,15 @@ function ConfiguratorScreen() {
         overflow: "hidden",
       }}
     >
-      <EHNavBar step={2} totalSteps={3} />
+      <EHNavBar
+        step={2}
+        totalSteps={3}
+        onStepChange={(s) => {
+          // Step 1 ("Start") returns to the landing screen. Step 3 ("Details")
+          // isn't reachable yet (no /summary), so it stays disabled.
+          if (s === 1) router.push("/");
+        }}
+      />
 
       <div
         style={{
@@ -239,6 +255,9 @@ function ConfiguratorScreen() {
             onChange={updateParams}
           />
 
+          {/* Budget — adjustable here too; gates the switcher above. */}
+          <BudgetSlider value={budget} onChange={(b) => updateParams({ budget: b })} />
+
           {/* Dimensions */}
           <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
             <div
@@ -275,7 +294,6 @@ function ConfiguratorScreen() {
             terraceM2={terraceM2}
             mezzanineM2={mezzanineM2}
             budgetUgx={derived.budgetUgx}
-            dxfName={dxfName}
           />
 
           {/* CTAs */}

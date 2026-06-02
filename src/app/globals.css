@@ -36,8 +36,8 @@ body {
 .ab-cta:active { transform: scale(0.98); }
 .ab-cta:focus-visible { outline: none; box-shadow: var(--eh-shadow-glow); }
 
-.rail { position: relative; height: 6px; background: var(--eh-stroke); border-radius: 999px; }
-.rail__fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--eh-green-900); border-radius: 999px; }
+.rail { position: relative; height: 6px; background: var(--eh-stroke); border-radius: 999px; pointer-events: none; }
+.rail__fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--eh-green-900); border-radius: 999px; pointer-events: none; }
 .rail__knob {
   position: absolute; top: 50%;
   width: 22px; height: 22px;
