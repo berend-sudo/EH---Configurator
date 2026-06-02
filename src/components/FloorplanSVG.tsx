@@ -195,9 +195,9 @@ function renderGeom(
 
 // ── SVG <defs> patterns ───────────────────────────────────────────────────────
 function RoomPatterns({
-  scale, drawH, padY, periodMm = 150,
+  scale, drawH, padY,
 }: {
-  scale: number; drawH: number; padY: number; periodMm?: number;
+  scale: number; drawH: number; padY: number;
 }) {
   // World y=0 is at SVG y = padY + drawH; align stripe origins there.
   const originY = padY + drawH;
@@ -206,7 +206,6 @@ function RoomPatterns({
   const plankH       = 145 * scale;
   const jointH       =   5 * scale;
   const terracePeriod = plankH + jointH;
-  void periodMm;
 
   return (
     <defs>
