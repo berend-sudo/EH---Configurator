@@ -10,6 +10,11 @@ import {
   type Selection,
   type TypologyId,
 } from "@/lib/typologies";
+import {
+  availableTypologies,
+  availableSubtypes,
+  type FloorPlanEntry,
+} from "@/lib/floor-plans";
 
 type Props = {
   selection: Selection;
@@ -17,17 +22,20 @@ type Props = {
   budget: number;
   /** Compact variant for the in-configurator step-1 collapse. */
   compact?: boolean;
+  /**
+   * Scanned plans. When provided, the picker hides typologies and subtypes
+   * with no available DXF on disk. When omitted, every typology/subtype in
+   * TYPOLOGIES is shown (legacy behavior).
+   */
+  plans?: FloorPlanEntry[];
 };
-
-// Monopitch has no subtypes; borrow another typology's chips as invisible
-// placeholder content so the strip keeps a constant measured height.
-const PLACEHOLDER_TYPOLOGY: TypologyId = "gable";
 
 export default function TypologyPicker({
   selection,
   onChange,
   budget,
   compact = false,
+  plans,
 }: Props) {
   const gap = compact ? 6 : 8;
   const radius = compact ? 12 : 14;
@@ -39,14 +47,33 @@ export default function TypologyPicker({
   const iconW = compact ? 44 : 56;
   const iconH = compact ? 26 : 32;
 
+  // Typologies / subtypes to render. If `plans` is provided, hide anything
+  // with no available DXF; otherwise show the full TYPOLOGIES set.
+  const typologiesShown: TypologyId[] = plans
+    ? availableTypologies(plans)
+    : [...TYPOLOGY_ORDER];
+
   const typAvail = typologyAvailability(budget);
   const activeTyp = TYPOLOGIES[selection.typology];
-  const stripTypology: TypologyId = activeTyp.subtypes
-    ? selection.typology
-    : PLACEHOLDER_TYPOLOGY;
-  const stripHidden = !activeTyp.subtypes;
+
+  // Strip placeholder typology — when the active one has no subtypes (or none
+  // available), borrow the first typology that does so the strip keeps its
+  // measured height. Falls through to monopitch if nothing is subtyped.
+  const firstSubtyped = typologiesShown.find((id) => {
+    const t = TYPOLOGIES[id];
+    if (!t.subtypes) return false;
+    return !plans || availableSubtypes(plans, id).length > 0;
+  });
+  const stripTypology: TypologyId =
+    activeTyp.subtypes && (!plans || availableSubtypes(plans, selection.typology).length > 0)
+      ? selection.typology
+      : (firstSubtyped ?? selection.typology);
+  const stripHidden = stripTypology !== selection.typology;
   const subAvail = subtypeAvailability(budget, stripTypology);
   const stripDef = TYPOLOGIES[stripTypology];
+  const subtypeIdsShown: string[] = plans
+    ? availableSubtypes(plans, stripTypology)
+    : Object.keys(stripDef.subtypes ?? {});
 
   const selectTypology = (id: TypologyId) => {
     if (id === selection.typology) return;
@@ -56,8 +83,14 @@ export default function TypologyPicker({
       onChange({ typology: id, subtype: null });
       return;
     }
+    // Prefer the cheapest affordable subtype that is also on disk; otherwise
+    // fall back to the first available, or the first defined subtype.
+    const onDisk = plans ? availableSubtypes(plans, id) : Object.keys(typ.subtypes);
+    const cheapest = cheapestAffordableSubtype(budget, id);
     const sub =
-      cheapestAffordableSubtype(budget, id) ?? Object.keys(typ.subtypes)[0];
+      (cheapest && onDisk.includes(cheapest) && cheapest)
+      || onDisk[0]
+      || Object.keys(typ.subtypes)[0];
     onChange({ typology: id, subtype: sub });
   };
 
@@ -83,8 +116,14 @@ export default function TypologyPicker({
       </div>
 
       {/* Main typology row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap }}>
-        {TYPOLOGY_ORDER.map((id) => {
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: `repeat(${Math.max(typologiesShown.length, 1)}, 1fr)`,
+          gap,
+        }}
+      >
+        {typologiesShown.map((id) => {
           const typ = TYPOLOGIES[id];
           const active = id === selection.typology;
           const affordable = typAvail[id];
@@ -180,7 +219,8 @@ export default function TypologyPicker({
           {stripDef.label} — size
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap }}>
-          {Object.entries(stripDef.subtypes ?? {}).map(([subId, sub]) => {
+          {subtypeIdsShown.map((subId) => {
+            const sub = stripDef.subtypes![subId];
             const active = !stripHidden && subId === selection.subtype;
             const affordable = subAvail[subId];
             const disabled = !stripHidden && !affordable;

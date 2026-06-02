@@ -1,4 +1,10 @@
-import { selectionLabel, type Selection } from "@/lib/typologies";
+import {
+  TYPOLOGIES,
+  TYPOLOGY_ORDER,
+  selectionLabel,
+  type Selection,
+  type TypologyId,
+} from "@/lib/typologies";
 
 export interface FloorPlanEntry {
   selection: Selection;
@@ -54,4 +60,107 @@ export function planName(sel: Selection, bedrooms: number): string {
   const label = selectionLabel(sel);
   const bed = bedrooms === 0 ? "Studio" : `${bedrooms}-Bedroom`;
   return `${label} ${bed}`;
+}
+
+// ----------------------------------------------------------------------------
+// Availability — derived from the scanned plans set. A typology / subtype /
+// bedroom count is "available" if at least one matching DXF is on disk.
+//
+// Architecturally, this is how we hide options without deleting their
+// TYPOLOGIES data: the spec stays, but the picker / counters only surface
+// what has a plan. Re-enabling Gable Small or Clerestory Standard is then
+// literally "drop a correctly-named DXF in public/floorplans/".
+// ----------------------------------------------------------------------------
+
+/** Typologies with at least one available plan, in TYPOLOGY_ORDER. */
+export function availableTypologies(plans: FloorPlanEntry[]): TypologyId[] {
+  const set = new Set<TypologyId>(plans.map((p) => p.selection.typology));
+  return TYPOLOGY_ORDER.filter((id) => set.has(id));
+}
+
+/** Subtype ids that have at least one plan for the given typology, in spec order. */
+export function availableSubtypes(
+  plans: FloorPlanEntry[],
+  typology: TypologyId,
+): string[] {
+  const typ = TYPOLOGIES[typology];
+  if (!typ.subtypes) return [];
+  const set = new Set<string>();
+  for (const p of plans) {
+    if (p.selection.typology === typology && p.selection.subtype) {
+      set.add(p.selection.subtype);
+    }
+  }
+  return Object.keys(typ.subtypes).filter((id) => set.has(id));
+}
+
+/** Bedroom counts that have a plan for the exact selection, sorted ascending. */
+export function availableBedrooms(
+  plans: FloorPlanEntry[],
+  sel: Selection,
+): number[] {
+  const set = new Set<number>();
+  for (const p of plans) {
+    if (
+      p.selection.typology === sel.typology &&
+      p.selection.subtype === sel.subtype
+    ) {
+      set.add(p.bedrooms);
+    }
+  }
+  return Array.from(set).sort((a, b) => a - b);
+}
+
+/**
+ * Clamp a selection to one that has plans available:
+ *  - if the current typology has none, swap to the first available typology;
+ *  - if the typology has plans but the subtype doesn't, swap to its first
+ *    available subtype.
+ * Returns the original selection unchanged when already available, or null
+ * if the plans set is empty (caller decides what to show).
+ */
+export function resolveAvailableSelection(
+  plans: FloorPlanEntry[],
+  sel: Selection,
+): Selection | null {
+  if (plans.length === 0) return null;
+  const typs = availableTypologies(plans);
+  if (typs.length === 0) return null;
+
+  const typology = typs.includes(sel.typology) ? sel.typology : typs[0];
+  const typ = TYPOLOGIES[typology];
+
+  if (!typ.subtypes) return { typology, subtype: null };
+
+  const subs = availableSubtypes(plans, typology);
+  if (subs.length === 0) {
+    // Subtyped typology with no available subtypes — bounce to next typology.
+    const next = typs.find((id) => {
+      const t = TYPOLOGIES[id];
+      return !t.subtypes || availableSubtypes(plans, id).length > 0;
+    });
+    return next ? resolveAvailableSelection(plans, { typology: next, subtype: null }) : null;
+  }
+
+  const subtype = sel.subtype && subs.includes(sel.subtype) ? sel.subtype : subs[0];
+  return { typology, subtype };
+}
+
+/** Clamp bedrooms to the nearest available value for a selection. */
+export function resolveAvailableBedrooms(
+  plans: FloorPlanEntry[],
+  sel: Selection,
+  bedrooms: number,
+): number {
+  const avail = availableBedrooms(plans, sel);
+  if (avail.length === 0) return bedrooms; // caller handles "no plan"
+  if (avail.includes(bedrooms)) return bedrooms;
+  // nearest; ties go to the lower count for predictability
+  return avail.reduce((best, b) => {
+    const dBest = Math.abs(best - bedrooms);
+    const dB = Math.abs(b - bedrooms);
+    if (dB < dBest) return b;
+    if (dB === dBest && b < best) return b;
+    return best;
+  }, avail[0]);
 }

@@ -205,7 +205,7 @@ export const TYPOLOGIES: Record<TypologyId, Typology> = {
         label: "Normal",
         code: "NML",
         basePrice: 36_000_000, // PLACEHOLDER
-        minBedrooms: 1, // no studio for Normal A-frame
+        minBedrooms: 0, // A-frame Normal is studio-only (matches available DXF)
         depthMm: 4884,
         roofPitchDeg: 60,
         ceilingLowMm: 0,

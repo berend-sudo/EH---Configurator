@@ -1,45 +1,64 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import EHNavBar from "@/components/EHNavBar";
 import BudgetSlider from "./BudgetSlider";
 import BedroomsCounter from "./BedroomsCounter";
 import TypologyPicker from "./TypologyPicker";
 import {
-  minBedroomsFor,
   maxBedroomsFor,
   resolveAffordableSelection,
   selectionToParams,
   type Selection,
 } from "@/lib/typologies";
+import {
+  availableBedrooms,
+  resolveAvailableBedrooms,
+  resolveAvailableSelection,
+  type FloorPlanEntry,
+} from "@/lib/floor-plans";
 
-export default function LandingScreen() {
+interface Props {
+  /** Scanned at request time on the server; passed through so the picker has
+   *  the availability set on first paint (no client-fetch flash). */
+  plans: FloorPlanEntry[];
+}
+
+export default function LandingScreen({ plans }: Props) {
   const router = useRouter();
   const [budget, setBudget] = useState(75_000_000);
   const [bedrooms, setBedrooms] = useState(2);
-  const [selection, setSelection] = useState<Selection>({
-    typology: "monopitch",
-    subtype: null,
-  });
+  const initialSelection = useMemo<Selection>(
+    () => resolveAvailableSelection(plans, { typology: "monopitch", subtype: null })
+        ?? { typology: "monopitch", subtype: null },
+    [plans],
+  );
+  const [selection, setSelection] = useState<Selection>(initialSelection);
 
   // As the budget drops, fall back to the cheapest still-affordable subtype
   // within the typology — or the cheapest typology if the whole one is out
   // of reach. If nothing is affordable the selection is left untouched so
   // the user keeps a stable choice while every tile is greyed.
   useEffect(() => {
-    const next = resolveAffordableSelection(budget, selection);
-    if (next.typology !== selection.typology || next.subtype !== selection.subtype) {
-      setSelection(next);
+    const affordable = resolveAffordableSelection(budget, selection);
+    const reachable = resolveAvailableSelection(plans, affordable) ?? affordable;
+    if (reachable.typology !== selection.typology || reachable.subtype !== selection.subtype) {
+      setSelection(reachable);
     }
-  }, [budget, selection]);
+  }, [budget, selection, plans]);
 
-  const minBed = minBedroomsFor(selection);
-  const maxBed = maxBedroomsFor(budget, selection);
+  // Bedroom range — gated by both the budget (max) and what's on disk.
+  const availBR = availableBedrooms(plans, selection);
+  const affordableMax = maxBedroomsFor(budget, selection);
+  const affordableBR = availBR.filter((b) => b <= affordableMax);
+  const minBed = affordableBR[0] ?? availBR[0] ?? 0;
+  const maxBed = affordableBR[affordableBR.length - 1] ?? availBR[availBR.length - 1] ?? 0;
   useEffect(() => {
-    if (bedrooms > maxBed) setBedrooms(maxBed);
-    else if (bedrooms < minBed) setBedrooms(minBed);
-  }, [minBed, maxBed, bedrooms]);
+    const clamped = resolveAvailableBedrooms(plans, selection, bedrooms);
+    const next = Math.min(maxBed, Math.max(minBed, clamped));
+    if (next !== bedrooms) setBedrooms(next);
+  }, [minBed, maxBed, bedrooms, plans, selection]);
 
   return (
     <main style={{ position: "relative", width: "100%", minHeight: "100vh", overflow: "hidden" }}>
@@ -116,7 +135,7 @@ export default function LandingScreen() {
             <BudgetSlider value={budget} onChange={setBudget} />
             <BedroomsCounter value={bedrooms} onChange={setBedrooms} min={minBed} max={maxBed} />
           </div>
-          <TypologyPicker selection={selection} onChange={setSelection} budget={budget} />
+          <TypologyPicker selection={selection} onChange={setSelection} budget={budget} plans={plans} />
 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginTop: 36 }}>
             <button

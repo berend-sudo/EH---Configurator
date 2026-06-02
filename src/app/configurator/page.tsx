@@ -235,6 +235,7 @@ function ConfiguratorScreen() {
             bedrooms={bedrooms}
             selection={selection}
             budget={budget}
+            plans={plans ?? undefined}
             onChange={updateParams}
           />
 
