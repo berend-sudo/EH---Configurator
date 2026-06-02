@@ -509,7 +509,12 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
           if (pairs[j].code === 50) rot   = n(pairs[j].value);
           j++;
         }
-        if (layer === "Furniture") inserts.push({ name, x: ix, y: iy, rotation: rot, scaleX: sx, scaleY: sy });
+        // Furniture/fixture blocks are authored across several layers in the
+        // newer drawings — not just "Furniture" but also "Default" and even the
+        // "PT Top Left" layer (e.g. living-room seating "Zithoek", tables, and
+        // small beds). Ingest any INSERT that isn't on a structural layer so
+        // that furniture stops disappearing from living rooms.
+        if (!isStitchLayer(layer)) inserts.push({ name, x: ix, y: iy, rotation: rot, scaleX: sx, scaleY: sy });
         i = j; continue;
       }
     }
