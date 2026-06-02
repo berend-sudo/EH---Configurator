@@ -92,7 +92,7 @@ interface LocalLine    { type: "line";    layer: string; x1: number; y1: number;
 interface LocalArc     { type: "arc";     layer: string; cx: number; cy: number; r: number; sa: number; ea: number }
 interface LocalCircle  { type: "circle";  layer: string; cx: number; cy: number; r: number }
 interface LocalPoly    { type: "poly";    layer: string; closed: boolean; verts: { x: number; y: number }[] }
-interface LocalSpline  { type: "spline";  layer: string; pts: { x: number; y: number }[] }
+interface LocalSpline  { type: "spline";  layer: string; pts: { x: number; y: number }[]; closed?: boolean; ctrl?: boolean }
 interface LocalPoint   { type: "point";   layer: string; x: number; y: number }
 type LocalGeom = LocalLine | LocalArc | LocalCircle | LocalPoly | LocalSpline | LocalPoint;
 
@@ -229,21 +229,28 @@ function readBlockDef(pairs: Pair[], start: number): { geom: LocalGeom[]; end: n
     }
 
     if (code === 0 && value === "SPLINE") {
-      let j = i + 1, layer = "";
+      let j = i + 1, layer = "", flags = 0;
       const fit: { x: number; y: number }[] = [];
       const ctrl: { x: number; y: number }[] = [];
       let fx: number | null = null, cpx: number | null = null;
       while (j < pairs.length && pairs[j].code !== 0) {
         const c = pairs[j].code, v = pairs[j].value;
         if (c === 8) layer = v;
+        if (c === 70) flags = parseInt(v, 10) || 0;
         if (c === 11) fx = n(v);
         if (c === 21 && fx !== null) { fit.push({ x: fx, y: n(v) }); fx = null; }
         if (c === 10) cpx = n(v);
         if (c === 20 && cpx !== null) { ctrl.push({ x: cpx, y: n(v) }); cpx = null; }
         j++;
       }
-      const pts = fit.length > 0 ? fit : ctrl;
-      if (pts.length > 1) geom.push({ type: "spline", layer, pts });
+      // Prefer fit points (they lie ON the curve). When only control points
+      // exist the curve does NOT pass through them, so flag it for hull-safe
+      // smoothing instead of interpolation.
+      const useFit = fit.length > 0;
+      const pts = useFit ? fit : ctrl;
+      if (pts.length > 1) {
+        geom.push({ type: "spline", layer, pts, closed: !!(flags & 1), ctrl: !useFit });
+      }
       i = j; continue;
     }
 
@@ -303,6 +310,38 @@ function tessellateCircle(
   return pts;
 }
 
+// ── Chaikin corner-cutting: smooths a control polygon toward its B-spline ─────
+// without overshooting (the result stays within the convex hull). Used to draw
+// control-point-only DXF splines, which don't pass through their control points.
+function chaikin(
+  pts: { x: number; y: number }[],
+  closed: boolean,
+  iters: number,
+): { x: number; y: number }[] {
+  let p = pts;
+  for (let it = 0; it < iters && p.length >= 3; it++) {
+    const out: { x: number; y: number }[] = [];
+    const n = p.length;
+    if (closed) {
+      for (let i = 0; i < n; i++) {
+        const a = p[i], b = p[(i + 1) % n];
+        out.push({ x: 0.75 * a.x + 0.25 * b.x, y: 0.75 * a.y + 0.25 * b.y });
+        out.push({ x: 0.25 * a.x + 0.75 * b.x, y: 0.25 * a.y + 0.75 * b.y });
+      }
+    } else {
+      out.push(p[0]);
+      for (let i = 0; i < n - 1; i++) {
+        const a = p[i], b = p[i + 1];
+        out.push({ x: 0.75 * a.x + 0.25 * b.x, y: 0.75 * a.y + 0.25 * b.y });
+        out.push({ x: 0.25 * a.x + 0.75 * b.x, y: 0.25 * a.y + 0.75 * b.y });
+      }
+      out.push(p[n - 1]);
+    }
+    p = out;
+  }
+  return p;
+}
+
 // ── Flatten all local geometry to world-space polylines/splines ──────────────
 
 function flattenGeom(
@@ -337,8 +376,17 @@ function flattenGeom(
       const verts = g.verts.map((v) => transformPoint(v.x, v.y, ix, iy, rotDeg, sx, sy));
       out.push({ type: "polyline", closed: g.closed, vertices: verts } as GeomPolyline);
     } else if (g.type === "spline") {
-      const points = g.pts.map((v) => transformPoint(v.x, v.y, ix, iy, rotDeg, sx, sy));
-      out.push({ type: "spline", points } as GeomSpline);
+      if (g.ctrl) {
+        // Control-point B-spline: corner-cut the control polygon so the curve
+        // stays inside the control hull (no overshoot). Drawing a spline
+        // *through* control points would distort the shape (e.g. chair backs).
+        const smoothed = chaikin(g.pts, !!g.closed, 3);
+        const verts = smoothed.map((v) => transformPoint(v.x, v.y, ix, iy, rotDeg, sx, sy));
+        out.push({ type: "polyline", closed: !!g.closed, vertices: verts } as GeomPolyline);
+      } else {
+        const points = g.pts.map((v) => transformPoint(v.x, v.y, ix, iy, rotDeg, sx, sy));
+        out.push({ type: "spline", points } as GeomSpline);
+      }
     }
   }
 
