@@ -18,7 +18,6 @@ const TILE_PER_BATH    =   960_000; // 80,000 × 12
 const SANITARY_PER_BATH = 2_300_000;
 const KITCHEN_BASE     = 2_000_000;
 const KITCHEN_PER_UNIT =   500_000;
-export const USD_RATE  =     3_700;
 
 // Mirrors FloorplanSVG.tsx — duplicated to avoid importing from a component file.
 export function polygonAreaM2(verts: Vertex[], delta: number): number {
@@ -32,19 +31,10 @@ export function polygonAreaM2(verts: Vertex[], delta: number): number {
   return Math.abs(a) / 2 / 1_000_000;
 }
 
-export type TypologyName =
-  | "Mono Pitch"
-  | "Compact Gable"
-  | "Standard Gable"
-  | "Large Gable"
-  | "Standard Clerestory"
-  | "Large Clerestory"
-  | "A Frame";
-
 export interface TypologyInfo {
   name: string;
   sqmRate: number;
-  detected: boolean; // false when we fell back to the default
+  detected: boolean; // reserved: always true now that typology comes from the Selection
 }
 
 // Per-typology m² rate, keyed by the new typology ids. The geometry-based
@@ -63,40 +53,6 @@ export function typologyInfoFor(sel: Selection): TypologyInfo {
     sqmRate: RATE_BY_TYPOLOGY[sel.typology],
     detected: true,
   };
-}
-
-export function detectTypology(planName: string): TypologyInfo {
-  const n = planName.toLowerCase();
-
-  if (n.includes("clerestory")) {
-    const isLarge = n.includes("large");
-    return {
-      name: isLarge ? "Large Clerestory" : "Standard Clerestory",
-      sqmRate: RATE_CLERESTORY,
-      detected: true,
-    };
-  }
-
-  if (n.includes("a frame") || n.includes("a-frame") || n.includes("aframe")) {
-    return { name: "A Frame", sqmRate: RATE_A_FRAME, detected: true };
-  }
-
-  if (n.includes("gable")) {
-    if (n.includes("compact") || n.includes("small")) {
-      return { name: "Compact Gable", sqmRate: RATE_GABLE, detected: true };
-    }
-    if (n.includes("large")) {
-      return { name: "Large Gable", sqmRate: RATE_GABLE, detected: true };
-    }
-    return { name: "Standard Gable", sqmRate: RATE_GABLE, detected: true };
-  }
-
-  if (n.includes("monopitch") || n.includes("mono pitch") || n.includes("mono-pitch")) {
-    return { name: "Mono Pitch", sqmRate: RATE_MONO_PITCH, detected: true };
-  }
-
-  // Fallback: assume Mono Pitch but flag as undetected so the UI can warn.
-  return { name: "Mono Pitch", sqmRate: RATE_MONO_PITCH, detected: false };
 }
 
 export interface CountRoomsResult {
