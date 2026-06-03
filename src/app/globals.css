@@ -35,6 +35,39 @@ body {
 .ab-cta:hover { background: var(--eh-green-500); }
 .ab-cta:active { transform: scale(0.98); }
 .ab-cta:focus-visible { outline: none; box-shadow: var(--eh-shadow-glow); }
+/* Disabled — keep the muted state even under a parent :hover. */
+.ab-cta:disabled,
+.ab-cta[disabled] { opacity: 0.42; cursor: not-allowed; }
+.ab-cta:disabled:hover,
+.ab-cta[disabled]:hover { background: var(--eh-green); }
+.ab-cta:disabled:active,
+.ab-cta[disabled]:active { transform: none; }
+
+/* Form field — lifted verbatim from design-refs/EH Configurator Layouts.html */
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--eh-text-muted);
+}
+.field input, .field select {
+  appearance: none; border: 1px solid var(--eh-stroke-strong); border-radius: 12px;
+  padding: 14px 16px; font-family: inherit; font-size: 15px; color: var(--eh-text);
+  background: #fff; outline: none; transition: border-color .15s, box-shadow .15s;
+}
+.field input:focus, .field select:focus {
+  border-color: var(--eh-green-500); box-shadow: 0 0 0 4px rgba(77, 204, 122, .18);
+}
+.field input::placeholder { color: var(--eh-text-soft); }
+
+/* Step 3 — client info / Generate PDF page. Two columns on ≥1024px, stacks below. */
+.eh-final-grid { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 0; }
+.eh-final-col { padding: 56px 64px; }
+.eh-final-right { border-left: 1px solid var(--eh-stroke); }
+@media (max-width: 1023px) {
+  .eh-final-grid { grid-template-columns: 1fr; }
+  .eh-final-col { padding: 36px 24px; }
+  .eh-final-right { border-left: 0; border-top: 1px solid var(--eh-stroke); }
+}
 
 .rail { position: relative; height: 6px; background: var(--eh-stroke); border-radius: 999px; pointer-events: none; }
 .rail__fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--eh-green-900); border-radius: 999px; pointer-events: none; }

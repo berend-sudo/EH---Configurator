@@ -142,6 +142,16 @@ function ConfiguratorScreen() {
     if (plan) setDelta(plan.minDelta);
   };
 
+  const goToSummary = () => {
+    const params = new URLSearchParams();
+    params.set("typology", selection.typology);
+    if (selection.subtype) params.set("subtype", selection.subtype);
+    params.set("bedrooms", String(bedrooms));
+    params.set("budget", String(budget));
+    params.set("delta", String(delta));
+    router.push(`/summary?${params.toString()}`);
+  };
+
   const updateParams = (next: { bedrooms?: number; selection?: Selection }) => {
     const params = new URLSearchParams(searchParams.toString());
     if (next.selection) {
@@ -341,14 +351,12 @@ function ConfiguratorScreen() {
 
           {/* CTAs */}
           <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: "auto" }}>
-            {/* /summary route doesn't exist yet — disabled placeholder. */}
             <button
               type="button"
               className="ab-cta"
-              disabled
-              aria-disabled
-              title="Coming soon"
-              style={{ opacity: 0.55, cursor: "not-allowed" }}
+              onClick={goToSummary}
+              disabled={!plan}
+              title={plan ? undefined : "Loading the plan…"}
             >
               Continue to summary →
             </button>

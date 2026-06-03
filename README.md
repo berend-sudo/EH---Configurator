@@ -26,16 +26,34 @@ Node 18+ is required (Next 14, App Router).
 
 ## Routes.
 
-| Path              | What it is                                                       |
-| ----------------- | --------------------------------------------------------------- |
-| `/`               | Landing — budget slider, bedrooms counter, typology picker.     |
-| `/configurator`   | Width slider, plan canvas, in-rail bedrooms/typology switcher.  |
-| `/api/parse-dxf`  | Reads one DXF from `public/floorplans/` and returns geometry.   |
-| `/api/floor-plans`| Directory scan of `public/floorplans/` → the plan registry.     |
+| Path                          | What it is                                                          |
+| ----------------------------- | ------------------------------------------------------------------ |
+| `/`                           | Landing — budget slider, bedrooms counter, typology picker.        |
+| `/configurator`               | Width slider, plan canvas, in-rail bedrooms/typology switcher.     |
+| `/summary`                    | Step 3 — design summary + contact form → generates a PDF.          |
+| `/api/parse-dxf`              | Reads one DXF from `public/floorplans/` and returns geometry.      |
+| `/api/floor-plans`            | Directory scan of `public/floorplans/` → the plan registry.        |
+| `/api/configurator/submit`    | Renders the 3-page design PDF; best-effort emails + logs the lead. |
 
-`/summary` (Step 3 — client info + PDF) is **not yet built**. The
-"Continue to summary →" button on the configurator is a disabled
-placeholder until it ships.
+`/summary` reads the same `?typology=&subtype=&bedrooms=&budget=&delta=`
+params, renders a design summary + contact form, and on submit POSTs to
+`/api/configurator/submit`. That route generates a 3-page PDF (cover /
+plan / spec & budget) and **always returns it for download**; it
+additionally emails the PDF and logs the lead to a Google Sheet **only
+when configured** (see Environment below), so it degrades gracefully with
+no secrets set.
+
+## Environment.
+
+Optional — the `/summary` PDF download works without any of these. Set
+them to turn on email + lead logging:
+
+| Var | Purpose |
+| --- | --- |
+| `RESEND_API_KEY` | Resend API key — enables emailing the PDF to the client. |
+| `EH_FROM_EMAIL` | From/reply-to address (default `Easy Housing <hello@easyhousing.org>`). |
+| `GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON` | Service-account JSON (shared into the sheet) for lead logging. |
+| `EH_LEADS_SHEET_ID` | Spreadsheet id of the "EH Configurator leads" sheet. |
 
 The configurator reads `?typology=`, `?subtype=`, `?bedrooms=`,
 `?budget=`, and `?v=` from the URL — those are the source of truth, so
@@ -198,14 +216,17 @@ inputs.
   furniture, dimension lines, room labels, and the mezzanine overlay at
   1:50.
 
-### 03 · Client info + PDF — *not yet built*.
+### 03 · Client info + PDF.
 
 > Reference artboard: `final` (`FinalScreen`).
 
-The artboard specs a design summary + contact form with a *"Generate
-PDF"* CTA. None of this is in the code yet — when it lands it should
-reuse `FloorplanSVG` for the plan thumbnail and `budget.ts` for the spec
-totals.
+A `1.05fr | 1fr` split: design summary on the left (DXF chip, mini
+`FloorplanSVG` thumbnail, stat strip) and a contact form on the right
+(full name, email, phone, timeline, consent). *"Generate PDF"* POSTs to
+`/api/configurator/submit`, which renders a 3-page PDF (Cover · Plan ·
+Spec & budget) with `@react-pdf/renderer`, returns it for download, and —
+when configured — emails it via Resend and appends a lead row to a Google
+Sheet. The spec totals come from `budget.ts`.
 
 ---
 
@@ -359,8 +380,8 @@ approximations of brand imagery, stock photography.
 
 ## Known gaps.
 
-- `/summary` route and the PDF templates don't exist yet — the
-  "Continue to summary →" CTA is intentionally disabled.
+- Email + Google-Sheets logging on `/summary` are off until their env
+  vars are set (see Environment); the PDF download works regardless.
 - Roof typology drives dimensions, pricing rate, and the picker, but
   not yet a typology-specific 3D/visual model — the canvas renders the
   served DXF's plan view regardless of typology.
