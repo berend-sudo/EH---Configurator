@@ -36,13 +36,16 @@ export function versionFromFile(file: string): number {
   return m ? Number(m[1]) : 1;
 }
 
-// EH-YYYY-NNNN reference shown on the page, the PDF cover, the email subject
-// footer and the sheet row. Generated once per submission (client-side) and
-// carried through the payload so a row can always be matched back to its PDF.
-export function makeReference(date: Date = new Date()): string {
-  const year = date.getFullYear();
-  const n = Math.floor(1000 + Math.random() * 9000); // 4-digit, never zero-padded short
-  return `EH-${year}-${n}`;
-}
+// EH-YYYY-XXXXXX reference shown on the page, the PDF cover, the email subject
+// footer, the Drive backlog filename description, the form row, and the sheet
+// row. Format: `EH-` + 4-digit year + `-` + 6 base32 chars [A-Z2-7]. A 32^6
+// ≈ 1 B per-year space — collision-free in practice for our volume.
+//
+// `makeReference` lives in `src/lib/server/reference.ts` (uses crypto.randomBytes),
+// so importers in client components don't pull `crypto` into the browser bundle.
+// Validation is pure regex and safe in both contexts.
+export const REFERENCE_RE = /^EH-\d{4}-[A-Z2-7]{6}$/;
 
-export const REFERENCE_RE = /^EH-\d{4}-\d{4}$/;
+export function validateReference(s: unknown): s is string {
+  return typeof s === "string" && REFERENCE_RE.test(s);
+}

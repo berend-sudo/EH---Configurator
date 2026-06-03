@@ -8,7 +8,7 @@ import EHNavBar from "@/components/EHNavBar";
 import { pickPlanByBedrooms, type FloorPlanEntry } from "@/lib/floor-plans";
 import { calculateBudget, countRooms, detectTypology, type LandingRoof } from "@/lib/budget";
 import { fmtUGX } from "@/components/landing/fmtUGX";
-import { dxfFilename, makeReference, versionFromFile, type DesignSelection } from "@/lib/design-id";
+import { dxfFilename, versionFromFile, type DesignSelection } from "@/lib/design-id";
 import {
   EMAIL_RE,
   TIMELINE_OPTIONS,
@@ -51,12 +51,30 @@ function FinalScreen() {
   const [plan, setPlan] = useState<FloorplanJSON | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Generated once on the client (this screen renders client-only behind the
-  // Suspense boundary), so the reference and date are stable for this design.
-  const [reference] = useState(() => makeReference());
+  // Reference is server-authoritative — fetched once on mount so the same id
+  // shows on the page, lands on the PDF, the email, the sheet row and the
+  // Drive backlog. Stable for the lifetime of this screen.
+  const [reference, setReference] = useState<string | null>(null);
   const [savedDate] = useState(() =>
     new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }),
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/configurator/reference", { cache: "no-store" });
+        if (!res.ok) return;
+        const json = (await res.json()) as { reference?: string };
+        if (!cancelled && json.reference) setReference(json.reference);
+      } catch {
+        // Best-effort — submit route will mint one if we send none.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -115,6 +133,7 @@ function FinalScreen() {
   const [submit, setSubmit] = useState<SubmitState>({ status: "idle" });
 
   const canGenerate =
+    reference !== null &&
     name.trim().length > 1 &&
     EMAIL_RE.test(email.trim()) &&
     phone.trim().length >= 6 &&
@@ -201,7 +220,7 @@ function FinalScreen() {
             {label}
           </h1>
           <p style={{ fontSize: 15, fontWeight: 300, color: "var(--eh-text-muted)", margin: "0 0 20px" }}>
-            Saved {savedDate} · ref {reference}
+            Saved {savedDate} · ref {reference ?? "pending…"}
           </p>
 
           {/* DXF chip — the file the architects receive */}

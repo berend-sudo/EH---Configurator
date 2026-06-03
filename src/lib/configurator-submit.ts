@@ -43,7 +43,13 @@ export interface SubmitPayload {
   budget: number;
   dimensions: DesignDimensions;
   client: ClientInfo;
-  reference: string;
+  /**
+   * Reference id minted by the server (via `GET /api/configurator/reference`)
+   * and displayed on the page. The submit endpoint validates the format with
+   * `validateReference` and mints a fresh one if missing or malformed — the
+   * server stays authoritative.
+   */
+  reference: string | null;
   source: string;
 }
 

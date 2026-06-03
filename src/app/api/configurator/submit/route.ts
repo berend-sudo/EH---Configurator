@@ -9,11 +9,14 @@ import {
   detectTypology,
   polygonAreaM2,
 } from "@/lib/budget";
-import { dxfFilename, pdfFilename, versionFromFile } from "@/lib/design-id";
+import { dxfFilename, pdfFilename, validateReference, versionFromFile } from "@/lib/design-id";
 import { isClientInfoValid, type SubmitPayload } from "@/lib/configurator-submit";
 import { renderDesignPdf, type RoomColorKey } from "@/lib/server/design-pdf";
 import { sendDesignEmail } from "@/lib/server/email";
 import { appendLead } from "@/lib/server/sheets";
+import { uploadPdfToBacklog } from "@/lib/server/drive";
+import { submitToLeadsForm } from "@/lib/server/forms";
+import { makeReference } from "@/lib/server/reference";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -39,10 +42,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
 
-  const { selection, bedrooms, client, reference } = payload ?? {};
-  if (!selection || !client || !reference || !isClientInfoValid(client)) {
+  const { selection, bedrooms, client } = payload ?? {};
+  if (!selection || !client || !isClientInfoValid(client)) {
     return NextResponse.json({ error: "Invalid or incomplete submission." }, { status: 400 });
   }
+  // Server is authoritative for the reference id. Trust the client only if
+  // the value matches our format; otherwise mint a fresh one. This keeps the
+  // id collision-resistant even if the client never called /reference.
+  const reference = validateReference(payload.reference) ? payload.reference : makeReference();
 
   const entry = FLOOR_PLANS.find((p) => p.file === selection.file);
   if (!entry) {
@@ -136,32 +143,82 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ emailed: false, error: EMAIL_FAIL }, { status: 502 });
   }
 
-  // ── 2. Log the lead to the Google Sheet — best-effort, never blocks email ──
-  let logged = false;
+  // ── 2. Archive the PDF to Drive ────────────────────────────────────────────
+  // Run first so the sheet row + form row can carry the viewer link. Failure
+  // is logged but doesn't block the request — the client already has the PDF
+  // by email.
+  let pdfDriveLink = "";
+  let archived = false;
   try {
-    await appendLead([
-      new Date().toISOString(),
+    const up = await uploadPdfToBacklog({
+      filename: pdfName,
+      pdf,
       reference,
-      client.name,
-      client.email,
-      client.phone,
-      client.timeline,
-      typology.name,
-      selection.subtype ?? "",
-      bedrooms,
-      widthM.toFixed(2),
-      lengthM.toFixed(2),
-      footprintM2.toFixed(2),
-      Math.round(budget.coreTotal),
-      dxfName,
-      pdfName,
-      payload.source ?? "",
-    ]);
-    logged = true;
+      label,
+    });
+    pdfDriveLink = up.webViewLink;
+    archived = true;
   } catch (e) {
-    // Don't fail the request — the client already has their PDF on the way.
-    console.error("[configurator/submit] sheet append failed (lead not logged):", e);
+    console.error("[configurator/submit] drive upload failed (no backlog entry):", e);
   }
 
-  return NextResponse.json({ emailed: true, logged, reference, pdfFilename: pdfName });
+  // ── 3. Sheet + form submission run in parallel — both best-effort ─────────
+  const sheetRow = [
+    new Date().toISOString(),
+    reference,
+    client.name,
+    client.email,
+    client.phone,
+    client.timeline,
+    typology.name,
+    selection.subtype ?? "",
+    bedrooms,
+    widthM.toFixed(2),
+    lengthM.toFixed(2),
+    footprintM2.toFixed(2),
+    Math.round(budget.coreTotal),
+    dxfName,
+    pdfName,
+    pdfDriveLink,
+    payload.source ?? "",
+  ];
+  const formValues: Record<string, string> = {
+    name: client.name,
+    email: client.email,
+    phone: client.phone,
+    timeline: client.timeline,
+    reference,
+    floorPlan: label,
+    bedrooms: String(bedrooms),
+    widthM: widthM.toFixed(2),
+    lengthM: lengthM.toFixed(2),
+    footprintM2: footprintM2.toFixed(2),
+    indicativeBudgetUgx: String(Math.round(budget.coreTotal)),
+    dxfFilename: dxfName,
+    pdfFilename: pdfName,
+    pdfDriveLink,
+    source: payload.source ?? "",
+  };
+
+  const [sheetRes, formRes] = await Promise.allSettled([
+    appendLead(sheetRow),
+    submitToLeadsForm(formValues),
+  ]);
+  const logged = sheetRes.status === "fulfilled";
+  const formSubmitted = formRes.status === "fulfilled";
+  if (sheetRes.status === "rejected") {
+    console.error("[configurator/submit] sheet append failed (lead not logged):", sheetRes.reason);
+  }
+  if (formRes.status === "rejected") {
+    console.error("[configurator/submit] form submission failed:", formRes.reason);
+  }
+
+  return NextResponse.json({
+    emailed: true,
+    archived,
+    logged,
+    formSubmitted,
+    reference,
+    pdfFilename: pdfName,
+  });
 }
