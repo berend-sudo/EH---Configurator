@@ -14,12 +14,40 @@ export type Timeline = (typeof TIMELINE_OPTIONS)[number];
 
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// ── Placeholder mirror fields ──────────────────────────────────────────────
+// These three fields stand in for the existing "request price list" Google
+// Form's questions until Wolf supplies the real list (see Phase 6 of
+// docs/integrations-setup.md). Swap the labels/options here and on
+// src/app/summary/page.tsx; the form-side mapping is purely env-driven via
+// EH_LEADS_FORM_FIELD_IDS_JSON, so no other code needs to change.
+export const PROJECT_TYPE_OPTIONS = [
+  "My own home",
+  "To rent out",
+  "NGO / community",
+  "Other",
+] as const;
+
+export const HEAR_ABOUT_OPTIONS = [
+  "Google search",
+  "Social media",
+  "Word of mouth",
+  "Press / news",
+  "Event or meetup",
+  "Other",
+] as const;
+
 export interface ClientInfo {
   name: string;
   email: string;
   phone: string;
   timeline: string;
   agreed: boolean;
+  // TODO(Wolf): swap these for the real form fields once we have the question
+  // list. `country` is required; the rest are optional and feed straight into
+  // the form payload via the logical-name → entry.* map.
+  country: string;
+  projectType?: string;
+  hearAbout?: string;
 }
 
 export interface DesignPayloadSelection {
@@ -54,13 +82,18 @@ export interface SubmitPayload {
 }
 
 // Mirrors the page's `canGenerate` predicate. Re-run server-side so a crafted
-// request can't bypass the disabled button.
+// request can't bypass the disabled button. Only the original four core
+// fields + consent + country are required; the other placeholder mirror
+// fields are optional. Defensive against missing properties — at runtime the
+// payload is unknown JSON, not a `ClientInfo`.
 export function isClientInfoValid(c: ClientInfo): boolean {
+  const s = (v: unknown) => (typeof v === "string" ? v : "");
   return (
-    c.name.trim().length > 1 &&
-    EMAIL_RE.test(c.email.trim()) &&
-    c.phone.trim().length >= 6 &&
-    (TIMELINE_OPTIONS as readonly string[]).includes(c.timeline) &&
-    c.agreed === true
+    s(c?.name).trim().length > 1 &&
+    EMAIL_RE.test(s(c?.email).trim()) &&
+    s(c?.phone).trim().length >= 6 &&
+    (TIMELINE_OPTIONS as readonly string[]).includes(s(c?.timeline)) &&
+    s(c?.country).trim().length > 1 &&
+    c?.agreed === true
   );
 }

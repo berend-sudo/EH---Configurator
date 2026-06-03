@@ -302,6 +302,9 @@ column is blank in the response sheet — not a hard failure.
         "email":              "entry.222222222",
         "phone":              "entry.333333333",
         "timeline":           "entry.444444444",
+        "country":            "entry.aaa",
+        "projectType":        "entry.bbb",
+        "hearAbout":          "entry.ccc",
         "reference":          "entry.555555555",
         "floorPlan":          "entry.666666666",
         "bedrooms":           "entry.777777777",
@@ -316,9 +319,17 @@ column is blank in the response sheet — not a hard failure.
       }
       ```
 
-      Logical names you don't have a mapping for are silently
-      skipped — so it's fine to leave out *e.g.* `pdfDriveLink`
-      if you skipped Phase 3c.
+      `country` / `projectType` / `hearAbout` are **placeholder
+      mirror fields** — they assume the existing form already asks
+      "Country / location", "What's this design for?", and "How
+      did you hear about us?". If the real form's questions are
+      different, edit `PROJECT_TYPE_OPTIONS` /
+      `HEAR_ABOUT_OPTIONS` in `src/lib/configurator-submit.ts`
+      and the matching `<select>` blocks in
+      `src/app/summary/page.tsx`, then map the new logical names
+      here. Logical names you don't have a mapping for are
+      silently skipped — so it's fine to leave out *e.g.*
+      `pdfDriveLink` if you skipped Phase 3c.
 
 - [ ] **6.16** Minify the JSON to a single line and paste it into
       `EH_LEADS_FORM_FIELD_IDS_JSON` on Vercel (step 4.7).

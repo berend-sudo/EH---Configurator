@@ -187,6 +187,11 @@ export async function POST(req: NextRequest) {
     email: client.email,
     phone: client.phone,
     timeline: client.timeline,
+    // Placeholder mirror fields — Wolf maps these logical keys to the real
+    // entry.* ids when the form questions are wired up (Phase 6).
+    country: client.country,
+    projectType: client.projectType ?? "",
+    hearAbout: client.hearAbout ?? "",
     reference,
     floorPlan: label,
     bedrooms: String(bedrooms),

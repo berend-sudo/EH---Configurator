@@ -11,6 +11,8 @@ import { fmtUGX } from "@/components/landing/fmtUGX";
 import { dxfFilename, versionFromFile, type DesignSelection } from "@/lib/design-id";
 import {
   EMAIL_RE,
+  HEAR_ABOUT_OPTIONS,
+  PROJECT_TYPE_OPTIONS,
   TIMELINE_OPTIONS,
   isClientInfoValid,
   type SubmitPayload,
@@ -129,6 +131,12 @@ function FinalScreen() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [timeline, setTimeline] = useState("");
+  // Placeholder mirror fields — see `ClientInfo` in
+  // src/lib/configurator-submit.ts for the contract and Phase 6 of
+  // docs/integrations-setup.md for swapping these for the real form Qs.
+  const [country, setCountry] = useState("");
+  const [projectType, setProjectType] = useState("");
+  const [hearAbout, setHearAbout] = useState("");
   const [agreed, setAgreed] = useState(false);
   const [submit, setSubmit] = useState<SubmitState>({ status: "idle" });
 
@@ -138,6 +146,7 @@ function FinalScreen() {
     EMAIL_RE.test(email.trim()) &&
     phone.trim().length >= 6 &&
     timeline !== "" &&
+    country.trim().length > 1 &&
     agreed === true;
 
   const goToStep = (step: number) => {
@@ -148,7 +157,16 @@ function FinalScreen() {
 
   const handleSubmit = async () => {
     if (!canGenerate || !plan) return;
-    const client = { name: name.trim(), email: email.trim(), phone: phone.trim(), timeline, agreed };
+    const client = {
+      name: name.trim(),
+      email: email.trim(),
+      phone: phone.trim(),
+      timeline,
+      country: country.trim(),
+      projectType: projectType || undefined,
+      hearAbout: hearAbout || undefined,
+      agreed,
+    };
     if (!isClientInfoValid(client)) return;
     setSubmit({ status: "sending" });
 
@@ -422,6 +440,51 @@ function FinalScreen() {
                 <p style={{ fontSize: 12, color: "var(--eh-text-soft)", margin: "2px 0 0" }}>
                   Minimum 4 months — time we need to design, prefab and ship your home.
                 </p>
+              </div>
+
+              {/* Placeholder mirror fields — swap labels/options here and in
+                  PROJECT_TYPE_OPTIONS / HEAR_ABOUT_OPTIONS once Wolf supplies
+                  the real form questions (Phase 6 of integrations-setup.md). */}
+              <div className="field" style={{ gridColumn: "1 / -1" }}>
+                <label htmlFor="eh-country">Country / location</label>
+                <input
+                  id="eh-country"
+                  type="text"
+                  autoComplete="country-name"
+                  placeholder="e.g. Uganda"
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="eh-project-type">What&apos;s this design for?</label>
+                <select
+                  id="eh-project-type"
+                  value={projectType}
+                  onChange={(e) => setProjectType(e.target.value)}
+                >
+                  <option value="">Select… (optional)</option>
+                  {PROJECT_TYPE_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="eh-hear-about">How did you hear about us?</label>
+                <select
+                  id="eh-hear-about"
+                  value={hearAbout}
+                  onChange={(e) => setHearAbout(e.target.value)}
+                >
+                  <option value="">Select… (optional)</option>
+                  {HEAR_ABOUT_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
