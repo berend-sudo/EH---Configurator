@@ -92,7 +92,7 @@ interface LocalLine    { type: "line";    layer: string; x1: number; y1: number;
 interface LocalArc     { type: "arc";     layer: string; cx: number; cy: number; r: number; sa: number; ea: number }
 interface LocalCircle  { type: "circle";  layer: string; cx: number; cy: number; r: number }
 interface LocalPoly    { type: "poly";    layer: string; closed: boolean; verts: { x: number; y: number }[] }
-interface LocalSpline  { type: "spline";  layer: string; pts: { x: number; y: number }[]; closed?: boolean; ctrl?: boolean }
+interface LocalSpline  { type: "spline";  layer: string; pts: { x: number; y: number }[]; closed?: boolean; ctrl?: boolean; degree?: number; knots?: number[] }
 interface LocalPoint   { type: "point";   layer: string; x: number; y: number }
 type LocalGeom = LocalLine | LocalArc | LocalCircle | LocalPoly | LocalSpline | LocalPoint;
 
@@ -229,14 +229,19 @@ function readBlockDef(pairs: Pair[], start: number): { geom: LocalGeom[]; end: n
     }
 
     if (code === 0 && value === "SPLINE") {
-      let j = i + 1, layer = "", flags = 0;
+      let j = i + 1, layer = "", flags = 0, degree = 3;
       const fit: { x: number; y: number }[] = [];
       const ctrl: { x: number; y: number }[] = [];
+      const knots: number[] = [];
       let fx: number | null = null, cpx: number | null = null;
       while (j < pairs.length && pairs[j].code !== 0) {
         const c = pairs[j].code, v = pairs[j].value;
         if (c === 8) layer = v;
         if (c === 70) flags = parseInt(v, 10) || 0;
+        if (c === 71) degree = parseInt(v, 10) || degree;
+        // 40 = knot value (one per knot, repeated). Comes BEFORE control-point
+        // codes (10/20) and weights (41), so it can't collide with them here.
+        if (c === 40) knots.push(n(v));
         if (c === 11) fx = n(v);
         if (c === 21 && fx !== null) { fit.push({ x: fx, y: n(v) }); fx = null; }
         if (c === 10) cpx = n(v);
@@ -244,12 +249,20 @@ function readBlockDef(pairs: Pair[], start: number): { geom: LocalGeom[]; end: n
         j++;
       }
       // Prefer fit points (they lie ON the curve). When only control points
-      // exist the curve does NOT pass through them, so flag it for hull-safe
-      // smoothing instead of interpolation.
+      // exist we'll evaluate the B-spline properly (de Boor) downstream, using
+      // the degree + knot vector captured here.
       const useFit = fit.length > 0;
       const pts = useFit ? fit : ctrl;
       if (pts.length > 1) {
-        geom.push({ type: "spline", layer, pts, closed: !!(flags & 1), ctrl: !useFit });
+        geom.push({
+          type: "spline",
+          layer,
+          pts,
+          closed: !!(flags & 1),
+          ctrl: !useFit,
+          degree,
+          knots: knots.length > 0 ? knots : undefined,
+        });
       }
       i = j; continue;
     }
@@ -310,36 +323,79 @@ function tessellateCircle(
   return pts;
 }
 
-// ── Chaikin corner-cutting: smooths a control polygon toward its B-spline ─────
-// without overshooting (the result stays within the convex hull). Used to draw
-// control-point-only DXF splines, which don't pass through their control points.
-function chaikin(
-  pts: { x: number; y: number }[],
-  closed: boolean,
-  iters: number,
-): { x: number; y: number }[] {
-  let p = pts;
-  for (let it = 0; it < iters && p.length >= 3; it++) {
-    const out: { x: number; y: number }[] = [];
-    const n = p.length;
-    if (closed) {
-      for (let i = 0; i < n; i++) {
-        const a = p[i], b = p[(i + 1) % n];
-        out.push({ x: 0.75 * a.x + 0.25 * b.x, y: 0.75 * a.y + 0.25 * b.y });
-        out.push({ x: 0.25 * a.x + 0.75 * b.x, y: 0.25 * a.y + 0.75 * b.y });
-      }
-    } else {
-      out.push(p[0]);
-      for (let i = 0; i < n - 1; i++) {
-        const a = p[i], b = p[i + 1];
-        out.push({ x: 0.75 * a.x + 0.25 * b.x, y: 0.75 * a.y + 0.25 * b.y });
-        out.push({ x: 0.25 * a.x + 0.75 * b.x, y: 0.25 * a.y + 0.75 * b.y });
-      }
-      out.push(p[n - 1]);
+// ── B-spline evaluation (de Boor) for control-point DXF splines ──────────────
+// Chaikin corner-cutting (used previously) converges to a quadratic B-spline,
+// which produced visible kinks on cubic furniture curves (the couch). De Boor
+// evaluates the actual B-spline of the given degree and knot vector, so the
+// result matches the CAD curve.
+
+function uniformOpenKnots(numCtrl: number, degree: number): number[] {
+  // Clamped uniform knot vector on [0, 1]:
+  //   first degree+1 knots = 0
+  //   last  degree+1 knots = 1
+  //   middle (numCtrl - degree - 1) interior knots evenly spaced.
+  const total = numCtrl + degree + 1;
+  const interior = total - 2 * (degree + 1);
+  const k: number[] = [];
+  for (let i = 0; i <= degree; i++) k.push(0);
+  for (let i = 1; i <= interior; i++) k.push(i / (interior + 1));
+  for (let i = 0; i <= degree; i++) k.push(1);
+  return k;
+}
+
+function deBoorEval(
+  t: number,
+  ctrl: { x: number; y: number }[],
+  knots: number[],
+  degree: number,
+): { x: number; y: number } {
+  // Find knot span k with knots[k] <= t < knots[k+1] (clamping at the end).
+  const n = ctrl.length - 1;
+  let k = degree;
+  while (k < n && t >= knots[k + 1]) k++;
+  const d: { x: number; y: number }[] = [];
+  for (let i = 0; i <= degree; i++) d.push({ ...ctrl[k - degree + i] });
+  for (let r = 1; r <= degree; r++) {
+    for (let i = degree; i >= r; i--) {
+      const idx = k - degree + i;
+      const denom = knots[idx + degree - r + 1] - knots[idx];
+      const a = denom === 0 ? 0 : (t - knots[idx]) / denom;
+      d[i] = {
+        x: (1 - a) * d[i - 1].x + a * d[i].x,
+        y: (1 - a) * d[i - 1].y + a * d[i].y,
+      };
     }
-    p = out;
   }
-  return p;
+  return d[degree];
+}
+
+const SPLINE_SAMPLES_PER_SPAN = 12;
+
+function tessellateSpline(
+  ctrl: { x: number; y: number }[],
+  degreeIn: number | undefined,
+  knotsIn: number[] | undefined,
+): { x: number; y: number }[] {
+  const degree = Math.max(1, Math.min(degreeIn ?? 3, ctrl.length - 1));
+  // The DXF can omit knots, or supply an arbitrary clamped vector. Either way
+  // we normalise to [0, 1] and synthesise a uniform clamped vector when needed.
+  const expected = ctrl.length + degree + 1;
+  let knots = knotsIn && knotsIn.length === expected ? knotsIn.slice() : uniformOpenKnots(ctrl.length, degree);
+  const tMin = knots[degree];
+  const tMax = knots[knots.length - degree - 1];
+  if (tMax > tMin) {
+    knots = knots.map((v) => (v - tMin) / (tMax - tMin));
+  }
+  // Sample with extra density across each non-zero interior span.
+  const spans = ctrl.length - degree;
+  const total = Math.max(8, spans * SPLINE_SAMPLES_PER_SPAN);
+  const pts: { x: number; y: number }[] = [];
+  for (let i = 0; i <= total; i++) {
+    // Clamp t to the last span open-end so de Boor lands cleanly on ctrl[n].
+    const t = Math.min(0.999999, i / total);
+    pts.push(deBoorEval(t, ctrl, knots, degree));
+  }
+  return pts;
 }
 
 // ── Flatten all local geometry to world-space polylines/splines ──────────────
@@ -377,11 +433,12 @@ function flattenGeom(
       out.push({ type: "polyline", closed: g.closed, vertices: verts } as GeomPolyline);
     } else if (g.type === "spline") {
       if (g.ctrl) {
-        // Control-point B-spline: corner-cut the control polygon so the curve
-        // stays inside the control hull (no overshoot). Drawing a spline
-        // *through* control points would distort the shape (e.g. chair backs).
-        const smoothed = chaikin(g.pts, !!g.closed, 3);
-        const verts = smoothed.map((v) => transformPoint(v.x, v.y, ix, iy, rotDeg, sx, sy));
+        // Control-point B-spline: evaluate the actual curve with de Boor,
+        // using the degree + knots supplied in the DXF (uniform clamped knots
+        // are synthesised when missing). Drawing a curve *through* control
+        // points would distort the shape (e.g. chair backs, couch arms).
+        const curve = tessellateSpline(g.pts, g.degree, g.knots);
+        const verts = curve.map((v) => transformPoint(v.x, v.y, ix, iy, rotDeg, sx, sy));
         out.push({ type: "polyline", closed: !!g.closed, vertices: verts } as GeomPolyline);
       } else {
         const points = g.pts.map((v) => transformPoint(v.x, v.y, ix, iy, rotDeg, sx, sy));
