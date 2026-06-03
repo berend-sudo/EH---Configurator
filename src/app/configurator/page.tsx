@@ -227,8 +227,6 @@ function ConfiguratorScreen() {
               type="button"
               className="ab-cta"
               onClick={goToSummary}
-              disabled={!plan}
-              title={plan ? undefined : "Loading floor plan…"}
               style={{ justifyContent: "center" }}
             >
               Continue to summary →
