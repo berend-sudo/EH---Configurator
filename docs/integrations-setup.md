@@ -223,7 +223,9 @@ Variables*. Add each one, scoped to **Production** (and
 - [ ] **5.4** Within ~10 seconds you should see:
       - The page line *"Sent — check … for your design PDF."*
       - The PDF in your inbox, attached as
-        `EH_MONO_<N>BR_v<v>.pdf`
+        `EH_<TYP>[-<SUB>]_<N>BR_v<v>.pdf` (e.g. `EH_MNP_0BR_v6.pdf`
+        for a Monopitch studio, `EH_GBL-STD_3BR_v1.pdf` for a Gable
+        Standard 3-bed)
       - A new row at the top of the **leads sheet**, with the same
         reference id as the PDF cover.
 - [ ] **5.5** *(If Phase 3c is configured.)* Open the
