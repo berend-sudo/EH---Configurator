@@ -11,7 +11,8 @@ import {
 import { dxfFilename, parseDxfFilename } from "@/lib/typologies";
 import { pdfFilename, validateReference } from "@/lib/design-id";
 import { isClientInfoValid, type SubmitPayload } from "@/lib/configurator-submit";
-import { renderDesignPdf, type RoomColorKey } from "@/lib/server/design-pdf";
+import { roomColorKey, roomDisplayName, type RoomColorKey } from "@/lib/rooms";
+import { renderDesignPdf } from "@/lib/server/design-pdf";
 import { sendDesignEmail } from "@/lib/server/email";
 import { appendLead } from "@/lib/server/sheets";
 import { uploadPdfToBacklog } from "@/lib/server/drive";
@@ -22,17 +23,6 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const EMAIL_FAIL = "We couldn't email your design — please check the address and try again.";
-
-function roomDisplayName(layerName: string): string {
-  if (layerName === "Rooms") return "Room";
-  return layerName.replace(/^Rooms\s*[$\-]\s*/, "");
-}
-
-function colorKeyFor(layerName: string): RoomColorKey {
-  if (layerName.includes("Bath")) return "bath";
-  if (layerName.includes("Terrace")) return "terrace";
-  return "living";
-}
 
 export async function POST(req: NextRequest) {
   let payload: SubmitPayload;
@@ -93,7 +83,7 @@ export async function POST(req: NextRequest) {
   for (const layer of plan.layers) {
     if (!layer.name.startsWith("Rooms")) continue;
     const name = roomDisplayName(layer.name);
-    const colorKey = colorKeyFor(layer.name);
+    const colorKey = roomColorKey(layer.name);
     for (const e of layer.entities) {
       if (e.type !== "polyline" || !e.closed) continue;
       const area = polygonAreaM2(e.vertices, delta);

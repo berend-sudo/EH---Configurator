@@ -15,6 +15,7 @@ import {
 } from "@react-pdf/renderer";
 import type { FloorplanJSON } from "@/types/floorplan";
 import type { BudgetLineItem } from "@/lib/budget";
+import type { RoomColorKey } from "@/lib/rooms";
 
 // ── Brand tokens (mirrors eh-tokens.css) ───────────────────────────────────
 const C = {
@@ -36,8 +37,6 @@ const ROOM_COLORS: Record<RoomColorKey, string> = {
   bath: C.bath,
   terrace: C.terrace,
 };
-
-export type RoomColorKey = "living" | "bath" | "terrace";
 
 export interface DesignPdfData {
   plan: FloorplanJSON;

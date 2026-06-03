@@ -1,6 +1,7 @@
 "use client";
 
 import type { FloorplanJSON, FloorplanEntity, BlockGeom, BlockEntity, PolylineEntity, Vertex } from "@/types/floorplan";
+import { roomColorKey, roomDisplayName } from "@/lib/rooms";
 
 interface Props {
   plan: FloorplanJSON;
@@ -123,15 +124,10 @@ function centroidSVG(
 // ── Room type helpers ─────────────────────────────────────────────────────────
 const WALL_THICKNESS = 94; // mm
 
+// Pattern ids in <RoomPatterns> are `pat-<colorKey>`, so the room→colour
+// classification (shared with the PDF legend) maps straight onto them.
 function roomPatternId(layerName: string): string {
-  if (layerName.includes("Bath")) return "pat-bath";
-  if (layerName.includes("Terrace")) return "pat-terrace";
-  return "pat-living";
-}
-
-function roomDisplayName(layerName: string): string {
-  if (layerName === "Rooms") return "Room";
-  return layerName.replace(/^Rooms\s*[$\-]\s*/, "");
+  return `pat-${roomColorKey(layerName)}`;
 }
 
 // ── Catmull-Rom spline ────────────────────────────────────────────────────────
