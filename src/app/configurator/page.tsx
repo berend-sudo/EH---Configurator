@@ -11,11 +11,19 @@ import ViewToggle, { type View } from "@/components/configurator/ViewToggle";
 import PhotoCollage from "@/components/configurator/PhotoCollage";
 import PlanSwitcher from "@/components/configurator/PlanSwitcher";
 import BudgetSlider from "@/components/landing/BudgetSlider";
-import { pickPlan, resolveAvailableBedrooms, type FloorPlanEntry } from "@/lib/floor-plans";
+import {
+  pickPlan,
+  resolveAvailableBedrooms,
+  resolveAvailableSelection,
+  type FloorPlanEntry,
+} from "@/lib/floor-plans";
 import { useFloorPlans } from "@/lib/useFloorPlans";
 import { calculateBudget, countRooms, typologyInfoFor } from "@/lib/budget";
 import {
+  maxBedroomsFor,
   minBedroomsFor,
+  priceFor,
+  resolveAffordableSelection,
   selectionFromParams,
   selectionLabel,
   type Selection,
@@ -54,10 +62,12 @@ function ConfiguratorScreen() {
     [plans, selection, requestedBedrooms],
   );
   const planFile = currentEntry?.file ?? null;
-  const budget = (() => {
+  // Budget is local state (source of truth for gating + the slider) so dragging
+  // stays smooth; it's seeded from ?budget= and synced back to the URL below.
+  const [budget, setBudget] = useState(() => {
     const n = budgetParam != null ? Number(budgetParam) : NaN;
     return Number.isFinite(n) && n > 0 ? n : LANDING_DEFAULT_BUDGET;
-  })();
+  });
 
   useEffect(() => {
     if (!planFile) return;
@@ -132,9 +142,8 @@ function ConfiguratorScreen() {
     if (plan) setDelta(plan.minDelta);
   };
 
-  const updateParams = (next: { bedrooms?: number; selection?: Selection; budget?: number }) => {
+  const updateParams = (next: { bedrooms?: number; selection?: Selection }) => {
     const params = new URLSearchParams(searchParams.toString());
-    if (next.budget != null) params.set("budget", String(next.budget));
     if (next.selection) {
       params.set("typology", next.selection.typology);
       if (next.selection.subtype) params.set("subtype", next.selection.subtype);
@@ -156,6 +165,40 @@ function ConfiguratorScreen() {
     }
     router.replace(`${pathname}?${params.toString()}`);
   };
+
+  // Persist the budget to the URL (debounced) so deep links keep it, without
+  // routing on every drag tick.
+  useEffect(() => {
+    const id = setTimeout(() => {
+      const params = new URLSearchParams(searchParams.toString());
+      if ((params.get("budget") ?? "") !== String(budget)) {
+        params.set("budget", String(budget));
+        router.replace(`${pathname}?${params.toString()}`);
+      }
+    }, 300);
+    return () => clearTimeout(id);
+  }, [budget, searchParams, pathname, router]);
+
+  // When the budget drops below the current selection/bedroom cost, move to the
+  // cheapest still-affordable + available option (mirrors the landing screen).
+  useEffect(() => {
+    if (!plans) return;
+    if (priceFor(selection, requestedBedrooms) <= budget) return;
+    const affordable = resolveAffordableSelection(budget, selection);
+    const reachable = resolveAvailableSelection(plans, affordable) ?? affordable;
+    const maxBr = maxBedroomsFor(budget, reachable);
+    const targetBr = Math.max(minBedroomsFor(reachable), Math.min(maxBr, requestedBedrooms));
+    const finalBr = resolveAvailableBedrooms(plans, reachable, targetBr);
+    if (
+      reachable.typology !== selection.typology ||
+      reachable.subtype !== selection.subtype ||
+      finalBr !== requestedBedrooms
+    ) {
+      updateParams({ selection: reachable, bedrooms: finalBr });
+    }
+    // updateParams is stable for our purposes; re-running only on the inputs below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [budget, selection, requestedBedrooms, plans]);
 
   return (
     <div
@@ -256,7 +299,7 @@ function ConfiguratorScreen() {
           />
 
           {/* Budget — adjustable here too; gates the switcher above. */}
-          <BudgetSlider value={budget} onChange={(b) => updateParams({ budget: b })} />
+          <BudgetSlider value={budget} onChange={setBudget} />
 
           {/* Dimensions */}
           <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
