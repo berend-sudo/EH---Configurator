@@ -2,14 +2,25 @@
 
 type Props = {
   value: number;
-  min: number;
-  max: number;
+  /** Selectable bedroom counts, ascending (e.g. [2, 4] when 1BR/3BR have no
+   *  plan). The +/- buttons step through THIS list, so gaps are skipped and
+   *  the user can't land on an unavailable count. */
+  options: number[];
   onChange: (n: number) => void;
 };
 
-export default function BedroomsCounter({ value, min, max, onChange }: Props) {
-  const atMin = value <= min;
-  const atMax = value >= max;
+export default function BedroomsCounter({ value, options, onChange }: Props) {
+  const opts = options.length > 0 ? options : [value];
+  // Index of the current value; if it's not in the list (transient, after a
+  // typology switch) fall back to the nearest lower option.
+  let idx = opts.indexOf(value);
+  if (idx === -1) {
+    idx = opts.reduce((best, b, i) => (b <= value ? i : best), 0);
+  }
+  const min = opts[0];
+  const max = opts[opts.length - 1];
+  const atMin = idx <= 0;
+  const atMax = idx >= opts.length - 1;
   const showMaxHint = max < 4;
 
   return (
@@ -38,7 +49,7 @@ export default function BedroomsCounter({ value, min, max, onChange }: Props) {
           type="button"
           aria-label="Decrease bedrooms"
           disabled={atMin}
-          onClick={() => onChange(Math.max(min, value - 1))}
+          onClick={() => !atMin && onChange(opts[idx - 1])}
           style={{
             width: 42,
             height: 42,
@@ -92,7 +103,7 @@ export default function BedroomsCounter({ value, min, max, onChange }: Props) {
           type="button"
           aria-label="Increase bedrooms"
           disabled={atMax}
-          onClick={() => onChange(Math.min(max, value + 1))}
+          onClick={() => !atMax && onChange(opts[idx + 1])}
           style={{
             width: 42,
             height: 42,

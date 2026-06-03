@@ -48,17 +48,23 @@ export default function LandingScreen({ plans }: Props) {
     }
   }, [budget, selection, plans]);
 
-  // Bedroom range — gated by both the budget (max) and what's on disk.
+  // Bedroom options — what's on disk for this selection, capped by the budget.
+  // The counter steps through THIS list so gaps (e.g. Clerestory Large ships
+  // 2BR + 4BR but no 3BR) are skipped instead of trapping the user at 2.
   const availBR = availableBedrooms(plans, selection);
   const affordableMax = maxBedroomsFor(budget, selection);
   const affordableBR = availBR.filter((b) => b <= affordableMax);
-  const minBed = affordableBR[0] ?? availBR[0] ?? 0;
-  const maxBed = affordableBR[affordableBR.length - 1] ?? availBR[availBR.length - 1] ?? 0;
+  const bedroomOptions = affordableBR.length > 0 ? affordableBR : availBR;
+  const minBed = bedroomOptions[0] ?? 0;
+  const maxBed = bedroomOptions[bedroomOptions.length - 1] ?? 0;
+  // Keep the count valid when the budget/typology changes shrink or move the
+  // option set; clamp to the nearest available value within the new bounds.
   useEffect(() => {
+    if (bedroomOptions.includes(bedrooms)) return;
     const clamped = resolveAvailableBedrooms(plans, selection, bedrooms);
     const next = Math.min(maxBed, Math.max(minBed, clamped));
     if (next !== bedrooms) setBedrooms(next);
-  }, [minBed, maxBed, bedrooms, plans, selection]);
+  }, [bedroomOptions, minBed, maxBed, bedrooms, plans, selection]);
 
   return (
     <main style={{ position: "relative", width: "100%", minHeight: "100vh", overflow: "hidden" }}>
@@ -133,7 +139,7 @@ export default function LandingScreen({ plans }: Props) {
 
           <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 36, marginBottom: 32 }}>
             <BudgetSlider value={budget} onChange={setBudget} />
-            <BedroomsCounter value={bedrooms} onChange={setBedrooms} min={minBed} max={maxBed} />
+            <BedroomsCounter value={bedrooms} onChange={setBedrooms} options={bedroomOptions} />
           </div>
           <TypologyPicker selection={selection} onChange={setSelection} budget={budget} plans={plans} />
 
