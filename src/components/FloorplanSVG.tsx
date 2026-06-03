@@ -9,6 +9,8 @@ interface Props {
   pxPerMm?: number;
   /** Show the mezzanine overlay + double-height annotation. Default true. */
   showMezzanine?: boolean;
+  /** Show the dimension lines. Default true; the summary thumbnail hides them. */
+  showDims?: boolean;
 }
 
 // ── Coordinate helpers ────────────────────────────────────────────────────────
@@ -829,7 +831,7 @@ function renderEntity(
 }
 
 // ── Root component ────────────────────────────────────────────────────────────
-export default function FloorplanSVG({ plan, delta, pxPerMm = 0.1, showMezzanine = true }: Props) {
+export default function FloorplanSVG({ plan, delta, pxPerMm = 0.1, showMezzanine = true, showDims = true }: Props) {
   // Fixed mm→viewBox-px scale. ViewBox grows with delta so the building, dim
   // lines and labels all sit at consistent visual proportions. The SVG element
   // itself fills the container width via CSS, so the *displayed* px-per-mm
@@ -868,7 +870,9 @@ export default function FloorplanSVG({ plan, delta, pxPerMm = 0.1, showMezzanine
 
       <MezzanineOverlay plan={plan} delta={delta} scale={scale} drawH={drawH} padX={padX} padY={padY} wp={wp} show={showMezzanine} />
       <RoomLabels plan={plan} delta={delta} scale={scale} drawH={drawH} padX={padX} padY={padY} wp={wp} showMezzanine={showMezzanine} />
-      <DimensionLines plan={plan} delta={delta} scale={scale} drawH={drawH} padX={padX} padY={padY} wp={wp} />
+      {showDims && (
+        <DimensionLines plan={plan} delta={delta} scale={scale} drawH={drawH} padX={padX} padY={padY} wp={wp} />
+      )}
     </svg>
   );
 }
