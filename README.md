@@ -1,10 +1,10 @@
 # EH Configurator
 
 A two-screen Next.js app for the **Easy Housing Configurator**. The user
-picks budget, bedrooms, and roof type on a landing screen, then refines
-the design (width, plan view) on a configurator screen. Floor plans are
-real DXF files; areas and budgets are computed from the geometry, not
-made up.
+picks a budget, bedroom count, and roof **typology** on a landing screen,
+then refines the design (width, plan view) on a configurator screen.
+Floor plans are real DXF files; areas and the indicative budget are
+computed from the geometry, not made up.
 
 The design tokens, fonts, logos, and high-fidelity HTML artboards live
 in `design_handoff_eh_configurator/`. The agent-facing rules and
@@ -26,48 +26,122 @@ Node 18+ is required (Next 14, App Router).
 
 ## Routes.
 
-| Path                | What it is                                                    |
-| ------------------- | ------------------------------------------------------------- |
-| `/`                 | Landing — budget slider, bedrooms counter, roof picker.       |
-| `/configurator`     | Width slider, plan canvas, in-rail bedrooms/roof switcher.    |
-| `/summary`          | Step 3 — client info, design summary, "Generate PDF".         |
-| `/api/parse-dxf`    | Reads a DXF from `public/floorplans/` and returns geometry.   |
-| `/api/budget-table` | Returns `{ bedrooms: corePriceUGX }` for the shipped plans.   |
-| `/api/configurator/reference` | Mints a server-authoritative `EH-YYYY-XXXXXX` reference (one per page load). |
-| `/api/configurator/submit` | Renders the PDF, emails it, archives to Drive, logs to Sheets, posts to the leads form. |
+| Path                          | What it is                                                       |
+| ----------------------------- | ---------------------------------------------------------------- |
+| `/`                           | Landing — budget slider, bedrooms counter, typology picker.      |
+| `/configurator`               | Width slider, plan canvas, in-rail bedrooms/typology switcher.   |
+| `/summary`                    | Step 3 — client info, design summary, "Generate PDF".            |
+| `/api/parse-dxf`              | Reads one DXF from `public/floorplans/` and returns geometry.    |
+| `/api/floor-plans`            | Directory scan of `public/floorplans/` → the plan registry.      |
+| `/api/configurator/reference` | Mints a server-authoritative `EH-YYYY-XXXXXX` reference.         |
+| `/api/configurator/submit`    | Renders the PDF, emails it, archives to Drive, logs the lead.    |
 
 The "Continue to summary →" button on the configurator carries the
-selection (`?bedrooms=&roof=&budget=&delta=`) through to `/summary`.
+selection (`?typology=&subtype=&bedrooms=&budget=&v=&delta=`) through to
+`/summary`.
 
-The configurator reads `?bedrooms=`, `?roof=`, `?budget=` from the URL —
-those are the source of truth, so deep links are stable and shareable.
+The configurator reads `?typology=`, `?subtype=`, `?bedrooms=`,
+`?budget=`, and `?v=` from the URL — those are the source of truth, so
+deep links are stable and shareable. (`subtype` is omitted for Monopitch,
+which has none; `v` selects a specific DXF version and defaults to the
+newest on disk.)
+
+## The typology data model.
+
+`src/lib/typologies.ts` is the **single source of truth**. It defines:
+
+- **Four typologies** (`TypologyId`): `monopitch`, `gable`, `aframe`,
+  `clerestory`. Monopitch has no subtype; the other three carry subtypes
+  (`Gable`: Small / Compact / Standard / Large; `A-frame`: Small / Normal
+  / Large; `Clerestory`: Standard / Large).
+- **Dimensions** for every typology / subtype — building depth, roof
+  pitch, ceiling low/high/avg, eaves front-back / sides, and the
+  clerestory ceiling-high/low pair. Every number is transcribed
+  **verbatim** from `docs/Easy Housing - Typology Dimensions.xlsx`
+  (Sheet1, rows 5–14). Nothing is interpolated. If the sheet changes,
+  edit it here and nowhere else.
+- A `Selection = { typology, subtype }` plus helpers: `subtypeOf`,
+  `dimensionsOf`, `depthMmOf`/`depthLabel`, `minBedroomsFor`,
+  `selectionLabel`, `defaultSelectionFor`, and the URL
+  (de)serialisers `selectionToParams` / `selectionFromParams`.
+- The DXF name builder/parser and the (placeholder) pricing helpers,
+  both described below.
+
+### DXF naming scheme.
+
+`dxfFilename()` / `parseDxfFilename()` are the **only** place a DXF
+filename is constructed or read. The scheme is:
+
+```
+EH_<TYP>[-<SUB>]_<BR>BR_v<n>.dxf
+```
+
+`<TYP>` is the 3-letter typology code (`MNP`, `GBL`, `AFR`, `CLR`),
+`<SUB>` the 3-letter subtype code (omitted for Monopitch), `<BR>` the
+bedroom count, `<n>` the version. `parseDxfFilename()` validates every
+code against `TYPOLOGIES` and returns `null` for anything off-scheme, so
+a directory scan can safely skip stray files. **Never hard-code a DXF
+filename anywhere else** — always route through these two functions.
+
+## The floor-plan registry.
+
+There is no hand-maintained list of plans. `src/lib/floor-plan-scan.ts`
+reads `public/floorplans/` at request time, runs each filename through
+`parseDxfFilename()`, and yields a list of `FloorPlanEntry`. It's exposed
+to the client at `/api/floor-plans` (and pre-scanned server-side in
+`app/page.tsx`, so the landing picker has the availability set on first
+paint with no fetch flash). Uploading a correctly-named DXF is all it
+takes to make a plan appear — no code change.
+
+`src/lib/floor-plans.ts` operates on that scanned set:
+
+- **`pickPlan(plans, selection, bedrooms)`** — tiered "closest available
+  plan" fallback. Tier 0 = exact typology+subtype; tier 1 = same typology,
+  other subtype; tier 2 = any other typology (last resort). Within a tier
+  the nearest bedroom count wins, ties break to the newest version. The
+  configurator shows a *"Closest available plan"* notice whenever the
+  served plan isn't the exact requested variant.
+- **`available*` / `resolveAvailable*`** — derive which typologies,
+  subtypes, and bedroom counts actually have a DXF on disk, and clamp a
+  selection / bedroom count to the nearest available one. This is how the
+  picker hides options without deleting their `TYPOLOGIES` data: the spec
+  stays, the UI only surfaces what's drawn. Re-enabling Gable Small or
+  Clerestory Standard is literally "drop a correctly-named DXF in
+  `public/floorplans/`".
+
+See `docs/dxf-gap-report.md` for the current present/missing matrix
+(regenerated from `TYPOLOGIES` against the on-disk inventory).
 
 ## Where things live.
 
 ```
 src/
   app/
-    page.tsx                  Landing route (server) → <LandingScreen/>
+    page.tsx                  Landing route (server) → pre-scans plans → <LandingScreen/>
     configurator/page.tsx     Configurator route (client)
-    api/parse-dxf/route.ts    DXF → FloorplanJSON
-    api/budget-table/route.ts Precomputed budget per bedroom count
+    api/parse-dxf/route.ts    One DXF → FloorplanJSON (safe filename validation)
+    api/floor-plans/route.ts  Directory scan → FloorPlanEntry[]
   components/
     EHNavBar.tsx              Shared top nav (light + dark variants)
-    FloorplanSVG.tsx          Renders the plan, dimensions, labels
-    landing/                  Landing-only widgets (BudgetSlider,
-                              BedroomsCounter, RoofPicker, …)
-    configurator/             Configurator-only widgets (SliderRow,
-                              PlanSwitcher, SummaryCard, ViewToggle, …)
+    FloorplanSVG.tsx          Renders the plan, dimensions, labels, mezzanine overlay
+    landing/                  Landing widgets (BudgetSlider, BedroomsCounter,
+                              TypologyPicker, LandingScreen)
+    configurator/             Configurator widgets (SliderRow, PlanSwitcher,
+                              SummaryCard, ViewToggle, PhotoCollage)
   lib/
-    dxf-parser.ts             DXF → typed JSON (walls, rooms, …)
-    floor-plans.ts            Registry of DXF files keyed by bedrooms
-    budget.ts                 Cost rates + countRooms + calculateBudget
-    budget-table.ts           Server-only: precomputes the price table
-    useBudgetTable.ts         Client hook that fetches the API
+    typologies.ts             SINGLE SOURCE OF TRUTH — typologies, dims, DXF scheme, pricing
+    floor-plans.ts            FloorPlanEntry, pickPlan, availability helpers
+    floor-plan-scan.ts        Server-only scan of public/floorplans/
+    dxf-parser.ts             DXF → typed JSON (walls, rooms, mezzanine, …)
+    budget.ts                 Geometry-based indicative budget (countRooms + calculateBudget)
+    useFloorPlans.ts          Client hook that fetches /api/floor-plans
 public/
   floorplans/                 DXF files served at runtime
   brand/                      Logos
   fonts/                      Poppins
+docs/
+  Easy Housing - Typology Dimensions.xlsx   Dimensional source of truth
+  dxf-gap-report.md                         Present/missing DXF coverage matrix
 design_handoff_eh_configurator/
   CLAUDE.md                   Agent rules — read before changing visuals
   tokens/                     Design tokens, fonts, logo assets
@@ -84,27 +158,22 @@ design_handoff_eh_configurator/
 
 Full-bleed photo background (current placeholder: deep-green gradient
 with a diagonal dark overlay). Centered 760 px white card holds the
-three inputs.
+inputs.
 
-- **Top nav** — transparent over the photo, white text. Logo
-  (`logo-full-white.png`, 28 px), `|` divider, "Configurator" label,
-  three 28 × 4 progress bars + "Step **1** of 3" on the right.
-- **Card content** — pill chip *"Quick configurator"*, H1 *"Let's
-  design your home."*, body paragraph, then:
-  - **Budget slider** — range **42M–115M UGX**, default **75M**, step
-    500k. (Spec called for 18M–75M; the slider was widened to match
-    the real DXF-derived prices, see Budget pipeline below.)
-  - **Bedrooms counter** — Studio (0) through whatever the current
-    roof + budget allow. The bounds vary per roof: Monopitch allows
-    0–3 (Studio plus 1BR / 2BR / 3BR), Clerestory will go up to 4BR
-    once its DXFs land, Gable's range TBD. Lower bound is 0 for
-    Monopitch and ≥ 1 for the others. Auto-clamps when the budget
-    drops below the current selection.
-  - **Roof type picker** — three cards: Monopitch, Gable, Clerestory.
-    Gable and Clerestory are visible but greyed-out until their DXFs
-    ship — see "Adding a new roof type" below.
+- **Top nav** — transparent over the photo, white text. Logo, divider,
+  "Configurator" label, three progress bars + "Step **1** of 3".
+- **Budget slider** — UGX, drives which bedroom counts and typologies
+  are affordable.
+- **Bedrooms counter** — bounded by both the budget *and* what's on
+  disk for the current selection. Lower bound is `minBedroomsFor()`
+  (0 for Monopitch and A-frame Small; ≥ 1 otherwise). Auto-clamps when
+  the budget or selection changes.
+- **Typology picker** — four tiles (Monopitch / Gable / A-frame /
+  Clerestory) plus a docked subtype strip for the active typology. Tiles
+  and chips grey out when over budget, and are hidden entirely when no
+  DXF exists for them (the picker takes the scanned `plans` list).
 - **Primary CTA** — *"Open the configurator →"* navigates to
-  `/configurator?budget=…&bedrooms=…&roof=…`.
+  `/configurator?typology=…&subtype=…&bedrooms=…&budget=…`.
 
 ### 02 · Configurator.
 
@@ -112,27 +181,25 @@ three inputs.
 
 380 px left rail of controls + 1fr right canvas.
 
-- **Title block** — eyebrow *"YOUR DESIGN"*, H2 *"Monopitch ·
-  N-bed"*, subtitle *"N bedrooms · Monopitch roof"*. Updates live as
-  the user switches plans.
-- **Plan switcher** — two `seg` pill rows: Bedrooms (Studio / 1BR /
-  2BR / 3BR) and Roof (Monopitch / Gable / Clerestory). Pills grey
-  out for over-budget bedrooms and unavailable roofs. Clicking
-  updates the URL params and reloads the DXF.
+- **Title block** — eyebrow *"YOUR DESIGN"*, model heading, subtitle,
+  and the *"Closest available plan"* notice when the served plan is a
+  fallback (see `pickPlan`).
+- **Plan switcher** (`PlanSwitcher`) — a Bedrooms seg row plus the
+  compact `TypologyPicker`. Both gate on the scanned plans: only bedroom
+  counts and subtypes with a DXF are offered.
 - **Width slider** — `SliderRow`, range = `plan.baseWidth + minDelta`
   to `plan.baseWidth + maxDelta`, **610 mm step** (one stud module).
-  Each DXF declares its own min/max delta; the slider clamps
-  accordingly.
-- **Summary card** — Footprint, Living area, Terrace, and the
-  Indicative budget. The single source of truth for price on this
-  screen — do not float a budget chip over the plan.
-- **CTAs** — primary *"Continue to summary →"* (disabled, /summary
-  not built); ghost *"Reset to default"* resets the slider to
-  `plan.minDelta`.
-- **Toolbar** — *"Plan view · 1:50"* pill + helper text, and a
-  segmented Plan / Example images toggle.
+  Each DXF declares its own min/max delta.
+- **Summary card** — Footprint, Living area, Terrace, an optional
+  Mezzanine row (only when the plan has one), the Indicative budget, and
+  the served DXF filename. The single source of truth for price on this
+  screen.
+- **Toolbar** — *"Plan view · 1:50"* pill, a **Plan only / With
+  mezzanine** segmented control (only shown when the plan has a
+  `Rooms$Mezzanine` layer), and a Plan / Example images toggle.
 - **Canvas** — `FloorplanSVG` renders walls, rooms, doors, windows,
-  furniture, dimension lines, and room labels at 1:50.
+  furniture, dimension lines, room labels, and the mezzanine overlay at
+  1:50.
 
 ### 03 · Client info + PDF.
 
@@ -144,10 +211,11 @@ showing the output filename, the `FloorplanSVG` thumbnail
 (`showDims={false}`), and a Width / Length / Footprint / Bedrooms
 stat strip. **Right** — a deep-green summary card (the *only* place
 the budget appears, plus Width / Length chips) and the contact form:
-full name, email, phone, *"Intended timeline to delivery"*, and a
-consent paragraph linking the terms & privacy PDFs. The **Generate
-PDF** button stays `disabled` until every field is valid and consent
-is ticked (`canGenerate` in `src/app/summary/page.tsx`).
+full name, email, phone, *"Intended timeline to delivery"*, plus the
+placeholder mirror fields (country / project type / hear-about), and
+a consent paragraph linking the terms & privacy PDFs. The **Generate
+PDF** button stays `disabled` until every required field is valid
+and consent is ticked (`canGenerate` in `src/app/summary/page.tsx`).
 
 On submit the page POSTs the full design to
 `/api/configurator/submit`, which:
@@ -180,12 +248,12 @@ the per-sink booleans `{ emailed, archived, logged, formSubmitted }`.
 The `EH-YYYY-XXXXXX` reference is **server-authoritative** —
 `/api/configurator/reference` mints it on page load, the submit
 endpoint re-validates and re-mints if the client tampered with the
-value (`validateReference` in `src/lib/design-id.ts`,
-`makeReference` in `src/lib/server/reference.ts`). The same id
-shows on the page, the PDF cover, the email subject footer, the
-sheet row, the Drive filename description, and the form row.
-Output filenames flow through `dxfFilename` / `pdfFilename` in
-`src/lib/design-id.ts` — the single source of truth for the
+value (`validateReference` + `makeReference` in
+`src/lib/server/reference.ts`). The same id shows on the page, the
+PDF cover, the email subject footer, the sheet row, the Drive
+filename description, and the form row. Output filenames flow
+through `dxfFilename` (in `src/lib/typologies.ts`) and the matching
+`pdfFilename` helper — the single source of truth for the
 `EH_<TYP>[-<SUB>]_<BR>BR_v<n>` scheme. Google JWT/token exchange
 lives in `src/lib/server/google-auth.ts` and is shared by `sheets`
 + `drive`; scope is requested per-call.
@@ -217,109 +285,66 @@ documents before launch.
 
 ## Budget pipeline.
 
-Two budget surfaces have to agree:
+Two budget surfaces, two roles:
 
-1. **Landing** uses a precomputed table to grey out bedroom and roof
-   options the user can't afford.
-2. **Configurator** computes the budget live from the loaded DXF as
-   the width slider moves.
+1. **Landing affordability** uses the **placeholder** `basePrice +
+   BEDROOM_COST` model in `typologies.ts` (`priceFor`, `minCostFor`,
+   `maxBedroomsFor`, `*Availability`, `resolveAffordableSelection`) to
+   grey out and clamp options the budget can't reach. These base prices
+   are **provisional** — the spreadsheet carries no prices — so they are
+   flagged `PLACEHOLDER` in the data and must be replaced with confirmed
+   figures before launch.
+2. **Configurator indicative budget** is computed live from the loaded
+   DXF geometry in `src/lib/budget.ts`: `countRooms` → `calculateBudget`,
+   using per-m² rates from the "Price Calc" sheet. This is the number
+   shown in the summary card and it updates as the width slider moves.
 
-Both go through the same code path in `src/lib/budget.ts`:
-`countRooms` → `calculateBudget`. The Landing's table is just those
-values evaluated at each plan's minimum width — computed server-side
-in `src/lib/budget-table.ts`, exposed at `/api/budget-table`, and
-prerendered as static by Next so the response is essentially free.
-
-The Landing's affordability helpers (`isAffordable`, `maxBedroomsFor`,
-`minCostFor`) take the table as their first argument:
-
-```ts
-export const maxBedroomsFor = (
-  table: BudgetTable | null,
-  budget: number,
-  roof: RoofType,
-) => {
-  const floor = minBedroomsFor(roof);
-  if (!table) return 4; // pre-fetch: don't gate
-  for (let b = 4; b >= floor; b--) {
-    const p = priceFor(table, roof, b);
-    if (p != null && p <= budget) return b;
-  }
-  return floor;
-};
-```
-
-With `table = null` (the brief window before `useBudgetTable()`
-resolves) the helpers are permissive and don't gate, so nothing
-flickers when the page hydrates.
-
-**Do not hard-code prices in the UI.** If you change a DXF or the
-rates in `budget.ts`, the table refreshes on the next build — there's
-no constant to hand-edit.
+`MEZZANINE_COST` and `BEDROOM_COST` are explicit TODO placeholders — do
+not invent values for them. **Do not paste cost constants into the UI;**
+read the helpers in `typologies.ts` (Landing) or compute live via
+`budget.ts` (configurator).
 
 ## Adding a new floor plan.
 
-1. Drop the DXF into `public/floorplans/`.
-2. Add an entry to `FLOOR_PLANS` in `src/lib/floor-plans.ts` with a
-   stable id, the filename, and the bedroom count.
-3. Rebuild. `/api/budget-table` and `PlanSwitcher` both pick it up
-   automatically.
+1. Name the DXF to the scheme — easiest is to copy what
+   `dxfFilename(selection, bedrooms, version)` would produce.
+2. Drop it into `public/floorplans/`.
+3. That's it. The next request re-scans the directory; `/api/floor-plans`,
+   the landing picker, and `PlanSwitcher` all pick it up automatically.
+   If it re-enables a previously-hidden subtype (e.g. Gable Small), that
+   tile/chip reappears on its own.
 
 The DXF must follow the layer convention the parser expects: room
 polygons on layers named `Rooms$<Name>` (`Rooms$Bed Room`,
-`Rooms$Bath Room`, `Rooms$Living Room`, `Rooms$Terrace`), plus
-`Walls`, `Doors`, `Windows`, `Furniture`. Vertices with the `moveX`
-flag stretch with the slider; wall/room vertices coincident with a
-window corner can be `attach`ed to that window so they track the
-capped edge. See `src/lib/dxf-parser.ts` for the full convention.
+`Rooms$Bath Room`, `Rooms$Living Room`, `Rooms$Terrace`, and
+`Rooms$Mezzanine` for a mezzanine), plus `Walls`, `Doors`, `Windows`,
+`Furniture`. Vertices with the `moveX` flag stretch with the slider;
+wall/room vertices coincident with a window corner can be `attach`ed to
+that window so they track the capped edge. See `src/lib/dxf-parser.ts`
+for the full convention.
 
-## Adding a new roof type.
+## Mezzanine.
 
-The roof picker on Landing and the in-rail switcher on Configurator
-already expose Monopitch, Gable, and Clerestory, but only Monopitch
-DXFs ship today. When the others arrive:
-
-1. Drop the new DXFs in `public/floorplans/` and register them in
-   `FLOOR_PLANS`. Note the bedroom range varies per roof — Monopitch
-   ships 0–3, Clerestory is expected up to 4. Encode the new upper
-   bound in a `maxBedroomsForRoof(roof)` helper (mirror of the
-   existing `minBedroomsFor`) and use it in the Landing counter and
-   the configurator's `PlanSwitcher`.
-2. Extend `computeBudgetTable` in `src/lib/budget-table.ts` to return
-   a per-roof table (the type signature is the only thing that needs
-   to change — the loop already exists).
-3. Remove the `available: false` flags from the roof entries in
-   `src/components/configurator/PlanSwitcher.tsx`.
+A plan has a mezzanine when its DXF carries a `Rooms$Mezzanine` layer;
+the parser folds it into `plan.mezzanine` (footprints + area). The
+mezzanine area is **not** added to ground-floor GFA — it's the
+upper-floor extent. `FloorplanSVG`'s `MezzanineOverlay` draws the "line
+of floor above" (hatch + dashed footprint + label chip), and the canvas
+toolbar shows a Plan-only / With-mezzanine toggle. Today only
+`EH_AFR-LRG_1BR_v1.dxf` ships with a mezzanine.
 
 ---
 
-## Interactions & behaviour.
-
-- **Slider drag** updates the floor plan SVG in real time, plus the
-  Footprint, Living, Terrace, and Indicative budget rows in the
-  summary card.
-- **Budget / bedrooms / roof on landing** are coupled: changing the
-  budget or roof can change the maximum bedroom count, and the
-  counter auto-clamps via the useEffect in `LandingScreen.tsx`.
-- **View toggle** on the configurator — `Plan` ⇄ `Example images`,
-  220 ms fade.
-- **Hover** on primary button — bg `--eh-green` → `--eh-green-500`,
-  no scale, 220 ms `var(--eh-ease)`.
-- **Press** on any button — `scale(0.98)`, no color change, 120 ms.
-- **Focus ring** — 2 px `--eh-green` outline at 4 px offset, or the
-  existing `--eh-shadow-glow` (soft green 6 px).
-- **No bounce, no spring overshoot.**
-
 ## State.
 
-- `view: "plan" | "images"` — local to the configurator screen.
-- `roof`, `bedrooms`, `budget` — landing local state; pushed to the
+- `view: "plan" | "images"`, `showMezzanine` — local to the configurator.
+- `budget`, `bedrooms`, `selection` — landing local state; pushed to the
   configurator route as URL params.
-- The configurator reads URL params back out — those are the source
-  of truth, so refreshes and deep links restore the same view.
-- `clientInfo: { name, email, phone, timeline, consent }` — local to
-  the `/summary` screen; posted to `/api/configurator/submit` on
-  Generate PDF.
+- The configurator reads URL params back out — those are the source of
+  truth, so refreshes and deep links restore the same view.
+- `clientInfo: { name, email, phone, timeline, country, projectType,
+  hearAbout, consent }` — local to the `/summary` screen; posted to
+  `/api/configurator/submit` on Generate PDF.
 
 ---
 
@@ -386,11 +411,14 @@ approximations of brand imagery, stock photography.
 - **The price lives in one place per screen.** On the configurator
   it's the "Indicative budget" row in the left summary card — do
   *not* float a budget chip over the plan.
-- **Pricing is data-driven.** Use the DXF-derived table from
-  `/api/budget-table` (Landing) or compute live in the configurator;
-  never paste cost constants into the UI.
-- **Width is the only adjustable dimension.** Length is fixed per
-  model. Do not add a length slider.
+- **Pricing is data-driven.** Use the helpers in `typologies.ts`
+  (Landing) or compute live via `budget.ts` (configurator); never paste
+  cost constants into the UI. Base prices are placeholders pending
+  confirmed figures.
+- **Width is the only adjustable dimension.** Length (building depth) is
+  fixed per model. Do not add a length slider.
+- **Don't rename the DXF scheme or the URL params** (`typology`,
+  `subtype`, `bedrooms`, `budget`, `v`).
 
 ## Icons & photography.
 
@@ -410,13 +438,14 @@ approximations of brand imagery, stock photography.
   doors / furniture) — enough for an indicative brief. The on-screen
   `FloorplanSVG` remains the full-detail renderer.
 - Legal PDFs under `public/legal/` are placeholders.
-- Roof type doesn't yet drive the visual model. The selection rides
-  on the URL but every shipped DXF is Monopitch, so the canvas is the
-  same regardless. See "Adding a new roof type" above.
-- The bedrooms upper bound is currently **3** (Monopitch only). The
-  hard-coded `4` in `BedroomsCounter`'s *"max N for this budget"*
-  hint and in `maxBedroomsFor` should become a per-roof value once
-  Clerestory's 4BR DXF arrives. See "Adding a new roof type".
+- Roof typology drives dimensions, pricing rate, and the picker, but
+  not yet a typology-specific 3D/visual model — the canvas renders the
+  served DXF's plan view regardless of typology.
+- Most `{typology, subtype, bedrooms}` combinations don't have a DXF yet;
+  `pickPlan` serves the closest available plan with a notice until they
+  land. See `docs/dxf-gap-report.md`.
+- `basePrice` / `BEDROOM_COST` / `MEZZANINE_COST` are placeholders
+  pending confirmed numbers.
 
 ## Tone of voice.
 

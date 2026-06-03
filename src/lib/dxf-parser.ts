@@ -9,6 +9,7 @@ import type {
   GeomCircle,
   Vertex,
 } from "@/types/floorplan";
+import { stitchSegments } from "@/lib/dxf/stitch-segments";
 
 // ── Pair parsing ─────────────────────────────────────────────────────────────
 
@@ -25,6 +26,28 @@ function parsePairs(content: string): Pair[] {
 }
 
 function n(s: string) { return parseFloat(s) || 0; }
+
+/** Layers whose POLYLINE geometry we render (walls, doors, windows, furniture, rooms). */
+function isPlanLayer(layer: string): boolean {
+  return (
+    layer === "Walls" ||
+    layer === "Doors" ||
+    layer === "Windows" ||
+    layer === "Furniture" ||
+    layer.startsWith("Rooms")
+  );
+}
+
+/** Layers whose loose LINE/SPLINE segments get stitched into closed polylines.
+ *  Furniture is excluded — its geometry comes from block INSERTs / polylines. */
+function isStitchLayer(layer: string): boolean {
+  return (
+    layer === "Walls" ||
+    layer === "Doors" ||
+    layer === "Windows" ||
+    layer.startsWith("Rooms")
+  );
+}
 
 // ── Zone classifier: nearest PT wins ─────────────────────────────────────────
 
@@ -69,7 +92,7 @@ interface LocalLine    { type: "line";    layer: string; x1: number; y1: number;
 interface LocalArc     { type: "arc";     layer: string; cx: number; cy: number; r: number; sa: number; ea: number }
 interface LocalCircle  { type: "circle";  layer: string; cx: number; cy: number; r: number }
 interface LocalPoly    { type: "poly";    layer: string; closed: boolean; verts: { x: number; y: number }[] }
-interface LocalSpline  { type: "spline";  layer: string; pts: { x: number; y: number }[] }
+interface LocalSpline  { type: "spline";  layer: string; pts: { x: number; y: number }[]; closed?: boolean; ctrl?: boolean }
 interface LocalPoint   { type: "point";   layer: string; x: number; y: number }
 type LocalGeom = LocalLine | LocalArc | LocalCircle | LocalPoly | LocalSpline | LocalPoint;
 
@@ -206,21 +229,28 @@ function readBlockDef(pairs: Pair[], start: number): { geom: LocalGeom[]; end: n
     }
 
     if (code === 0 && value === "SPLINE") {
-      let j = i + 1, layer = "";
+      let j = i + 1, layer = "", flags = 0;
       const fit: { x: number; y: number }[] = [];
       const ctrl: { x: number; y: number }[] = [];
       let fx: number | null = null, cpx: number | null = null;
       while (j < pairs.length && pairs[j].code !== 0) {
         const c = pairs[j].code, v = pairs[j].value;
         if (c === 8) layer = v;
+        if (c === 70) flags = parseInt(v, 10) || 0;
         if (c === 11) fx = n(v);
         if (c === 21 && fx !== null) { fit.push({ x: fx, y: n(v) }); fx = null; }
         if (c === 10) cpx = n(v);
         if (c === 20 && cpx !== null) { ctrl.push({ x: cpx, y: n(v) }); cpx = null; }
         j++;
       }
-      const pts = fit.length > 0 ? fit : ctrl;
-      if (pts.length > 1) geom.push({ type: "spline", layer, pts });
+      // Prefer fit points (they lie ON the curve). When only control points
+      // exist the curve does NOT pass through them, so flag it for hull-safe
+      // smoothing instead of interpolation.
+      const useFit = fit.length > 0;
+      const pts = useFit ? fit : ctrl;
+      if (pts.length > 1) {
+        geom.push({ type: "spline", layer, pts, closed: !!(flags & 1), ctrl: !useFit });
+      }
       i = j; continue;
     }
 
@@ -280,6 +310,38 @@ function tessellateCircle(
   return pts;
 }
 
+// ── Chaikin corner-cutting: smooths a control polygon toward its B-spline ─────
+// without overshooting (the result stays within the convex hull). Used to draw
+// control-point-only DXF splines, which don't pass through their control points.
+function chaikin(
+  pts: { x: number; y: number }[],
+  closed: boolean,
+  iters: number,
+): { x: number; y: number }[] {
+  let p = pts;
+  for (let it = 0; it < iters && p.length >= 3; it++) {
+    const out: { x: number; y: number }[] = [];
+    const n = p.length;
+    if (closed) {
+      for (let i = 0; i < n; i++) {
+        const a = p[i], b = p[(i + 1) % n];
+        out.push({ x: 0.75 * a.x + 0.25 * b.x, y: 0.75 * a.y + 0.25 * b.y });
+        out.push({ x: 0.25 * a.x + 0.75 * b.x, y: 0.25 * a.y + 0.75 * b.y });
+      }
+    } else {
+      out.push(p[0]);
+      for (let i = 0; i < n - 1; i++) {
+        const a = p[i], b = p[i + 1];
+        out.push({ x: 0.75 * a.x + 0.25 * b.x, y: 0.75 * a.y + 0.25 * b.y });
+        out.push({ x: 0.25 * a.x + 0.75 * b.x, y: 0.25 * a.y + 0.75 * b.y });
+      }
+      out.push(p[n - 1]);
+    }
+    p = out;
+  }
+  return p;
+}
+
 // ── Flatten all local geometry to world-space polylines/splines ──────────────
 
 function flattenGeom(
@@ -314,8 +376,17 @@ function flattenGeom(
       const verts = g.verts.map((v) => transformPoint(v.x, v.y, ix, iy, rotDeg, sx, sy));
       out.push({ type: "polyline", closed: g.closed, vertices: verts } as GeomPolyline);
     } else if (g.type === "spline") {
-      const points = g.pts.map((v) => transformPoint(v.x, v.y, ix, iy, rotDeg, sx, sy));
-      out.push({ type: "spline", points } as GeomSpline);
+      if (g.ctrl) {
+        // Control-point B-spline: corner-cut the control polygon so the curve
+        // stays inside the control hull (no overshoot). Drawing a spline
+        // *through* control points would distort the shape (e.g. chair backs).
+        const smoothed = chaikin(g.pts, !!g.closed, 3);
+        const verts = smoothed.map((v) => transformPoint(v.x, v.y, ix, iy, rotDeg, sx, sy));
+        out.push({ type: "polyline", closed: !!g.closed, vertices: verts } as GeomPolyline);
+      } else {
+        const points = g.pts.map((v) => transformPoint(v.x, v.y, ix, iy, rotDeg, sx, sy));
+        out.push({ type: "spline", points } as GeomSpline);
+      }
     }
   }
 
@@ -385,6 +456,9 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
   const ptRight: { x: number; y: number }[] = [];
   const ptLeft:  { x: number; y: number }[] = [];
   const polylines: { layer: string; closed: boolean; vertices: { x: number; y: number }[] }[] = [];
+  // Free-standing LINE / SPLINE entities on Walls/Doors/Windows/Rooms layers —
+  // stitched back into closed (or open) polylines after the parse loop.
+  const segments: { layer: string; vertices: { x: number; y: number }[] }[] = [];
   const inserts: { name: string; x: number; y: number; rotation: number; scaleX: number; scaleY: number }[] = [];
   const blockDefs = new Map<string, LocalGeom[]>();
 
@@ -428,10 +502,47 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
 
       if (code === 0 && value === "POLYLINE") {
         const { layer, closed, vertices, end } = readPolyline(pairs, i + 1);
-        if (layer === "Walls" || layer === "Doors" || layer === "Windows" || layer === "Furniture" || layer.startsWith("Rooms")) {
+        if (isPlanLayer(layer)) {
           polylines.push({ layer, closed, vertices });
         }
         i = end; continue;
+      }
+
+      // DXF export often drops the `closed` flag on a POLYLINE and emits each
+      // edge as a separate LINE or 2-control-point SPLINE — the newer
+      // gable/aframe/clerestory drawings store most walls this way (Gable Large
+      // has ~92 wall splines). Collect them as segments; the stitcher pass
+      // after the loop reassembles connected chains into the closed polygons
+      // the architect drew, so walls render filled instead of as bare outlines.
+      if (code === 0 && value === "LINE") {
+        let j = i + 1, layer = "", x1 = 0, y1 = 0, x2 = 0, y2 = 0;
+        while (j < pairs.length && pairs[j].code !== 0) {
+          if (pairs[j].code === 8)  layer = pairs[j].value;
+          else if (pairs[j].code === 10) x1 = n(pairs[j].value);
+          else if (pairs[j].code === 20) y1 = n(pairs[j].value);
+          else if (pairs[j].code === 11) x2 = n(pairs[j].value);
+          else if (pairs[j].code === 21) y2 = n(pairs[j].value);
+          j++;
+        }
+        if (isStitchLayer(layer)) {
+          segments.push({ layer, vertices: [{ x: x1, y: y1 }, { x: x2, y: y2 }] });
+        }
+        i = j; continue;
+      }
+
+      if (code === 0 && value === "SPLINE") {
+        let j = i + 1, layer = "";
+        const xs: number[] = [], ys: number[] = [];
+        while (j < pairs.length && pairs[j].code !== 0) {
+          if (pairs[j].code === 8)  layer = pairs[j].value;
+          else if (pairs[j].code === 10) xs.push(n(pairs[j].value));
+          else if (pairs[j].code === 20) ys.push(n(pairs[j].value));
+          j++;
+        }
+        if (isStitchLayer(layer) && xs.length >= 2 && xs.length === ys.length) {
+          segments.push({ layer, vertices: xs.map((x, k) => ({ x, y: ys[k] })) });
+        }
+        i = j; continue;
       }
 
       if (code === 0 && value === "INSERT") {
@@ -446,13 +557,37 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
           if (pairs[j].code === 50) rot   = n(pairs[j].value);
           j++;
         }
-        if (layer === "Furniture") inserts.push({ name, x: ix, y: iy, rotation: rot, scaleX: sx, scaleY: sy });
+        // Furniture/fixture blocks are authored across several layers in the
+        // newer drawings — not just "Furniture" but also "Default" and even the
+        // "PT Top Left" layer (e.g. living-room seating "Zithoek", tables, and
+        // small beds). Ingest any INSERT that isn't on a structural layer so
+        // that furniture stops disappearing from living rooms.
+        if (!isStitchLayer(layer)) inserts.push({ name, x: ix, y: iy, rotation: rot, scaleX: sx, scaleY: sy });
         i = j; continue;
       }
     }
 
     i++;
   }
+
+  // ── Segment stitcher ────────────────────────────────────────────────────────
+  // Reassemble the loose LINE/SPLINE edges collected above into the closed
+  // polygons the architect originally drew, grouped per layer, so walls and
+  // windows render as filled shapes rather than bare outlines. 2 mm tolerance
+  // matches the observed export drift. Algorithm lives in ./dxf/stitch-segments.
+  const STITCH_TOL_MM = 2;
+  const segmentsByLayer = new Map<string, typeof segments>();
+  for (const s of segments) {
+    const arr = segmentsByLayer.get(s.layer);
+    if (arr) arr.push(s);
+    else segmentsByLayer.set(s.layer, [s]);
+  }
+  segmentsByLayer.forEach((segs, layerName) => {
+    const { polylines: stitched } = stitchSegments(segs, STITCH_TOL_MM);
+    for (const p of stitched) {
+      polylines.push({ layer: layerName, closed: p.closed, vertices: p.vertices });
+    }
+  });
 
   let maxX = 0, maxY = 0;
   for (const p of polylines) {
@@ -598,6 +733,29 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
   const name = filename.replace(/\.dxf$/i, "");
   const id = name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
+  // Derive the mezzanine record from the Rooms$Mezzanine sublayer (if any).
+  // Spec area = shoelace at delta=0 (raw vertices). The runtime, delta-aware
+  // area is computed by countRooms; this is the model's intrinsic spec.
+  const mezzLayer = layerMap.get("Rooms$Mezzanine");
+  const mezzPolys = mezzLayer
+    ? mezzLayer.entities
+        .filter((e): e is PolylineEntity => e.type === "polyline" && e.closed)
+        .map((e) => ({ vertices: e.vertices.map((v) => ({ x: v.x, y: v.y })) }))
+    : [];
+  let mezzAreaMm2 = 0;
+  for (const poly of mezzPolys) {
+    let a = 0;
+    const verts = poly.vertices;
+    for (let i = 0; i < verts.length; i++) {
+      const j = (i + 1) % verts.length;
+      a += verts[i].x * verts[j].y - verts[j].x * verts[i].y;
+    }
+    mezzAreaMm2 += Math.abs(a) / 2;
+  }
+  const mezzanine = mezzPolys.length > 0
+    ? { footprints: mezzPolys, areaM2: mezzAreaMm2 / 1_000_000 }
+    : null;
+
   return {
     id,
     name,
@@ -606,5 +764,6 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
     minDelta,
     maxDelta,
     layers: LAYER_ORDER.map((nm) => layerMap.get(nm)!).filter((l) => l.entities.length > 0),
+    mezzanine,
   };
 }

@@ -59,6 +59,20 @@ export interface FloorplanLayer {
   entities: FloorplanEntity[];
 }
 
+export interface MezzaninePolygon {
+  vertices: Array<{ x: number; y: number }>;
+}
+
+// Derived from the Rooms$Mezzanine DXF sublayer when present. Renderer,
+// summary and pricing all consume this single record — they never
+// re-discover the layer. null when the plan has no mezzanine.
+export interface Mezzanine {
+  footprints: MezzaninePolygon[];
+  /** Area in m² at delta=0 (the plan's intrinsic size). The dynamic,
+   *  delta-aware area is computed by countRooms; this is the spec area. */
+  areaM2: number;
+}
+
 export interface FloorplanJSON {
   id: string;
   name: string;
@@ -67,4 +81,5 @@ export interface FloorplanJSON {
   minDelta: number;
   maxDelta: number;
   layers: FloorplanLayer[];
+  mezzanine: Mezzanine | null;
 }

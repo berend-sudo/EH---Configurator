@@ -1,39 +1,15 @@
-import type { LandingRoof } from "@/lib/budget";
+import { dxfFilename } from "@/lib/typologies";
+import type { Selection } from "@/lib/typologies";
 
-// Output artefact naming — the DXF the architects receive and the PDF we email
-// share one scheme: EH_<TYP>[-<SUB>]_<BR>BR_v<n>.<ext>. This module is the
-// single source of truth; route every filename through dxfFilename / pdfFilename
-// so the chip on the page, the email attachment and the sheet row never drift.
+// PDF artefact naming — mirrors the DXF naming scheme so the email
+// attachment, sheet row, Drive backlog filename and email subject line all
+// share one id. `dxfFilename` in `src/lib/typologies.ts` is the canonical
+// builder; this helper just swaps the extension. Route every PDF reference
+// through here so the chip on the page, the email attachment and the sheet
+// row never drift.
 
-export interface DesignSelection {
-  roof: LandingRoof;
-  /** Optional typology subtype code, e.g. "STD" | "LRG" | "CMP". Monopitch has none. */
-  subtype?: string | null;
-}
-
-const TYP_CODE: Record<LandingRoof, string> = {
-  monopitch: "MONO",
-  gable: "GABLE",
-  clerestory: "CLER",
-};
-
-function baseName(sel: DesignSelection, bedrooms: number, version: number): string {
-  const typ = TYP_CODE[sel.roof] ?? "MONO";
-  const sub = sel.subtype ? `-${sel.subtype}` : "";
-  return `EH_${typ}${sub}_${bedrooms}BR_v${version}`;
-}
-
-export const dxfFilename = (sel: DesignSelection, bedrooms: number, version: number): string =>
-  `${baseName(sel, bedrooms, version)}.dxf`;
-
-export const pdfFilename = (sel: DesignSelection, bedrooms: number, version: number): string =>
-  `${baseName(sel, bedrooms, version)}.pdf`;
-
-// Source DXFs carry a trailing version token ("… v6.dxf"). Pull it out so the
-// output filename mirrors the plan revision the architects keep on file.
-export function versionFromFile(file: string): number {
-  const m = file.match(/v(\d+)\s*\.dxf$/i);
-  return m ? Number(m[1]) : 1;
+export function pdfFilename(sel: Selection, bedrooms: number, version: number): string {
+  return dxfFilename(sel, bedrooms, version).replace(/\.dxf$/i, ".pdf");
 }
 
 // EH-YYYY-XXXXXX reference shown on the page, the PDF cover, the email subject

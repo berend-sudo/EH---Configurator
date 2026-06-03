@@ -5,10 +5,16 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { FloorplanJSON } from "@/types/floorplan";
 import FloorplanSVG from "@/components/FloorplanSVG";
 import EHNavBar from "@/components/EHNavBar";
-import { pickPlanByBedrooms, type FloorPlanEntry } from "@/lib/floor-plans";
-import { calculateBudget, countRooms, detectTypology, type LandingRoof } from "@/lib/budget";
+import { pickPlan, type FloorPlanEntry } from "@/lib/floor-plans";
+import { useFloorPlans } from "@/lib/useFloorPlans";
+import { calculateBudget, countRooms, typologyInfoFor } from "@/lib/budget";
+import {
+  dxfFilename,
+  selectionFromParams,
+  selectionLabel,
+  type Selection,
+} from "@/lib/typologies";
 import { fmtUGX } from "@/components/landing/fmtUGX";
-import { dxfFilename, versionFromFile, type DesignSelection } from "@/lib/design-id";
 import {
   EMAIL_RE,
   HEAR_ABOUT_OPTIONS,
@@ -19,9 +25,7 @@ import {
 } from "@/lib/configurator-submit";
 
 const LANDING_DEFAULT_BUDGET = 75_000_000;
-const VALID_ROOFS: readonly LandingRoof[] = ["monopitch", "gable", "clerestory"];
 
-const cap = (s: string) => (s.length === 0 ? s : s[0].toUpperCase() + s.slice(1));
 const fmtM = (mm: number) => `${(mm / 1000).toFixed(2)} m`;
 const fmtArea = (m2: number) => `${m2.toFixed(2)} m²`;
 
@@ -35,16 +39,25 @@ function FinalScreen() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const roofParam = searchParams.get("roof");
+  const typologyParam = searchParams.get("typology");
+  const subtypeParam = searchParams.get("subtype");
   const bedroomsParam = searchParams.get("bedrooms");
   const budgetParam = searchParams.get("budget");
   const deltaParam = searchParams.get("delta");
 
-  const roof: LandingRoof = VALID_ROOFS.includes(roofParam as LandingRoof)
-    ? (roofParam as LandingRoof)
-    : "monopitch";
+  const selection: Selection = useMemo(
+    () => selectionFromParams(typologyParam, subtypeParam),
+    [typologyParam, subtypeParam],
+  );
   const bedroomsNum = bedroomsParam != null && bedroomsParam !== "" ? Number(bedroomsParam) : null;
-  const entry: FloorPlanEntry = useMemo(() => pickPlanByBedrooms(bedroomsNum), [bedroomsNum]);
+  // Floor-plan registry comes from the directory scan; entry is resolved via
+  // `pickPlan` (handles closest-available fallback if the requested variant
+  // doesn't ship yet — same behaviour as the configurator).
+  const plans = useFloorPlans();
+  const entry: FloorPlanEntry | null = useMemo(
+    () => (plans ? pickPlan(plans, selection, bedroomsNum) : null),
+    [plans, selection, bedroomsNum],
+  );
   const budgetParamNum = (() => {
     const n = budgetParam != null ? Number(budgetParam) : NaN;
     return Number.isFinite(n) && n > 0 ? n : LANDING_DEFAULT_BUDGET;
@@ -79,6 +92,7 @@ function FinalScreen() {
   }, []);
 
   useEffect(() => {
+    if (!entry) return;
     let cancelled = false;
     const load = async () => {
       setError(null);
@@ -111,20 +125,23 @@ function FinalScreen() {
   const derived = useMemo(() => {
     if (!plan) return { footprintM2: 0, budgetUgx: 0 };
     const rooms = countRooms(plan, delta);
-    const typology = detectTypology(plan.name);
+    const typology = typologyInfoFor(selection);
     return {
       footprintM2: rooms.gfa + rooms.terraceArea,
       budgetUgx: calculateBudget(rooms, typology).coreTotal,
     };
-  }, [plan, delta]);
+  }, [plan, delta, selection]);
 
-  const bedrooms = entry.bedrooms;
+  // `entry` is null while the directory scan is in flight; render placeholders
+  // until both the registry and the parsed plan are loaded.
+  const bedrooms = entry?.bedrooms ?? 0;
   const widthMm = plan ? plan.baseWidth + delta : 0;
   const lengthMm = plan ? plan.baseDepth : 0;
-  const label = `${cap(roof)} · ${bedrooms === 0 ? "Studio" : `${bedrooms}-bed`}`;
-  const version = versionFromFile(entry.file);
-  const selection: DesignSelection = { roof, subtype: null };
-  const dxfName = dxfFilename(selection, bedrooms, version);
+  const label = entry
+    ? `${selectionLabel(entry.selection)} · ${bedrooms === 0 ? "Studio" : `${bedrooms}-bed`}`
+    : "";
+  const version = entry?.version ?? 1;
+  const dxfName = entry ? dxfFilename(entry.selection, bedrooms, version) : "";
 
   // ── Form state ────────────────────────────────────────────────────────────
   const [name, setName] = useState("");
@@ -142,6 +159,8 @@ function FinalScreen() {
 
   const canGenerate =
     reference !== null &&
+    entry !== null &&
+    plan !== null &&
     name.trim().length > 1 &&
     EMAIL_RE.test(email.trim()) &&
     phone.trim().length >= 6 &&
@@ -156,7 +175,7 @@ function FinalScreen() {
   };
 
   const handleSubmit = async () => {
-    if (!canGenerate || !plan) return;
+    if (!canGenerate || !plan || !entry) return;
     const client = {
       name: name.trim(),
       email: email.trim(),
@@ -171,7 +190,7 @@ function FinalScreen() {
     setSubmit({ status: "sending" });
 
     const payload: SubmitPayload = {
-      selection: { roof, subtype: null, file: entry.file, delta, version, label },
+      selection: { selection: entry.selection, file: entry.file, delta, version, label },
       bedrooms,
       budget: derived.budgetUgx,
       dimensions: {

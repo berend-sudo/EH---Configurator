@@ -1,4 +1,4 @@
-import type { LandingRoof } from "@/lib/budget";
+import type { Selection } from "@/lib/typologies";
 
 // Shared contract for POST /api/configurator/submit — imported by both the
 // client form and the server route so validation can't drift between them.
@@ -51,11 +51,15 @@ export interface ClientInfo {
 }
 
 export interface DesignPayloadSelection {
-  roof: LandingRoof;
-  subtype: string | null;
+  /** `{ typology, subtype }` — same shape as `Selection` in `src/lib/typologies.ts`. */
+  selection: Selection;
+  /** On-disk DXF filename in `public/floorplans/`. The server re-parses it for safety. */
   file: string;
+  /** Width slider delta in mm (signed); clamped to the plan's min/max on the server. */
   delta: number;
+  /** DXF version token (e.g. v6 → 6). The server re-derives from the filename if it doesn't match. */
   version: number;
+  /** Display label like "Monopitch · Studio" or "Gable Standard · 3-bed". */
   label: string;
 }
 

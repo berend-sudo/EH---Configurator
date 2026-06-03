@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { readFile } from "fs/promises";
 import path from "path";
 import { parseDxf } from "@/lib/dxf-parser";
-import { FLOOR_PLANS } from "@/lib/floor-plans";
 import {
   calculateBudget,
   countRooms,
-  detectTypology,
   polygonAreaM2,
+  typologyInfoFor,
 } from "@/lib/budget";
-import { dxfFilename, pdfFilename, validateReference, versionFromFile } from "@/lib/design-id";
+import { dxfFilename, parseDxfFilename } from "@/lib/typologies";
+import { pdfFilename, validateReference } from "@/lib/design-id";
 import { isClientInfoValid, type SubmitPayload } from "@/lib/configurator-submit";
 import { renderDesignPdf, type RoomColorKey } from "@/lib/server/design-pdf";
 import { sendDesignEmail } from "@/lib/server/email";
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
 
-  const { selection, bedrooms, client } = payload ?? {};
+  const { selection, client } = payload ?? {};
   if (!selection || !client || !isClientInfoValid(client)) {
     return NextResponse.json({ error: "Invalid or incomplete submission." }, { status: 400 });
   }
@@ -51,34 +51,36 @@ export async function POST(req: NextRequest) {
   // id collision-resistant even if the client never called /reference.
   const reference = validateReference(payload.reference) ? payload.reference : makeReference();
 
-  const entry = FLOOR_PLANS.find((p) => p.file === selection.file);
-  if (!entry) {
+  // Re-derive { selection, bedrooms, version } from the file name so a crafted
+  // payload can't claim e.g. a 4BR Gable using a Monopitch 0BR DXF.
+  const parsed = parseDxfFilename(selection.file);
+  if (!parsed) {
     return NextResponse.json({ error: "Unknown floor plan." }, { status: 400 });
   }
+  const { selection: parsedSel, bedrooms: parsedBedrooms, version: parsedVersion } = parsed;
 
   // ── Authoritative geometry + budget computed server-side from the DXF ──────
   let plan;
   try {
-    const filePath = path.join(process.cwd(), "public", "floorplans", entry.file);
+    const filePath = path.join(process.cwd(), "public", "floorplans", selection.file);
     const text = await readFile(filePath, "utf-8");
-    plan = parseDxf(text, entry.file);
+    plan = parseDxf(text, selection.file);
   } catch {
     return NextResponse.json({ error: "Could not load the floor plan." }, { status: 500 });
   }
 
   const delta = Math.min(Math.max(Number(selection.delta) || plan.minDelta, plan.minDelta), plan.maxDelta);
   const rooms = countRooms(plan, delta);
-  const typology = detectTypology(plan.name);
+  const typology = typologyInfoFor(parsedSel);
   const budget = calculateBudget(rooms, typology);
 
   const widthM = (plan.baseWidth + delta) / 1000;
   const lengthM = plan.baseDepth / 1000;
   const footprintM2 = rooms.gfa + rooms.terraceArea;
 
-  const version = versionFromFile(entry.file);
-  const dxfName = dxfFilename(selection, entry.bedrooms, version);
-  const pdfName = pdfFilename(selection, entry.bedrooms, version);
-  const label = selection.label;
+  const dxfName = dxfFilename(parsedSel, parsedBedrooms, parsedVersion);
+  const pdfName = pdfFilename(parsedSel, parsedBedrooms, parsedVersion);
+  const label = selection.label || typology.name;
   const subject = `Your Easy Housing design — ${label}`;
   const generatedDate = new Date().toLocaleDateString("en-GB", {
     day: "numeric",
@@ -109,7 +111,7 @@ export async function POST(req: NextRequest) {
       plan,
       delta,
       label,
-      bedrooms: entry.bedrooms,
+      bedrooms: parsedBedrooms,
       reference,
       generatedDate,
       client: { name: client.name, email: client.email },
@@ -171,8 +173,8 @@ export async function POST(req: NextRequest) {
     client.phone,
     client.timeline,
     typology.name,
-    selection.subtype ?? "",
-    bedrooms,
+    parsedSel.subtype ?? "",
+    parsedBedrooms,
     widthM.toFixed(2),
     lengthM.toFixed(2),
     footprintM2.toFixed(2),
@@ -194,7 +196,7 @@ export async function POST(req: NextRequest) {
     hearAbout: client.hearAbout ?? "",
     reference,
     floorPlan: label,
-    bedrooms: String(bedrooms),
+    bedrooms: String(parsedBedrooms),
     widthM: widthM.toFixed(2),
     lengthM: lengthM.toFixed(2),
     footprintM2: footprintM2.toFixed(2),

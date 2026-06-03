@@ -49,14 +49,18 @@ export default function EHNavBar({
           style={{ height: 28, width: "auto", display: "block" }}
           priority
         />
-        <span
-          style={{
-            width: 1,
-            height: 18,
-            background: onDark ? "rgba(255,255,255,.2)" : "var(--eh-stroke-strong)",
-          }}
-        />
-        <span style={{ fontSize: 14, fontWeight: 500, opacity: 0.85 }}>Configurator</span>
+        {/* The wordmark sits in the lower half of the logo (house icon + sparks
+            above it), so nudge the divider + label down to its optical line. */}
+        <div style={{ display: "flex", alignItems: "center", gap: 14, transform: "translateY(3px)" }}>
+          <span
+            style={{
+              width: 1,
+              height: 18,
+              background: onDark ? "rgba(255,255,255,.2)" : "var(--eh-stroke-strong)",
+            }}
+          />
+          <span style={{ fontSize: 14, fontWeight: 500, opacity: 0.85 }}>Configurator</span>
+        </div>
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 18, fontSize: 13 }}>
