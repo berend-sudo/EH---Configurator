@@ -43,11 +43,11 @@ export interface ClientInfo {
   timeline: string;
   agreed: boolean;
   // TODO(Wolf): swap these for the real form fields once we have the question
-  // list. `country` is required; the rest are optional and feed straight into
-  // the form payload via the logical-name → entry.* map.
+  // list. All three are required; they feed straight into the form payload
+  // via the logical-name → entry.* map.
   country: string;
-  projectType?: string;
-  hearAbout?: string;
+  projectType: string;
+  hearAbout: string;
 }
 
 export interface DesignPayloadSelection {
@@ -98,6 +98,8 @@ export function isClientInfoValid(c: ClientInfo): boolean {
     s(c?.phone).trim().length >= 6 &&
     (TIMELINE_OPTIONS as readonly string[]).includes(s(c?.timeline)) &&
     s(c?.country).trim().length > 1 &&
+    (PROJECT_TYPE_OPTIONS as readonly string[]).includes(s(c?.projectType)) &&
+    (HEAR_ABOUT_OPTIONS as readonly string[]).includes(s(c?.hearAbout)) &&
     c?.agreed === true
   );
 }

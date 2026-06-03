@@ -23,6 +23,7 @@ import {
   isClientInfoValid,
   type SubmitPayload,
 } from "@/lib/configurator-submit";
+import { checkPhone } from "@/lib/contact-checks";
 
 const LANDING_DEFAULT_BUDGET = 75_000_000;
 
@@ -157,6 +158,31 @@ function FinalScreen() {
   const [agreed, setAgreed] = useState(false);
   const [submit, setSubmit] = useState<SubmitState>({ status: "idle" });
 
+  // Advisory contact-existence warnings (non-blocking). Phone is checked
+  // client-side; email deliverability (MX records) is checked server-side on
+  // blur via /api/configurator/validate-email.
+  const phoneCheck = useMemo(() => checkPhone(phone), [phone]);
+  const [emailWarning, setEmailWarning] = useState<string | null>(null);
+  const [emailChecking, setEmailChecking] = useState(false);
+
+  const runEmailCheck = async () => {
+    const e = email.trim();
+    if (!EMAIL_RE.test(e)) {
+      setEmailWarning(null);
+      return;
+    }
+    setEmailChecking(true);
+    try {
+      const res = await fetch(`/api/configurator/validate-email?email=${encodeURIComponent(e)}`);
+      const data = (await res.json()) as { deliverable: boolean; warning: string | null };
+      setEmailWarning(data.warning);
+    } catch {
+      setEmailWarning(null); // network hiccup — stay quiet
+    } finally {
+      setEmailChecking(false);
+    }
+  };
+
   const canGenerate =
     reference !== null &&
     entry !== null &&
@@ -166,6 +192,8 @@ function FinalScreen() {
     phone.trim().length >= 6 &&
     timeline !== "" &&
     country.trim().length > 1 &&
+    projectType !== "" &&
+    hearAbout !== "" &&
     agreed === true;
 
   const goToStep = (step: number) => {
@@ -182,8 +210,8 @@ function FinalScreen() {
       phone: phone.trim(),
       timeline,
       country: country.trim(),
-      projectType: projectType || undefined,
-      hearAbout: hearAbout || undefined,
+      projectType,
+      hearAbout,
       agreed,
     };
     if (!isClientInfoValid(client)) return;
@@ -426,8 +454,22 @@ function FinalScreen() {
                   autoComplete="email"
                   placeholder="you@example.com"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setEmailWarning(null);
+                  }}
+                  onBlur={runEmailCheck}
                 />
+                {emailChecking && (
+                  <p style={{ fontSize: 12, color: "var(--eh-text-soft)", margin: "2px 0 0" }}>
+                    Checking the address…
+                  </p>
+                )}
+                {!emailChecking && emailWarning && (
+                  <p style={{ fontSize: 12, color: "var(--eh-warning)", margin: "2px 0 0" }}>
+                    {emailWarning}
+                  </p>
+                )}
               </div>
               <div className="field">
                 <label htmlFor="eh-phone">Phone</label>
@@ -439,6 +481,11 @@ function FinalScreen() {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                 />
+                {phone.trim().length >= 6 && phoneCheck.warning && (
+                  <p style={{ fontSize: 12, color: "var(--eh-warning)", margin: "2px 0 0" }}>
+                    {phoneCheck.warning}
+                  </p>
+                )}
               </div>
               <div className="field" style={{ gridColumn: "1 / -1" }}>
                 <label htmlFor="eh-timeline">Intended timeline to delivery</label>
@@ -482,7 +529,9 @@ function FinalScreen() {
                   value={projectType}
                   onChange={(e) => setProjectType(e.target.value)}
                 >
-                  <option value="">Select… (optional)</option>
+                  <option value="" disabled>
+                    Select…
+                  </option>
                   {PROJECT_TYPE_OPTIONS.map((opt) => (
                     <option key={opt} value={opt}>
                       {opt}
@@ -497,7 +546,9 @@ function FinalScreen() {
                   value={hearAbout}
                   onChange={(e) => setHearAbout(e.target.value)}
                 >
-                  <option value="">Select… (optional)</option>
+                  <option value="" disabled>
+                    Select…
+                  </option>
                   {HEAR_ABOUT_OPTIONS.map((opt) => (
                     <option key={opt} value={opt}>
                       {opt}
