@@ -159,29 +159,39 @@ function FinalScreen() {
   const [submit, setSubmit] = useState<SubmitState>({ status: "idle" });
 
   // Advisory contact-existence warnings (non-blocking). Phone is checked
-  // client-side; email deliverability (MX records) is checked server-side on
-  // blur via /api/configurator/validate-email.
+  // client-side; email deliverability (MX records) is checked server-side
+  // via /api/configurator/validate-email. The check runs on a debounce so
+  // warnings appear as the user finishes typing — relying on blur alone is
+  // fragile (autofill / submit-without-tab-out skip it).
   const phoneCheck = useMemo(() => checkPhone(phone), [phone]);
   const [emailWarning, setEmailWarning] = useState<string | null>(null);
   const [emailChecking, setEmailChecking] = useState(false);
 
-  const runEmailCheck = async () => {
+  useEffect(() => {
     const e = email.trim();
     if (!EMAIL_RE.test(e)) {
       setEmailWarning(null);
+      setEmailChecking(false);
       return;
     }
-    setEmailChecking(true);
-    try {
-      const res = await fetch(`/api/configurator/validate-email?email=${encodeURIComponent(e)}`);
-      const data = (await res.json()) as { deliverable: boolean; warning: string | null };
-      setEmailWarning(data.warning);
-    } catch {
-      setEmailWarning(null); // network hiccup — stay quiet
-    } finally {
-      setEmailChecking(false);
-    }
-  };
+    let cancelled = false;
+    const handle = window.setTimeout(async () => {
+      setEmailChecking(true);
+      try {
+        const res = await fetch(`/api/configurator/validate-email?email=${encodeURIComponent(e)}`);
+        const data = (await res.json()) as { deliverable: boolean; warning: string | null };
+        if (!cancelled) setEmailWarning(data.warning);
+      } catch {
+        if (!cancelled) setEmailWarning(null);
+      } finally {
+        if (!cancelled) setEmailChecking(false);
+      }
+    }, 450);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(handle);
+    };
+  }, [email]);
 
   const canGenerate =
     reference !== null &&
@@ -454,11 +464,7 @@ function FinalScreen() {
                   autoComplete="email"
                   placeholder="you@example.com"
                   value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    setEmailWarning(null);
-                  }}
-                  onBlur={runEmailCheck}
+                  onChange={(e) => setEmail(e.target.value)}
                 />
                 {emailChecking && (
                   <p style={{ fontSize: 12, color: "var(--eh-text-soft)", margin: "2px 0 0" }}>
