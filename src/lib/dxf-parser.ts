@@ -34,6 +34,7 @@ function isPlanLayer(layer: string): boolean {
     layer === "Doors" ||
     layer === "Windows" ||
     layer === "Furniture" ||
+    layer === "Furniture Stretch" ||
     layer.startsWith("Rooms")
   );
 }
@@ -516,7 +517,7 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
   // Free-standing LINE / SPLINE entities on Walls/Doors/Windows/Rooms layers —
   // stitched back into closed (or open) polylines after the parse loop.
   const segments: { layer: string; vertices: { x: number; y: number }[] }[] = [];
-  const inserts: { name: string; x: number; y: number; rotation: number; scaleX: number; scaleY: number }[] = [];
+  const inserts: { layer: string; name: string; x: number; y: number; rotation: number; scaleX: number; scaleY: number }[] = [];
   const blockDefs = new Map<string, LocalGeom[]>();
 
   let section = "";
@@ -619,7 +620,7 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
         // "PT Top Left" layer (e.g. living-room seating "Zithoek", tables, and
         // small beds). Ingest any INSERT that isn't on a structural layer so
         // that furniture stops disappearing from living rooms.
-        if (!isStitchLayer(layer)) inserts.push({ name, x: ix, y: iy, rotation: rot, scaleX: sx, scaleY: sy });
+        if (!isStitchLayer(layer)) inserts.push({ layer, name, x: ix, y: iy, rotation: rot, scaleX: sx, scaleY: sy });
         i = j; continue;
       }
     }
@@ -646,8 +647,12 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
     }
   });
 
+  // "Furniture Stretch" only appears once the plan is widened, so it must not
+  // define the base footprint (maxX/maxY → baseWidth/baseDepth) nor constrain
+  // minDelta — those describe the plan at its minimum width, where it's hidden.
   let maxX = 0, maxY = 0;
   for (const p of polylines) {
+    if (p.layer === "Furniture Stretch") continue;
     for (const v of p.vertices) {
       if (v.x > maxX) maxX = v.x;
       if (v.y > maxY) maxY = v.y;
@@ -655,7 +660,7 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
   }
 
   const roomLayerNames = Array.from(new Set(polylines.filter(p => p.layer.startsWith("Rooms")).map(p => p.layer)));
-  const LAYER_ORDER = [...roomLayerNames, "Walls", "Doors", "Windows", "Furniture"];
+  const LAYER_ORDER = [...roomLayerNames, "Walls", "Doors", "Windows", "Furniture", "Furniture Stretch"];
   const layerMap = new Map<string, FloorplanLayer>(
     LAYER_ORDER.map((name) => [name, { name, entities: [] }])
   );
@@ -688,7 +693,7 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
       widx++;
     }
     layerMap.forEach((layer, layerName) => {
-      if (layerName === "Windows" || layerName === "Furniture") return;
+      if (layerName === "Windows" || layerName === "Furniture" || layerName === "Furniture Stretch") return;
       for (const ent of layer.entities) {
         if (ent.type !== "polyline") continue;
         for (const v of ent.vertices) {
@@ -709,6 +714,7 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
   }
 
   const furnitureLayer = layerMap.get("Furniture")!;
+  const furnitureStretchLayer = layerMap.get("Furniture Stretch")!;
   for (const ins of inserts) {
     const localGeom = blockDefs.get(ins.name) ?? [];
     const { tlLocal, trLocal } = extractBlockPoints(localGeom);
@@ -728,7 +734,8 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
     const refX = (tl && tr) ? Math.min(tl.x, tr.x) : ins.x;
     const moveX = decideMoveX(refX, ins.y, ptRight, ptLeft);
 
-    furnitureLayer.entities.push({
+    const targetLayer = ins.layer === "Furniture Stretch" ? furnitureStretchLayer : furnitureLayer;
+    targetLayer.entities.push({
       type: "block",
       name: ins.name,
       x: ins.x,
@@ -752,6 +759,7 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
   const interiorMin = 500, interiorMax = maxX - 500;
 
   for (const raw of polylines) {
+    if (raw.layer === "Furniture Stretch") continue;
     for (const v of raw.vertices) {
       const moving = decideMoveX(v.x, v.y, ptRight, ptLeft);
       if (!moving && v.x > interiorMin && v.x < interiorMax) {

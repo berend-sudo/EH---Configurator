@@ -819,7 +819,9 @@ function renderEntity(
     if (entity.type !== "polyline") return null;
     return renderDoor(entity, delta, scale, drawH, padX, padY, planW, planD, key, wp);
   }
-  if (layerName === "Furniture") {
+  // "Furniture Stretch" renders identically to "Furniture"; its visibility is
+  // gated upstream in the root component (only shown when stretched past min).
+  if (layerName === "Furniture" || layerName === "Furniture Stretch") {
     if (entity.type === "block")    return renderFurnitureBlock(entity, delta, scale, drawH, padX, padY, key);
     if (entity.type === "polyline") return renderFurniturePolyline(entity, delta, scale, drawH, padX, padY, key, wp);
   }
@@ -862,6 +864,9 @@ export default function FloorplanSVG({
       <RoomPatterns scale={scale} drawH={drawH} padY={padY} />
 
       {plan.layers.map((layer) => {
+        // "Furniture Stretch" only appears once the plan is stretched past its
+        // minimum width — hidden at the default (minimum) slider position.
+        if (layer.name === "Furniture Stretch" && delta <= plan.minDelta) return null;
         // The Windows layer contains only polylines (by construction in dxf-parser),
         // so the layer-entity index equals the windowIdx used in buildWindowPositions.
         let widx = 0;
