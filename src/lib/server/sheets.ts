@@ -6,6 +6,8 @@ import { getAccessToken } from "@/lib/server/google-auth";
 // write.
 
 // Locked header row order — keep in sync with appendLead's row builder.
+// UGX is the canonical figure architects price in; the local pair is what the
+// client saw on screen.
 export const LEADS_HEADER = [
   "Timestamp",
   "Reference",
@@ -20,6 +22,8 @@ export const LEADS_HEADER = [
   "Length (m)",
   "Footprint (m²)",
   "Indicative budget (UGX)",
+  "Currency",
+  "Indicative budget (local)",
   "DXF filename",
   "PDF filename",
   "PDF link (Drive)",
@@ -29,16 +33,36 @@ export const LEADS_HEADER = [
 const SCOPE = "https://www.googleapis.com/auth/spreadsheets";
 const SHEET_TAB = "Sheet1";
 
+// A1 column letter for the right edge of the locked header row.
+function colLetter(n: number): string {
+  // 1 → A, 26 → Z, 27 → AA …
+  let s = "";
+  let x = n;
+  while (x > 0) {
+    const r = (x - 1) % 26;
+    s = String.fromCharCode(65 + r) + s;
+    x = Math.floor((x - 1) / 26);
+  }
+  return s;
+}
+
 async function ensureHeader(sheetId: string, token: string): Promise<void> {
-  const range = `${SHEET_TAB}!A1:A1`;
+  const lastCol = colLetter(LEADS_HEADER.length);
+  // Read the full header row, not just A1 — when the locked header gains a
+  // column we want the existing sheet to self-heal instead of writing rows
+  // into stale slots.
+  const range = `${SHEET_TAB}!A1:${lastCol}1`;
   const res = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}`,
     { headers: { Authorization: `Bearer ${token}` } },
   );
   if (!res.ok) throw new Error(`Header read failed (${res.status}): ${await res.text()}`);
   const json = (await res.json()) as { values?: string[][] };
-  const a1 = json.values?.[0]?.[0];
-  if (a1 === LEADS_HEADER[0]) return; // header already present
+  const current = json.values?.[0] ?? [];
+  const matches =
+    current.length === LEADS_HEADER.length &&
+    LEADS_HEADER.every((h, i) => current[i] === h);
+  if (matches) return;
 
   const updateRange = `${SHEET_TAB}!A1`;
   const upd = await fetch(

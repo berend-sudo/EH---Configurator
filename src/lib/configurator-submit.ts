@@ -83,6 +83,16 @@ export interface SubmitPayload {
    */
   reference: string | null;
   source: string;
+  /**
+   * ISO 3166-1 alpha-2 of the country chosen at the gate, e.g. "UG" / "KE".
+   * Drives the display currency for the sheet's local-amount column, the
+   * PDF, and the email subject. Pricing math on the server stays in UGX —
+   * this code only changes how the displayed strings are converted.
+   *
+   * Optional only because the field is best-effort over the wire; if absent
+   * or unknown the server falls back to the base country (Uganda / UGX).
+   */
+  country?: string;
 }
 
 // Mirrors the page's `canGenerate` predicate. Re-run server-side so a crafted

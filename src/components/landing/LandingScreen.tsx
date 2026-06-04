@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useCountryGuard } from "@/lib/use-active-country";
 import EHNavBar from "@/components/EHNavBar";
 import BudgetSlider from "./BudgetSlider";
 import BedroomsCounter from "./BedroomsCounter";
@@ -27,6 +28,10 @@ interface Props {
 
 export default function LandingScreen({ plans }: Props) {
   const router = useRouter();
+  // Block the landing until we know the country — otherwise the SSR render
+  // (no localStorage) and the hydrated render (KES) would disagree on every
+  // price, and there's no point in showing prices in the wrong currency.
+  const country = useCountryGuard();
   const [budget, setBudget] = useState(75_000_000);
   const [bedrooms, setBedrooms] = useState(2);
   const initialSelection = useMemo<Selection>(
@@ -65,6 +70,12 @@ export default function LandingScreen({ plans }: Props) {
     const next = Math.min(maxBed, Math.max(minBed, clamped));
     if (next !== bedrooms) setBedrooms(next);
   }, [bedroomOptions, minBed, maxBed, bedrooms, plans, selection]);
+
+  if (!country) {
+    // Gate guard is in flight (or redirecting). Render nothing rather than a
+    // landing in the wrong currency.
+    return null;
+  }
 
   return (
     <main style={{ position: "relative", width: "100%", minHeight: "100vh", overflow: "hidden" }}>

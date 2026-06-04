@@ -1,3 +1,5 @@
+import { fmtMoney } from "@/lib/countries";
+
 interface Props {
   footprintM2: number;
   livingM2: number;
@@ -32,7 +34,6 @@ function Row({ label, value, sub }: { label: string; value: string; sub?: string
 }
 
 const fmtArea = (n: number) => `${n.toFixed(2)} m²`;
-const fmtUGX = (n: number) => "UGX " + Math.round(n).toLocaleString("en-US");
 
 export default function SummaryCard({ footprintM2, livingM2, terraceM2, mezzanineM2, budgetUgx }: Props) {
   return (
@@ -66,7 +67,7 @@ export default function SummaryCard({ footprintM2, livingM2, terraceM2, mezzanin
             fontVariantNumeric: "tabular-nums",
           }}
         >
-          {fmtUGX(budgetUgx)}
+          {fmtMoney(budgetUgx)}
         </div>
       </div>
     </div>

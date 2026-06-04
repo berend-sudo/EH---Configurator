@@ -18,6 +18,7 @@ import {
   type FloorPlanEntry,
 } from "@/lib/floor-plans";
 import { useFloorPlans } from "@/lib/useFloorPlans";
+import { useCountryGuard } from "@/lib/use-active-country";
 import { calculateBudget, countRooms, typologyInfoFor } from "@/lib/budget";
 import {
   maxBedroomsFor,
@@ -32,6 +33,9 @@ import {
 const LANDING_DEFAULT_BUDGET = 75_000_000;
 
 function ConfiguratorScreen() {
+  // Block the configurator until a country has been picked at the gate.
+  // Renders no money in the wrong currency, even briefly.
+  const country = useCountryGuard();
   const [plan, setPlan] = useState<FloorplanJSON | null>(null);
   const [delta, setDelta] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -211,6 +215,8 @@ function ConfiguratorScreen() {
     // updateParams is stable for our purposes; re-running only on the inputs below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [budget, selection, requestedBedrooms, plans]);
+
+  if (!country) return null;
 
   return (
     <div

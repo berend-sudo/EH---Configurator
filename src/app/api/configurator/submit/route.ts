@@ -15,6 +15,7 @@ import { roomColorKey, roomDisplayName, type RoomColorKey } from "@/lib/rooms";
 import { renderDesignPdf } from "@/lib/server/design-pdf";
 import { sendDesignEmail } from "@/lib/server/email";
 import { appendLead } from "@/lib/server/sheets";
+import { BASE_COUNTRY, getCountryByCode, ugxToLocal } from "@/lib/countries";
 import { uploadPdfToBacklog } from "@/lib/server/drive";
 import { submitToLeadsForm } from "@/lib/server/forms";
 import { makeReference } from "@/lib/server/reference";
@@ -40,6 +41,11 @@ export async function POST(req: NextRequest) {
   // the value matches our format; otherwise mint a fresh one. This keeps the
   // id collision-resistant even if the client never called /reference.
   const reference = validateReference(payload.reference) ? payload.reference : makeReference();
+
+  // Country chosen at the gate drives the display currency. Falls back to the
+  // base currency (Uganda / UGX) if the payload arrives without it or with an
+  // unknown code — pricing math stays in UGX either way.
+  const country = getCountryByCode(payload.country ?? null) ?? BASE_COUNTRY;
 
   // Re-derive { selection, bedrooms, version } from the file name so a crafted
   // payload can't claim e.g. a 4BR Gable using a Monopitch 0BR DXF.
@@ -113,6 +119,7 @@ export async function POST(req: NextRequest) {
         grandTotal: budget.grandTotal,
       },
       rooms: roomBreakdown,
+      country,
     });
   } catch (e) {
     console.error("[configurator/submit] PDF generation failed:", e);
@@ -155,6 +162,10 @@ export async function POST(req: NextRequest) {
   }
 
   // ── 3. Sheet + form submission run in parallel — both best-effort ─────────
+  // UGX is the canonical figure architects price in; `Indicative budget
+  // (local)` is what the client saw on screen and is rounded to the
+  // currency's display step. Order must match LEADS_HEADER.
+  const indicativeLocal = ugxToLocal(budget.coreTotal, country);
   const sheetRow = [
     new Date().toISOString(),
     reference,
@@ -169,6 +180,8 @@ export async function POST(req: NextRequest) {
     lengthM.toFixed(2),
     footprintM2.toFixed(2),
     Math.round(budget.coreTotal),
+    country.currency.code,
+    indicativeLocal,
     dxfName,
     pdfName,
     pdfDriveLink,
@@ -191,6 +204,11 @@ export async function POST(req: NextRequest) {
     lengthM: lengthM.toFixed(2),
     footprintM2: footprintM2.toFixed(2),
     indicativeBudgetUgx: String(Math.round(budget.coreTotal)),
+    // Gate country + the local-currency mirror; Wolf maps these logical keys
+    // to entry ids when the form questions are wired up.
+    countryCode: country.code,
+    currency: country.currency.code,
+    indicativeBudgetLocal: String(indicativeLocal),
     dxfFilename: dxfName,
     pdfFilename: pdfName,
     pdfDriveLink,
