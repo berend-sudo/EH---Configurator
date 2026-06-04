@@ -376,8 +376,30 @@ function tessellateSpline(
   ctrl: { x: number; y: number }[],
   degreeIn: number | undefined,
   knotsIn: number[] | undefined,
+  closed: boolean = false,
 ): { x: number; y: number }[] {
   const degree = Math.max(1, Math.min(degreeIn ?? 3, ctrl.length - 1));
+
+  // Closed (periodic) B-spline: AutoCAD stores only the base control points,
+  // but the curve wraps. Repeat the first `degree` points and lay down a
+  // uniform (unclamped) knot vector, then evaluate over the periodic domain
+  // [knots[degree], knots[m]] so the curve forms a full closed loop instead of
+  // an open arc with a chord drawn across it (the seating "Zithoek" stray line).
+  if (closed) {
+    const wrapped = [...ctrl, ...ctrl.slice(0, degree)];
+    const m = wrapped.length;
+    const knots: number[] = [];
+    for (let i = 0; i < m + degree + 1; i++) knots.push(i);
+    const tMin = knots[degree], tMax = knots[m];
+    const total = Math.max(16, ctrl.length * SPLINE_SAMPLES_PER_SPAN);
+    const pts: { x: number; y: number }[] = [];
+    for (let i = 0; i <= total; i++) {
+      const t = tMin + (tMax - tMin) * (i / total);
+      pts.push(deBoorEval(Math.min(t, tMax - 1e-9), wrapped, knots, degree));
+    }
+    return pts;
+  }
+
   // The DXF can omit knots, or supply an arbitrary clamped vector. Either way
   // we normalise to [0, 1] and synthesise a uniform clamped vector when needed.
   const expected = ctrl.length + degree + 1;
@@ -438,7 +460,7 @@ function flattenGeom(
         // using the degree + knots supplied in the DXF (uniform clamped knots
         // are synthesised when missing). Drawing a curve *through* control
         // points would distort the shape (e.g. chair backs, couch arms).
-        const curve = tessellateSpline(g.pts, g.degree, g.knots);
+        const curve = tessellateSpline(g.pts, g.degree, g.knots, !!g.closed);
         const verts = curve.map((v) => transformPoint(v.x, v.y, ix, iy, rotDeg, sx, sy));
         out.push({ type: "polyline", closed: !!g.closed, vertices: verts, layer: g.layer } as GeomPolyline);
       } else {
