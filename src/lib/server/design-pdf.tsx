@@ -16,6 +16,7 @@ import {
 import type { FloorplanJSON } from "@/types/floorplan";
 import type { BudgetLineItem } from "@/lib/budget";
 import type { RoomColorKey } from "@/lib/rooms";
+import { BASE_COUNTRY, fmtMoney, type Country } from "@/lib/countries";
 
 // ── Brand tokens (mirrors eh-tokens.css) ───────────────────────────────────
 const C = {
@@ -54,9 +55,15 @@ export interface DesignPdfData {
     grandTotal: number;
   };
   rooms: { name: string; areaM2: number; colorKey: RoomColorKey }[];
+  /**
+   * Country picked at the gate. Drives the primary money column on the spec
+   * sheet + the headline budget on the cover. The UGX equivalent is still
+   * shown in small print on the cover so architects can cross-check against
+   * the source-of-truth figure.
+   */
+  country: Country;
 }
 
-const fmtUGX = (n: number) => "UGX " + Math.round(n).toLocaleString("en-US");
 const fmtNum = (n: number) => Math.round(n).toLocaleString("en-US");
 
 // ── Fonts (best-effort; falls back to Helvetica if registration fails) ──────
@@ -171,8 +178,16 @@ function CoverPage(d: DesignPdfData) {
         </Text>
         <Text style={{ ...styles.h1, marginTop: 6 }}>{d.label}</Text>
         <Text style={{ fontSize: 12, color: C.muted, marginTop: 6 }}>
-          {d.bedrooms === 0 ? "Studio" : `${d.bedrooms}-bedroom`} · {d.dimensions.footprintM2.toFixed(2)} m² · Indicative budget {fmtUGX(d.budget.coreTotal)}
+          {d.bedrooms === 0 ? "Studio" : `${d.bedrooms}-bedroom`} · {d.dimensions.footprintM2.toFixed(2)} m² · Indicative budget {fmtMoney(d.budget.coreTotal, d.country)}
         </Text>
+        {d.country.code !== BASE_COUNTRY.code && (
+          // UGX equivalent in small print — architects price in UGX, the
+          // client saw the local figure on screen. Both belong on the
+          // build file.
+          <Text style={{ fontSize: 9, color: C.muted, marginTop: 4 }}>
+            ≈ {fmtMoney(d.budget.coreTotal, BASE_COUNTRY)} at 1 {d.country.currency.code} ≈ {d.country.ugxPerUnit} UGX
+          </Text>
+        )}
 
         <View style={{ height: 1, backgroundColor: C.stroke, marginVertical: 18 }} />
 
@@ -239,6 +254,9 @@ function PlanPage(d: DesignPdfData) {
 
 function SpecPage(d: DesignPdfData) {
   const lines = [...d.budget.core, ...d.budget.optional];
+  // Convert each row UGX→local without going through fmtMoney's currency
+  // prefix — the column header carries the code once.
+  const localAmount = (ugx: number) => Math.round(ugx / d.country.ugxPerUnit);
   return (
     <Page size="A4" style={{ ...styles.page, paddingVertical: 28, paddingHorizontal: 36 }}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
@@ -256,18 +274,20 @@ function SpecPage(d: DesignPdfData) {
       <View style={{ flexGrow: 1, marginTop: 16 }}>
         <View style={{ flexDirection: "row", paddingVertical: 8, borderBottomWidth: 1.5, borderBottomColor: C.green900 }}>
           <Text style={{ flex: 1, fontSize: 8, letterSpacing: 1.2, color: C.muted, fontWeight: 600 }}>ITEM</Text>
-          <Text style={{ width: 110, fontSize: 8, letterSpacing: 1.2, color: C.muted, fontWeight: 600, textAlign: "right" }}>UGX</Text>
+          <Text style={{ width: 110, fontSize: 8, letterSpacing: 1.2, color: C.muted, fontWeight: 600, textAlign: "right" }}>
+            {d.country.currency.code}
+          </Text>
         </View>
         {lines.map((r, i) => (
           <View key={i} style={{ flexDirection: "row", paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: C.stroke }}>
             <Text style={{ flex: 1, fontSize: 11 }}>{r.label}</Text>
-            <Text style={{ width: 110, fontSize: 11, textAlign: "right" }}>{fmtNum(r.amount)}</Text>
+            <Text style={{ width: 110, fontSize: 11, textAlign: "right" }}>{fmtNum(localAmount(r.amount))}</Text>
           </View>
         ))}
         <View style={{ flexDirection: "row", paddingVertical: 12, alignItems: "center" }}>
           <Text style={{ flex: 1, fontSize: 14, fontWeight: 600, fontFamily: FONT_BOLD }}>Indicative total</Text>
           <Text style={{ width: 130, fontSize: 16, fontWeight: 600, color: C.green900, textAlign: "right", fontFamily: FONT_BOLD }}>
-            {fmtUGX(d.budget.grandTotal)}
+            {fmtMoney(d.budget.grandTotal, d.country)}
           </Text>
         </View>
       </View>

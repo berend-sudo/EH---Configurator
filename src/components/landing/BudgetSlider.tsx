@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { fmtUGX } from "./fmtUGX";
+import { fmtMoney } from "@/lib/countries";
 
 type Props = {
   value: number;
@@ -25,7 +25,7 @@ export default function BudgetSlider({ value, min = 42_000_000, max = 115_000_00
           Budget
         </span>
         <span style={{ fontSize: 20, fontWeight: 600, color: "var(--eh-text)", fontVariantNumeric: "tabular-nums" }}>
-          {fmtUGX(shown)}
+          {fmtMoney(shown)}
         </span>
       </div>
       <div style={{ position: "relative", height: 22, display: "flex", alignItems: "center" }}>
@@ -61,8 +61,8 @@ export default function BudgetSlider({ value, min = 42_000_000, max = 115_000_00
           fontVariantNumeric: "tabular-nums",
         }}
       >
-        <span>{fmtUGX(min)}</span>
-        <span>{fmtUGX(max)}</span>
+        <span>{fmtMoney(min)}</span>
+        <span>{fmtMoney(max)}</span>
       </div>
     </div>
   );

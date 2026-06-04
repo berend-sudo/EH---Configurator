@@ -14,7 +14,8 @@ import {
   selectionLabel,
   type Selection,
 } from "@/lib/typologies";
-import { fmtUGX } from "@/components/landing/fmtUGX";
+import { fmtMoney } from "@/lib/countries";
+import { useCountryGuard } from "@/lib/use-active-country";
 import {
   EMAIL_RE,
   HEAR_ABOUT_OPTIONS,
@@ -39,6 +40,10 @@ type SubmitState =
 function FinalScreen() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  // Block until the gate has set a country — the submit payload below carries
+  // the country code through to the sheet, PDF cover, and email subject. The
+  // local name avoids colliding with the placeholder `country` form field.
+  const activeCountry = useCountryGuard();
 
   const typologyParam = searchParams.get("typology");
   const subtypeParam = searchParams.get("subtype");
@@ -213,7 +218,7 @@ function FinalScreen() {
   };
 
   const handleSubmit = async () => {
-    if (!canGenerate || !plan || !entry) return;
+    if (!canGenerate || !plan || !entry || !activeCountry) return;
     const client = {
       name: name.trim(),
       email: email.trim(),
@@ -239,6 +244,7 @@ function FinalScreen() {
       client,
       reference,
       source: typeof window !== "undefined" ? window.location.href : "",
+      country: activeCountry.code,
     };
 
     try {
@@ -271,6 +277,8 @@ function FinalScreen() {
     textTransform: "uppercase",
     fontWeight: 600,
   };
+
+  if (!activeCountry) return null;
 
   return (
     <div
@@ -419,7 +427,7 @@ function FinalScreen() {
                     whiteSpace: "nowrap",
                   }}
                 >
-                  {fmtUGX(Math.round(derived.budgetUgx))}
+                  {fmtMoney(Math.round(derived.budgetUgx))}
                 </div>
               </div>
               <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
