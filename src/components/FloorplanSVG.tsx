@@ -159,21 +159,22 @@ function renderGeom(
   g: BlockGeom,
   scale: number, drawH: number, padX: number, padY: number,
   stroke: string, strokeWidth: number, key: string,
+  fill: string = "none",
 ): React.ReactNode {
   if (g.type === "polyline") {
     const pts = g.vertices.map(
       (v) => `${sxT(v.x, scale, padX)},${syT(v.y, scale, drawH, padY)}`
     ).join(" ");
     return g.closed
-      ? <polygon  key={key} points={pts} stroke={stroke} strokeWidth={strokeWidth} fill="none" />
-      : <polyline key={key} points={pts} stroke={stroke} strokeWidth={strokeWidth} fill="none" />;
+      ? <polygon  key={key} points={pts} stroke={stroke} strokeWidth={strokeWidth} fill={fill} />
+      : <polyline key={key} points={pts} stroke={stroke} strokeWidth={strokeWidth} fill={fill} />;
   }
   if (g.type === "spline") {
     return (
       <path
         key={key}
         d={splinePath(g.points, scale, drawH, padX, padY)}
-        stroke={stroke} strokeWidth={strokeWidth} fill="none"
+        stroke={stroke} strokeWidth={strokeWidth} fill={fill}
       />
     );
   }
@@ -184,11 +185,49 @@ function renderGeom(
         cx={sxT(g.cx, scale, padX)}
         cy={syT(g.cy, scale, drawH, padY)}
         r={g.r * scale}
-        stroke={stroke} strokeWidth={strokeWidth} fill="none"
+        stroke={stroke} strokeWidth={strokeWidth} fill={fill}
       />
     );
   }
   return null;
+}
+
+// ── Block geometry styling by source sub-layer ────────────────────────────────
+// Most furniture geometry is a uniform thin outline. Plant blocks (used as
+// loose furniture and as "Furniture Stretch" greenery) carry CAD sub-layers
+// that must fill/stroke in their authored colours and stack in a fixed z-order:
+// leaf fills under the stems/leaf outlines, pot under everything. Colours below
+// mirror the DXF layer colours (EH-PLANT-* true-colour values).
+interface GeomStyle { fill: string; stroke: string; strokeWidth: number; z: number }
+
+const DEFAULT_GEOM_STYLE: GeomStyle = { fill: "none", stroke: "#001F17", strokeWidth: 0.8, z: 1 };
+
+const PLANT_POT_LAYER = "EH-PLANT-POT";
+// The pot body: a single dark-green fill at the bottom. Its inner lines form
+// the Easy Housing logo, so only the largest closed pot outline is filled —
+// every other pot line is stroked on top (in a light tint) so the logo shows.
+const POT_BODY_STYLE: GeomStyle = { fill: "#003B2B", stroke: "#003B2B", strokeWidth: 0.8, z: 0 };
+const POT_LINE_STYLE: GeomStyle = { fill: "none",    stroke: "#A6E6BD", strokeWidth: 0.9, z: 4 };
+
+const GEOM_STYLE_BY_LAYER: Record<string, GeomStyle> = {
+  "EH-PLANT-FILL":   { fill: "#A6E6BD", stroke: "none",    strokeWidth: 0,   z: 1 }, // leaf body fill
+  "EH-PLANT-STEMS":  { fill: "none",    stroke: "#8C5E36", strokeWidth: 0.7, z: 2 }, // stems
+  "EH-PLANT-LEAVES": { fill: "none",    stroke: "#4DCC7A", strokeWidth: 0.7, z: 3 }, // leaf outlines / veins
+};
+
+function geomStyle(layer?: string): GeomStyle {
+  return (layer && GEOM_STYLE_BY_LAYER[layer]) || DEFAULT_GEOM_STYLE;
+}
+
+function polylineArea(g: BlockGeom): number {
+  if (g.type !== "polyline") return 0;
+  const vs = g.vertices;
+  let a = 0;
+  for (let i = 0; i < vs.length; i++) {
+    const j = (i + 1) % vs.length;
+    a += vs[i].x * vs[j].y - vs[j].x * vs[i].y;
+  }
+  return Math.abs(a) / 2;
 }
 
 // ── SVG <defs> patterns ───────────────────────────────────────────────────────
@@ -385,38 +424,6 @@ function renderDoor(
   );
 }
 
-function renderBlockBackground(
-  entity: BlockEntity,
-  scale: number, drawH: number, sPadX: number, padY: number,
-  key: string,
-): React.ReactNode {
-  // Mask the room hatch under the furniture using the block's own closed
-  // outlines (and disc shapes), so the white follows the furniture silhouette
-  // instead of its oriented bounding box — the bbox over-painted the corners,
-  // leaving a white rectangle around the piece.
-  const masks: React.ReactNode[] = [];
-  entity.geom.forEach((g, gi) => {
-    if (g.type === "polyline" && g.closed && g.vertices.length >= 3) {
-      const pts = g.vertices
-        .map((v) => `${sxT(v.x, scale, sPadX)},${syT(v.y, scale, drawH, padY)}`)
-        .join(" ");
-      masks.push(<polygon key={`${key}-bg-${gi}`} points={pts} fill="white" stroke="none" />);
-    } else if (g.type === "circle") {
-      masks.push(
-        <circle
-          key={`${key}-bg-${gi}`}
-          cx={sxT(g.cx, scale, sPadX)}
-          cy={syT(g.cy, scale, drawH, padY)}
-          r={g.r * scale}
-          fill="white"
-          stroke="none"
-        />,
-      );
-    }
-  });
-  return masks;
-}
-
 function renderFurnitureBlock(
   entity: BlockEntity,
   delta: number, scale: number, drawH: number, padX: number, padY: number,
@@ -424,11 +431,40 @@ function renderFurnitureBlock(
 ): React.ReactNode {
   // Block geom is in world coords without delta. Shift padX to apply moveX at render time.
   const sPadX = entity.moveX ? padX + delta * scale : padX;
+
+  // The pot body is the largest closed pot outline; only it gets the dark fill,
+  // so the remaining pot lines (the Easy Housing logo) stay visible on top.
+  let potBodyGi = -1, potBodyArea = -1;
+  entity.geom.forEach((g, gi) => {
+    if (g.layer === PLANT_POT_LAYER && g.type === "polyline" && g.closed) {
+      const a = polylineArea(g);
+      if (a > potBodyArea) { potBodyArea = a; potBodyGi = gi; }
+    }
+  });
+  const styleFor = (g: BlockGeom, gi: number): GeomStyle =>
+    g.layer === PLANT_POT_LAYER ? (gi === potBodyGi ? POT_BODY_STYLE : POT_LINE_STYLE) : geomStyle(g.layer);
+
+  // Style each part by its sub-layer and stack by z (sort is stable, so plain
+  // furniture — all the same z — keeps its DXF order).
+  const parts = entity.geom
+    .map((g, gi) => ({ g, gi, style: styleFor(g, gi) }))
+    .sort((a, b) => a.style.z - b.style.z);
+
+  // Floor mask: paint only the plain-furniture closed outlines white so the
+  // wood planks don't show through solid pieces. Plant geometry is excluded —
+  // its own fills (leaves, pot) provide the colour, and white-masking would
+  // cover the green.
+  const maskParts = parts.filter(
+    ({ g, style }) => style === DEFAULT_GEOM_STYLE && g.type === "polyline" && g.closed && g.vertices.length >= 3,
+  );
+
   return (
     <g key={key}>
-      {renderBlockBackground(entity, scale, drawH, sPadX, padY, key)}
-      {entity.geom.map((g, gi) =>
-        renderGeom(g, scale, drawH, sPadX, padY, "#001F17", 0.8, `${key}-${gi}`)
+      {maskParts.map(({ g, gi }) =>
+        renderGeom(g, scale, drawH, sPadX, padY, "none", 0, `${key}-bg-${gi}`, "white"),
+      )}
+      {parts.map(({ g, gi, style }) =>
+        renderGeom(g, scale, drawH, sPadX, padY, style.stroke, style.strokeWidth, `${key}-${gi}`, style.fill)
       )}
     </g>
   );

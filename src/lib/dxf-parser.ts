@@ -414,24 +414,24 @@ function flattenGeom(
     if (g.type === "line") {
       const p1 = transformPoint(g.x1, g.y1, ix, iy, rotDeg, sx, sy);
       const p2 = transformPoint(g.x2, g.y2, ix, iy, rotDeg, sx, sy);
-      out.push({ type: "polyline", closed: false, vertices: [p1, p2] } as GeomPolyline);
+      out.push({ type: "polyline", closed: false, vertices: [p1, p2], layer: g.layer } as GeomPolyline);
     } else if (g.type === "arc") {
       const verts = tessellateArc(g, ix, iy, rotDeg, sx, sy);
-      out.push({ type: "polyline", closed: false, vertices: verts } as GeomPolyline);
+      out.push({ type: "polyline", closed: false, vertices: verts, layer: g.layer } as GeomPolyline);
     } else if (g.type === "circle") {
       // For uniform scale (the common case) preserve a true circle so it
       // renders as native SVG <circle>. Non-uniform scale would turn it
       // into an ellipse — fall back to polygon tessellation in that case.
       if (Math.abs(Math.abs(sx) - Math.abs(sy)) < 1e-9) {
         const center = transformPoint(g.cx, g.cy, ix, iy, rotDeg, sx, sy);
-        out.push({ type: "circle", cx: center.x, cy: center.y, r: g.r * Math.abs(sx) } as GeomCircle);
+        out.push({ type: "circle", cx: center.x, cy: center.y, r: g.r * Math.abs(sx), layer: g.layer } as GeomCircle);
       } else {
         const verts = tessellateCircle(g, ix, iy, rotDeg, sx, sy);
-        out.push({ type: "polyline", closed: true, vertices: verts } as GeomPolyline);
+        out.push({ type: "polyline", closed: true, vertices: verts, layer: g.layer } as GeomPolyline);
       }
     } else if (g.type === "poly") {
       const verts = g.verts.map((v) => transformPoint(v.x, v.y, ix, iy, rotDeg, sx, sy));
-      out.push({ type: "polyline", closed: g.closed, vertices: verts } as GeomPolyline);
+      out.push({ type: "polyline", closed: g.closed, vertices: verts, layer: g.layer } as GeomPolyline);
     } else if (g.type === "spline") {
       if (g.ctrl) {
         // Control-point B-spline: evaluate the actual curve with de Boor,
@@ -440,10 +440,10 @@ function flattenGeom(
         // points would distort the shape (e.g. chair backs, couch arms).
         const curve = tessellateSpline(g.pts, g.degree, g.knots);
         const verts = curve.map((v) => transformPoint(v.x, v.y, ix, iy, rotDeg, sx, sy));
-        out.push({ type: "polyline", closed: !!g.closed, vertices: verts } as GeomPolyline);
+        out.push({ type: "polyline", closed: !!g.closed, vertices: verts, layer: g.layer } as GeomPolyline);
       } else {
         const points = g.pts.map((v) => transformPoint(v.x, v.y, ix, iy, rotDeg, sx, sy));
-        out.push({ type: "spline", points } as GeomSpline);
+        out.push({ type: "spline", points, layer: g.layer } as GeomSpline);
       }
     }
   }

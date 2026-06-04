@@ -18,11 +18,14 @@ export interface GeomPolyline {
   type: "polyline";
   closed: boolean;
   vertices: { x: number; y: number }[];
+  /** Source DXF sub-layer (e.g. "EH-PLANT-FILL"), for per-layer styling. */
+  layer?: string;
 }
 
 export interface GeomSpline {
   type: "spline";
   points: { x: number; y: number }[];
+  layer?: string;
 }
 
 // True circle preserved as native SVG <circle>. Renders cleanly at any
@@ -33,6 +36,7 @@ export interface GeomCircle {
   cx: number;
   cy: number;
   r: number;
+  layer?: string;
 }
 
 export type BlockGeom = GeomPolyline | GeomSpline | GeomCircle;
