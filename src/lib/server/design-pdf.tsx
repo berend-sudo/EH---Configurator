@@ -5,16 +5,26 @@ import {
   View,
   Text,
   Svg,
+  G,
   Polygon,
   Polyline,
   Line,
+  Path,
+  Rect,
   Circle,
   Image,
   Font,
   StyleSheet,
   renderToBuffer,
 } from "@react-pdf/renderer";
-import type { FloorplanJSON } from "@/types/floorplan";
+import type {
+  FloorplanJSON,
+  FloorplanEntity,
+  BlockEntity,
+  BlockGeom,
+  PolylineEntity,
+  Vertex,
+} from "@/types/floorplan";
 import type { RoomColorKey } from "@/lib/rooms";
 import { BASE_COUNTRY, fmtMoney, type Country } from "@/lib/countries";
 import { TYPOLOGIES, type TypologyId } from "@/lib/typologies";
@@ -37,6 +47,7 @@ const C = {
   living: "#F5ECD7",
   bath: "#E8F4F8",
   terrace: "#D4C4A0",
+  timber: "#8C5E36", // --eh-timber, for plant stems in furniture blocks
 };
 
 const ROOM_COLORS: Record<RoomColorKey, string> = {
@@ -150,61 +161,461 @@ function PageFooter({ left, right }: { left: string; right: string }) {
   );
 }
 
-// ── Floor-plan SVG (rooms filled + walls), simplified for the brief ─────────
-function vx(v: { x: number; moveX: boolean }, delta: number) {
-  return v.x + (v.moveX ? delta : 0);
+// ── Floor-plan SVG ──────────────────────────────────────────────────────────
+// A print-side port of the on-screen FloorplanSVG, adapted to @react-pdf
+// primitives. Renders rooms, walls, windows, doors, furniture (blocks +
+// polylines, incl. the plant sub-layer styling) and exterior dimension
+// lines. The two implementations share no code — react-pdf needs its own
+// SVG element set — but the geometry/transform logic is intentionally a
+// 1:1 mirror so a change in one is easy to reflect in the other.
+
+const WALL_THICKNESS = 94; // mm
+const DIM_OUTER = 20; // pt — overall (level-1) dimension offset from building
+const DIM_INNER = 10; // pt — window-chain (level-2) dimension offset
+const DIM_FONT = 6;
+const PAD_L = 34;
+const PAD_T = 34;
+const PAD_R = 20;
+const PAD_B = 20;
+
+interface Pt {
+  x: number;
+  y: number;
+}
+
+// Transform context: world-mm → SVG points.
+interface Xform {
+  scale: number;
+  drawH: number;
+}
+const SX = (T: Xform, x: number, padL = PAD_L) => x * T.scale + padL;
+const SY = (T: Xform, y: number) => PAD_T + T.drawH - y * T.scale;
+
+type WindowPositions = Map<number, Pt[]>;
+
+function buildWindowPositions(plan: FloorplanJSON, delta: number): WindowPositions {
+  const map: WindowPositions = new Map();
+  const windowLayer = plan.layers.find((l) => l.name === "Windows");
+  if (!windowLayer) return map;
+  let widx = 0;
+  for (const entity of windowLayer.entities) {
+    if (entity.type !== "polyline") continue;
+    const dx = entity.vertices.some((v) => v.moveX) ? delta : 0;
+    map.set(widx, entity.vertices.map((v) => ({ x: v.x + dx, y: v.y })));
+    widx++;
+  }
+  return map;
+}
+
+function vertWorld(v: Vertex, delta: number, wp: WindowPositions): Pt {
+  if (v.attach) {
+    const pts = wp.get(v.attach.windowIdx);
+    if (pts) {
+      const p = pts[v.attach.vertexIdx];
+      if (p) return p;
+    }
+  }
+  return { x: v.x + (v.moveX ? delta : 0), y: v.y };
+}
+
+function applyDelta(verts: Vertex[], delta: number, wp: WindowPositions): Pt[] {
+  return verts.map((v) => vertWorld(v, delta, wp));
+}
+
+function bboxOf(pts: Pt[]) {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const p of pts) {
+    if (p.x < minX) minX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.x > maxX) maxX = p.x;
+    if (p.y > maxY) maxY = p.y;
+  }
+  return { minX, minY, maxX, maxY, w: maxX - minX, h: maxY - minY };
+}
+
+// ── Furniture geometry styling (mirrors FloorplanSVG, bound to --eh tokens) ──
+interface GeomStyle { fill: string; stroke: string; strokeWidth: number; z: number }
+const DEFAULT_GEOM_STYLE: GeomStyle = { fill: "none", stroke: C.green900, strokeWidth: 0.4, z: 1 };
+const PLANT_POT_LAYER = "EH-PLANT-POT";
+const POT_BODY_STYLE: GeomStyle = { fill: C.green900, stroke: C.green900, strokeWidth: 0.4, z: 0 };
+const POT_LINE_STYLE: GeomStyle = { fill: "none", stroke: C.green200, strokeWidth: 0.5, z: 4 };
+const GEOM_STYLE_BY_LAYER: Record<string, GeomStyle> = {
+  "EH-PLANT-FILL": { fill: C.green200, stroke: "none", strokeWidth: 0, z: 1 },
+  "EH-PLANT-STEMS": { fill: "none", stroke: C.timber, strokeWidth: 0.4, z: 2 },
+  "EH-PLANT-LEAVES": { fill: "none", stroke: C.green, strokeWidth: 0.4, z: 3 },
+};
+function geomStyle(layer?: string): GeomStyle {
+  return (layer && GEOM_STYLE_BY_LAYER[layer]) || DEFAULT_GEOM_STYLE;
+}
+function polylineArea(g: BlockGeom): number {
+  if (g.type !== "polyline") return 0;
+  const vs = g.vertices;
+  let a = 0;
+  for (let i = 0; i < vs.length; i++) {
+    const j = (i + 1) % vs.length;
+    a += vs[i].x * vs[j].y - vs[j].x * vs[i].y;
+  }
+  return Math.abs(a) / 2;
+}
+
+function splinePathPdf(pts: Pt[], T: Xform, padL: number): string {
+  if (pts.length < 2) return "";
+  const px = (p: Pt) => SX(T, p.x, padL);
+  const py = (p: Pt) => SY(T, p.y);
+  if (pts.length === 2) return `M ${px(pts[0])} ${py(pts[0])} L ${px(pts[1])} ${py(pts[1])}`;
+  let d = `M ${px(pts[0])} ${py(pts[0])}`;
+  for (let k = 0; k < pts.length - 1; k++) {
+    const p0 = pts[Math.max(k - 1, 0)];
+    const p1 = pts[k];
+    const p2 = pts[k + 1];
+    const p3 = pts[Math.min(k + 2, pts.length - 1)];
+    const c1x = px(p1) + (px(p2) - px(p0)) / 6;
+    const c1y = py(p1) + (py(p2) - py(p0)) / 6;
+    const c2x = px(p2) - (px(p3) - px(p1)) / 6;
+    const c2y = py(p2) - (py(p3) - py(p1)) / 6;
+    d += ` C ${c1x} ${c1y} ${c2x} ${c2y} ${px(p2)} ${py(p2)}`;
+  }
+  return d;
+}
+
+function renderGeomPdf(
+  g: BlockGeom, T: Xform, padL: number,
+  stroke: string, strokeWidth: number, key: string, fill = "none",
+): React.ReactNode {
+  if (g.type === "polyline") {
+    const pts = g.vertices.map((v) => `${SX(T, v.x, padL)},${SY(T, v.y)}`).join(" ");
+    return g.closed
+      ? <Polygon key={key} points={pts} stroke={stroke} strokeWidth={strokeWidth} fill={fill} />
+      : <Polyline key={key} points={pts} stroke={stroke} strokeWidth={strokeWidth} fill={fill} />;
+  }
+  if (g.type === "spline") {
+    return <Path key={key} d={splinePathPdf(g.points, T, padL)} stroke={stroke} strokeWidth={strokeWidth} fill={fill} />;
+  }
+  if (g.type === "circle") {
+    return <Circle key={key} cx={SX(T, g.cx, padL)} cy={SY(T, g.cy)} r={g.r * T.scale} stroke={stroke} strokeWidth={strokeWidth} fill={fill} />;
+  }
+  return null;
+}
+
+function renderFurnitureBlockPdf(entity: BlockEntity, delta: number, T: Xform, key: string): React.ReactNode {
+  // Block geom is in world coords without delta; shift padL by delta to apply moveX.
+  const padL = entity.moveX ? PAD_L + delta * T.scale : PAD_L;
+  let potBodyGi = -1, potBodyArea = -1;
+  entity.geom.forEach((g, gi) => {
+    if (g.layer === PLANT_POT_LAYER && g.type === "polyline" && g.closed) {
+      const a = polylineArea(g);
+      if (a > potBodyArea) { potBodyArea = a; potBodyGi = gi; }
+    }
+  });
+  const styleFor = (g: BlockGeom, gi: number): GeomStyle =>
+    g.layer === PLANT_POT_LAYER ? (gi === potBodyGi ? POT_BODY_STYLE : POT_LINE_STYLE) : geomStyle(g.layer);
+  const parts = entity.geom
+    .map((g, gi) => ({ g, gi, style: styleFor(g, gi) }))
+    .sort((a, b) => a.style.z - b.style.z);
+  const maskParts = parts.filter(
+    ({ g, style }) => style === DEFAULT_GEOM_STYLE && g.type === "polyline" && g.closed && g.vertices.length >= 3,
+  );
+  return (
+    <G key={key}>
+      {maskParts.map(({ g, gi }) => renderGeomPdf(g, T, padL, "none", 0, `${key}-bg-${gi}`, "white"))}
+      {parts.map(({ g, gi, style }) => renderGeomPdf(g, T, padL, style.stroke, style.strokeWidth, `${key}-${gi}`, style.fill))}
+    </G>
+  );
+}
+
+function renderFurniturePolylinePdf(entity: PolylineEntity, delta: number, T: Xform, wp: WindowPositions, key: string): React.ReactNode {
+  const world = applyDelta(entity.vertices, delta, wp);
+  const pts = world.map((v) => `${SX(T, v.x)},${SY(T, v.y)}`).join(" ");
+  return entity.closed
+    ? <Polygon key={key} points={pts} fill="white" stroke={C.green900} strokeWidth={0.4} />
+    : <Polyline key={key} points={pts} fill="none" stroke={C.green900} strokeWidth={0.4} />;
+}
+
+function renderWindowPdf(entity: PolylineEntity, widx: number, T: Xform, wp: WindowPositions, key: string): React.ReactNode {
+  const world = wp.get(widx) ?? entity.vertices.map((v) => ({ x: v.x, y: v.y }));
+  const pts = world.map((v) => `${SX(T, v.x)},${SY(T, v.y)}`).join(" ");
+  const bb = bboxOf(world);
+  const isHoriz = bb.w >= bb.h;
+  const off = 20 * T.scale; // ±20mm from centre in the short axis
+  let l1: [number, number, number, number];
+  let l2: [number, number, number, number];
+  if (isHoriz) {
+    const cy = SY(T, (bb.minY + bb.maxY) / 2);
+    const x1 = SX(T, bb.minX), x2 = SX(T, bb.maxX);
+    l1 = [x1, cy - off, x2, cy - off];
+    l2 = [x1, cy + off, x2, cy + off];
+  } else {
+    const cx = SX(T, (bb.minX + bb.maxX) / 2);
+    const y1 = SY(T, bb.maxY), y2 = SY(T, bb.minY);
+    l1 = [cx - off, y1, cx - off, y2];
+    l2 = [cx + off, y1, cx + off, y2];
+  }
+  return (
+    <G key={key}>
+      <Polygon points={pts} fill="white" stroke={C.green900} strokeWidth={0.6} />
+      <Line x1={l1[0]} y1={l1[1]} x2={l1[2]} y2={l1[3]} stroke={C.green900} strokeWidth={0.5} />
+      <Line x1={l2[0]} y1={l2[1]} x2={l2[2]} y2={l2[3]} stroke={C.green900} strokeWidth={0.5} />
+    </G>
+  );
+}
+
+function detectDoorWallEdge(world: Pt[], bb: ReturnType<typeof bboxOf>): "top" | "bottom" | "left" | "right" | null {
+  if (world.length < 2) return null;
+  const v0 = world[0];
+  const vN = world[world.length - 1];
+  const tol = 5; // mm
+  if (Math.abs(v0.y - bb.maxY) < tol && Math.abs(vN.y - bb.maxY) < tol) return "top";
+  if (Math.abs(v0.y - bb.minY) < tol && Math.abs(vN.y - bb.minY) < tol) return "bottom";
+  if (Math.abs(v0.x - bb.minX) < tol && Math.abs(vN.x - bb.minX) < tol) return "left";
+  if (Math.abs(v0.x - bb.maxX) < tol && Math.abs(vN.x - bb.maxX) < tol) return "right";
+  return null;
+}
+
+function renderDoorPdf(
+  entity: PolylineEntity, delta: number, T: Xform, wp: WindowPositions,
+  planW: number, planD: number, key: string,
+): React.ReactNode {
+  const world = applyDelta(entity.vertices, delta, wp);
+  const pts = world.map((v) => `${SX(T, v.x)},${SY(T, v.y)}`).join(" ");
+  const bb = bboxOf(world);
+  const W = WALL_THICKNESS;
+  let side = detectDoorWallEdge(world, bb);
+  if (!side) {
+    const cx = (bb.minX + bb.maxX) / 2;
+    const cy = (bb.minY + bb.maxY) / 2;
+    const dTop = planD - cy, dBottom = cy, dLeft = cx, dRight = planW - cx;
+    const minD = Math.min(dTop, dBottom, dLeft, dRight);
+    side = minD === dTop ? "top" : minD === dBottom ? "bottom" : minD === dLeft ? "left" : "right";
+  }
+  let rx = 0, ry = 0, rw = 0, rh = 0;
+  if (side === "top") {
+    rx = SX(T, bb.minX); ry = SY(T, bb.maxY + W / 2); rw = bb.w * T.scale; rh = W * T.scale;
+  } else if (side === "bottom") {
+    rx = SX(T, bb.minX); ry = SY(T, bb.minY + W / 2); rw = bb.w * T.scale; rh = W * T.scale;
+  } else if (side === "left") {
+    rx = SX(T, bb.minX - W / 2); ry = SY(T, bb.maxY); rw = W * T.scale; rh = bb.h * T.scale;
+  } else {
+    rx = SX(T, bb.maxX - W / 2); ry = SY(T, bb.maxY); rw = W * T.scale; rh = bb.h * T.scale;
+  }
+  return (
+    <G key={key}>
+      <Rect x={rx} y={ry} width={rw} height={rh} fill="white" stroke="none" />
+      {entity.closed
+        ? <Polygon points={pts} fill="none" stroke={C.green900} strokeWidth={0.6} />
+        : <Polyline points={pts} fill="none" stroke={C.green900} strokeWidth={0.6} />}
+    </G>
+  );
+}
+
+// ── Dimension lines ─────────────────────────────────────────────────────────
+function HorizDim({ x1, x2, y, label, tickLen = 3 }: { x1: number; x2: number; y: number; label: string; tickLen?: number }) {
+  const mx = (x1 + x2) / 2;
+  return (
+    <G>
+      <Line x1={x1} y1={y} x2={x2} y2={y} stroke={C.muted} strokeWidth={0.4} />
+      <Line x1={x1} y1={y - tickLen} x2={x1} y2={y + tickLen} stroke={C.muted} strokeWidth={0.4} />
+      <Line x1={x2} y1={y - tickLen} x2={x2} y2={y + tickLen} stroke={C.muted} strokeWidth={0.4} />
+      {label ? (
+        <Text x={mx} y={y - 2} fill={C.muted} stroke="none" textAnchor="middle" style={{ fontSize: DIM_FONT, fontFamily: FONT }}>
+          {label}
+        </Text>
+      ) : null}
+    </G>
+  );
+}
+
+function VertDim({ x, y1, y2, label, tickLen = 3, side = "left" }: { x: number; y1: number; y2: number; label: string; tickLen?: number; side?: "left" | "right" }) {
+  const my = (y1 + y2) / 2;
+  const tx = side === "left" ? x - 3 : x + 3;
+  return (
+    <G>
+      <Line x1={x} y1={y1} x2={x} y2={y2} stroke={C.muted} strokeWidth={0.4} />
+      <Line x1={x - tickLen} y1={y1} x2={x + tickLen} y2={y1} stroke={C.muted} strokeWidth={0.4} />
+      <Line x1={x - tickLen} y1={y2} x2={x + tickLen} y2={y2} stroke={C.muted} strokeWidth={0.4} />
+      {label ? (
+        <Text
+          x={tx}
+          y={my}
+          fill={C.muted}
+          stroke="none"
+          textAnchor="middle"
+          // react-pdf doesn't parse an SVG transform *string* (pickStyleProps
+          // hoists it to style.transform unparsed), so pass the already-parsed
+          // operation array directly: rotate -90° about the label anchor.
+          transform={[{ operation: "rotate", value: [-90, tx, my] }] as unknown as string}
+          style={{ fontSize: DIM_FONT, fontFamily: FONT }}
+        >
+          {label}
+        </Text>
+      ) : null}
+    </G>
+  );
+}
+
+function windowsOnWall(
+  plan: FloorplanJSON, delta: number,
+  wall: "top" | "bottom" | "left" | "right", wp: WindowPositions,
+): Array<{ min: number; max: number }> {
+  const windowLayer = plan.layers.find((l) => l.name === "Windows");
+  if (!windowLayer) return [];
+  const threshold = 200; // mm
+  const intervals: Array<{ min: number; max: number }> = [];
+  let widx = 0;
+  for (const entity of windowLayer.entities) {
+    if (entity.type !== "polyline") continue;
+    const world = wp.get(widx++) ?? entity.vertices.map((v) => ({ x: v.x, y: v.y }));
+    const bb = bboxOf(world);
+    const cx = (bb.minX + bb.maxX) / 2;
+    const cy = (bb.minY + bb.maxY) / 2;
+    const depth = plan.baseDepth;
+    const width = plan.baseWidth + delta;
+    if (wall === "top" && cy > depth - threshold) intervals.push({ min: bb.minX, max: bb.maxX });
+    if (wall === "bottom" && cy < threshold) intervals.push({ min: bb.minX, max: bb.maxX });
+    if (wall === "left" && cx < threshold) intervals.push({ min: bb.minY, max: bb.maxY });
+    if (wall === "right" && cx > width - threshold) intervals.push({ min: bb.minY, max: bb.maxY });
+  }
+  return intervals.sort((a, b) => a.min - b.min);
+}
+
+function buildChain(wallStart: number, wallEnd: number, intervals: Array<{ min: number; max: number }>) {
+  const segs: Array<{ from: number; to: number }> = [];
+  let cur = wallStart;
+  for (const iv of intervals) {
+    if (iv.min > cur) segs.push({ from: cur, to: iv.min });
+    segs.push({ from: iv.min, to: iv.max });
+    cur = iv.max;
+  }
+  if (cur < wallEnd) segs.push({ from: cur, to: wallEnd });
+  return segs;
+}
+
+// Metres, 2 dp — matches the page subtitle's "all dimensions in metres".
+// Sub-segments shorter than 300 mm get a tick but no label (avoids clutter).
+const segLabel = (mm: number) => (mm >= 300 ? (mm / 1000).toFixed(2) : "");
+
+function DimensionLines({ plan, delta, T, wp }: { plan: FloorplanJSON; delta: number; T: Xform; wp: WindowPositions }) {
+  const bLeft = PAD_L;
+  const bRight = PAD_L + (plan.baseWidth + delta) * T.scale;
+  const bTop = PAD_T;
+  const bBottom = PAD_T + plan.baseDepth * T.scale;
+
+  const totalW = Math.round(plan.baseWidth + delta);
+  const totalD = Math.round(plan.baseDepth);
+
+  const out: React.ReactNode[] = [];
+
+  // Level 1 — overall (top + left).
+  out.push(<HorizDim key="dim-w" x1={bLeft} x2={bRight} y={bTop - DIM_OUTER} label={(totalW / 1000).toFixed(2)} />);
+  out.push(<VertDim key="dim-d" x={bLeft - DIM_OUTER} y1={bTop} y2={bBottom} label={(totalD / 1000).toFixed(2)} />);
+
+  // Level 2 — window chains on all four sides. A chain with a single
+  // segment means that wall has no windows, so it just restates the overall
+  // dimension — skip it to avoid printing the same number twice.
+  const topChain = buildChain(0, plan.baseWidth + delta, windowsOnWall(plan, delta, "top", wp));
+  if (topChain.length > 1) topChain.forEach((seg, i) => {
+    const len = Math.round(seg.to - seg.from);
+    if (len < 50) return;
+    out.push(<HorizDim key={`top-${i}`} x1={SX(T, seg.from)} x2={SX(T, seg.to)} y={bTop - DIM_INNER} label={segLabel(len)} />);
+  });
+  const botChain = buildChain(0, plan.baseWidth + delta, windowsOnWall(plan, delta, "bottom", wp));
+  if (botChain.length > 1) botChain.forEach((seg, i) => {
+    const len = Math.round(seg.to - seg.from);
+    if (len < 50) return;
+    out.push(<HorizDim key={`bot-${i}`} x1={SX(T, seg.from)} x2={SX(T, seg.to)} y={bBottom + DIM_INNER} label={segLabel(len)} />);
+  });
+  const leftChain = buildChain(0, plan.baseDepth, windowsOnWall(plan, delta, "left", wp));
+  if (leftChain.length > 1) leftChain.forEach((seg, i) => {
+    const len = Math.round(seg.to - seg.from);
+    if (len < 50) return;
+    out.push(<VertDim key={`left-${i}`} x={bLeft - DIM_INNER} y1={SY(T, seg.to)} y2={SY(T, seg.from)} label={segLabel(len)} />);
+  });
+  const rightChain = buildChain(0, plan.baseDepth, windowsOnWall(plan, delta, "right", wp));
+  if (rightChain.length > 1) rightChain.forEach((seg, i) => {
+    const len = Math.round(seg.to - seg.from);
+    if (len < 50) return;
+    out.push(<VertDim key={`right-${i}`} x={bRight + DIM_INNER} y1={SY(T, seg.to)} y2={SY(T, seg.from)} label={segLabel(len)} side="right" />);
+  });
+
+  return <>{out}</>;
 }
 
 function PlanSvg({ plan, delta, maxW = 480, maxH = 300 }: { plan: FloorplanJSON; delta: number; maxW?: number; maxH?: number }) {
   const worldW = plan.baseWidth + delta;
   const worldH = plan.baseDepth;
-  const pad = 8;
-  const scale = Math.min((maxW - 2 * pad) / worldW, (maxH - 2 * pad) / worldH);
+  const scale = Math.min((maxW - PAD_L - PAD_R) / worldW, (maxH - PAD_T - PAD_B) / worldH);
   const drawW = worldW * scale;
   const drawH = worldH * scale;
-  const svgW = drawW + 2 * pad;
-  const svgH = drawH + 2 * pad;
-  const sx = (x: number) => x * scale + pad;
-  const sy = (y: number) => pad + drawH - y * scale;
+  const svgW = PAD_L + drawW + PAD_R;
+  const svgH = PAD_T + drawH + PAD_B;
+  const T: Xform = { scale, drawH };
+  const wp = buildWindowPositions(plan, delta);
 
-  const rooms: { pts: string; fill: string }[] = [];
-  const wallsClosed: string[] = [];
-  const wallsOpen: string[] = [];
+  const rooms: React.ReactNode[] = [];
+  const walls: React.ReactNode[] = [];
+  const windows: React.ReactNode[] = [];
+  const doors: React.ReactNode[] = [];
+  const furniture: React.ReactNode[] = [];
 
   for (const layer of plan.layers) {
     if (layer.name.startsWith("Rooms")) {
+      // Mezzanine is an upper-floor overlay; skip on the print plan.
+      if (layer.name.includes("Mezzanine")) continue;
       const fill = layer.name.includes("Bath")
         ? C.bath
         : layer.name.includes("Terrace")
         ? C.terrace
         : C.living;
-      for (const e of layer.entities) {
+      for (let i = 0; i < layer.entities.length; i++) {
+        const e = layer.entities[i];
         if (e.type !== "polyline" || !e.closed) continue;
-        rooms.push({ pts: e.vertices.map((v) => `${sx(vx(v, delta))},${sy(v.y)}`).join(" "), fill });
+        const pts = applyDelta(e.vertices, delta, wp).map((v) => `${SX(T, v.x)},${SY(T, v.y)}`).join(" ");
+        rooms.push(<Polygon key={`room-${layer.name}-${i}`} points={pts} fill={fill} stroke={C.stroke} strokeWidth={0.4} />);
       }
     } else if (layer.name === "Walls") {
-      for (const e of layer.entities) {
+      for (let i = 0; i < layer.entities.length; i++) {
+        const e = layer.entities[i];
         if (e.type !== "polyline") continue;
-        const pts = e.vertices.map((v) => `${sx(vx(v, delta))},${sy(v.y)}`).join(" ");
-        if (e.closed) wallsClosed.push(pts);
-        else wallsOpen.push(pts);
+        const pts = applyDelta(e.vertices, delta, wp).map((v) => `${SX(T, v.x)},${SY(T, v.y)}`).join(" ");
+        walls.push(
+          e.closed
+            ? <Polygon key={`wall-${i}`} points={pts} fill={C.green900} stroke={C.green900} strokeWidth={0.6} />
+            : <Polyline key={`wall-${i}`} points={pts} fill="none" stroke={C.green900} strokeWidth={0.8} />,
+        );
+      }
+    } else if (layer.name === "Windows") {
+      let widx = 0;
+      for (let i = 0; i < layer.entities.length; i++) {
+        const e = layer.entities[i];
+        if (e.type !== "polyline") continue;
+        windows.push(renderWindowPdf(e, widx, T, wp, `win-${widx}`));
+        widx++;
+      }
+    } else if (layer.name === "Doors") {
+      for (let i = 0; i < layer.entities.length; i++) {
+        const e = layer.entities[i];
+        if (e.type !== "polyline") continue;
+        doors.push(renderDoorPdf(e, delta, T, wp, worldW, worldH, `door-${i}`));
+      }
+    } else if (layer.name === "Furniture" || layer.name === "Furniture Stretch") {
+      // "Furniture Stretch" only appears once the plan is widened past min.
+      if (layer.name === "Furniture Stretch" && delta <= plan.minDelta) continue;
+      for (let i = 0; i < layer.entities.length; i++) {
+        const e = layer.entities[i];
+        const key = `furn-${layer.name}-${i}`;
+        if (e.type === "block") furniture.push(renderFurnitureBlockPdf(e, delta, T, key));
+        else if (e.type === "polyline") furniture.push(renderFurniturePolylinePdf(e, delta, T, wp, key));
       }
     }
   }
 
   return (
     <Svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`}>
-      {rooms.map((r, i) => (
-        <Polygon key={`r${i}`} points={r.pts} fill={r.fill} stroke={C.stroke} strokeWidth={0.5} />
-      ))}
-      {wallsClosed.map((p, i) => (
-        <Polygon key={`wc${i}`} points={p} fill={C.green900} stroke={C.green900} strokeWidth={0.6} />
-      ))}
-      {wallsOpen.map((p, i) => (
-        <Polyline key={`wo${i}`} points={p} fill="none" stroke={C.green900} strokeWidth={1} />
-      ))}
-      {/* Overall dimension ticks */}
-      <Line x1={pad} y1={svgH - 2} x2={svgW - pad} y2={svgH - 2} stroke={C.muted} strokeWidth={0.5} />
+      {rooms}
+      {walls}
+      {windows}
+      {doors}
+      {furniture}
+      <DimensionLines plan={plan} delta={delta} T={T} wp={wp} />
     </Svg>
   );
 }
