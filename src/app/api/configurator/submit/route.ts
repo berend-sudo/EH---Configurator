@@ -166,12 +166,18 @@ export async function POST(req: NextRequest) {
   // (local)` is what the client saw on screen and is rounded to the
   // currency's display step. Order must match LEADS_HEADER.
   const indicativeLocal = ugxToLocal(budget.coreTotal, country);
+  const newsletterYesNo = client.newsletter ? "Yes" : "No";
   const sheetRow = [
-    new Date().toISOString(),
     reference,
-    client.name,
+    new Date().toISOString(),
     client.email,
+    client.name,
     client.phone,
+    client.country,
+    client.projectType,
+    client.landFunds,
+    client.hearAbout,
+    newsletterYesNo,
     client.timeline,
     typology.name,
     parsedSel.subtype ?? "",
@@ -192,11 +198,11 @@ export async function POST(req: NextRequest) {
     email: client.email,
     phone: client.phone,
     timeline: client.timeline,
-    // Placeholder mirror fields — Wolf maps these logical keys to the real
-    // entry.* ids when the form questions are wired up (Phase 6).
     country: client.country,
     projectType: client.projectType ?? "",
     hearAbout: client.hearAbout ?? "",
+    landFunds: client.landFunds ?? "",
+    newsletter: newsletterYesNo,
     reference,
     floorPlan: label,
     bedrooms: String(parsedBedrooms),
