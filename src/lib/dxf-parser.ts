@@ -453,6 +453,64 @@ function findOrphanArcs(localGeom: LocalGeom[], scale: number): Set<number> {
   return drop;
 }
 
+
+// Recover rounded-rectangle furniture (e.g. a living-room bench) drawn as four
+// corner ARCs whose straight edges were deleted in CAD. Without the edges the
+// corners read as four stray arcs that findOrphanArcs discards; when they form
+// a clean rectangle we synthesise the missing edges instead, so the piece
+// renders as intended. Small fixture ticks (r<50 mm) never qualify and stay
+// dropped. Detection tolerates extra unrelated orphan arcs of the same radius
+// by searching for the 2x2 grid of corner centres rather than an exact count.
+function clusterSorted(vals: number[], tol: number): number[] {
+  const out: number[] = [];
+  for (const v of [...vals].sort((a, b) => a - b))
+    if (!out.length || Math.abs(v - out[out.length - 1]) > tol) out.push(v);
+  return out;
+}
+
+function reconstructRects(
+  localGeom: LocalGeom[],
+  orphans: Set<number>,
+): { rescue: Set<number>; edges: LocalLine[] } {
+  const RMIN = 50, TOL = 4;
+  const byR = new Map<number, { i: number; g: LocalArc }[]>();
+  orphans.forEach((i) => {
+    const g = localGeom[i];
+    if (g.type !== "arc" || g.r < RMIN) return;
+    const k = Math.round(g.r);
+    (byR.get(k) ?? byR.set(k, []).get(k)!).push({ i, g });
+  });
+  const rescue = new Set<number>();
+  const edges: LocalLine[] = [];
+  byR.forEach((group, r) => {
+    if (group.length < 4) return;
+    const xs = clusterSorted(group.map((a) => a.g.cx), TOL);
+    const ys = clusterSorted(group.map((a) => a.g.cy), TOL);
+    const cornerAt = (x: number, y: number) =>
+      group.find((a) => Math.abs(a.g.cx - x) <= TOL && Math.abs(a.g.cy - y) <= TOL);
+    let made = false;
+    for (let a = 0; a < xs.length && !made; a++)
+      for (let b = a + 1; b < xs.length && !made; b++)
+        for (let c = 0; c < ys.length && !made; c++)
+          for (let d = c + 1; d < ys.length && !made; d++) {
+            const x0 = xs[a], x1 = xs[b], y0 = ys[c], y1 = ys[d];
+            if (x1 - x0 <= TOL || y1 - y0 <= TOL) continue;
+            const corners = [cornerAt(x0, y0), cornerAt(x1, y0), cornerAt(x0, y1), cornerAt(x1, y1)];
+            if (corners.some((k) => !k)) continue;
+            corners.forEach((k) => rescue.add(k!.i));
+            const layer = corners[0]!.g.layer;
+            const line = (x1c: number, y1c: number, x2c: number, y2c: number): LocalLine =>
+              ({ type: "line", layer, x1: x1c, y1: y1c, x2: x2c, y2: y2c });
+            edges.push(
+              line(x0, y0 - r, x1, y0 - r), line(x0, y1 + r, x1, y1 + r),
+              line(x0 - r, y0, x0 - r, y1), line(x1 + r, y0, x1 + r, y1),
+            );
+            made = true;
+          }
+  });
+  return { rescue, edges };
+}
+
 // ── Flatten all local geometry to world-space polylines/splines ──────────────
 
 function flattenGeom(
@@ -462,11 +520,12 @@ function flattenGeom(
   const out: BlockGeom[] = [];
 
   const dropArc = findOrphanArcs(localGeom, Math.max(Math.abs(sx), Math.abs(sy)));
+  const { rescue, edges } = reconstructRects(localGeom, dropArc);
 
   for (let gIdx = 0; gIdx < localGeom.length; gIdx++) {
     const g = localGeom[gIdx];
     if (g.type === "point") continue;
-    if (g.type === "arc" && dropArc.has(gIdx)) continue;
+    if (g.type === "arc" && dropArc.has(gIdx) && !rescue.has(gIdx)) continue;
     if (g.layer === "FurnitureRefRec" || g.layer === "MeubelRefRec") continue;
 
     if (g.type === "line") {
@@ -504,6 +563,12 @@ function flattenGeom(
         out.push({ type: "spline", points, layer: g.layer } as GeomSpline);
       }
     }
+  }
+
+  for (const e of edges) {
+    const p1 = transformPoint(e.x1, e.y1, ix, iy, rotDeg, sx, sy);
+    const p2 = transformPoint(e.x2, e.y2, ix, iy, rotDeg, sx, sy);
+    out.push({ type: "polyline", closed: false, vertices: [p1, p2], layer: e.layer } as GeomPolyline);
   }
 
   return out;
