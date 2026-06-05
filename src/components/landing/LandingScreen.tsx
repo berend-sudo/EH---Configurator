@@ -1,10 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCountryGuard } from "@/lib/use-active-country";
-import { heroPhoto } from "@/lib/brand-images";
 import EHNavBar from "@/components/EHNavBar";
 import BudgetSlider from "./BudgetSlider";
 import BedroomsCounter from "./BedroomsCounter";
@@ -80,16 +78,15 @@ export default function LandingScreen({ plans }: Props) {
   }
 
   return (
-    <main style={{ position: "relative", width: "100%", minHeight: "100vh", overflow: "hidden" }}>
-      <Image
-        src={heroPhoto(0)}
-        alt="Easy Housing project, Mukono"
-        fill
-        sizes="100vw"
-        style={{ objectFit: "cover" }}
-        priority
-      />
-
+    <main
+      style={{
+        position: "relative",
+        width: "100%",
+        minHeight: "100vh",
+        overflow: "hidden",
+        background: "var(--eh-green-900)",
+      }}
+    >
       <div style={{ position: "relative", zIndex: 2 }}>
         <EHNavBar onDark step={1} totalSteps={3} />
       </div>

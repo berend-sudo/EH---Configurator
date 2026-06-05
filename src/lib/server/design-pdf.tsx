@@ -29,8 +29,8 @@ import type { RoomColorKey } from "@/lib/rooms";
 import { BASE_COUNTRY, fmtMoney, type Country } from "@/lib/countries";
 import { TYPOLOGIES, type TypologyId } from "@/lib/typologies";
 import {
-  furniturePhotoFile,
-  typologyPhotoFile,
+  randomFurniturePhotoFiles,
+  randomTypologyPhotoFile,
 } from "@/lib/server/brand-images";
 
 // ── Brand tokens (mirrors eh-tokens.css) ───────────────────────────────────
@@ -630,7 +630,7 @@ function CoverPage(d: DesignPdfData) {
           interior/furniture cell. */}
       <View style={{ flexGrow: 1, position: "relative" }}>
         <Image
-          src={typologyPhotoFile(d.typology, 0)}
+          src={randomTypologyPhotoFile(d.typology, d.reference)}
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
         />
         <View style={{ position: "absolute", left: 14, bottom: 12 }}>
@@ -723,6 +723,9 @@ function SpecPage(d: DesignPdfData) {
   // Equivalent km of plane travel — same rule of thumb the brand has used
   // since the 2022 guidelines (~5 t CO₂ / 25,000 km long-haul).
   const flightKm = co2Tonnes * 5000;
+  // Three distinct interior/furniture shots, seeded by the reference so the
+  // ribbon varies across designs but is stable on regeneration.
+  const ribbon = randomFurniturePhotoFiles(3, d.reference);
   return (
     <Page size="A4" style={{ ...styles.page, paddingTop: 28, paddingHorizontal: 36, paddingBottom: FOOTER_HEIGHT }} wrap={false}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }} wrap={false}>
@@ -762,14 +765,14 @@ function SpecPage(d: DesignPdfData) {
           between the budget figure and the climate band so the eye lifts
           off the price before the CO₂ message. */}
       <View style={{ flexDirection: "row", marginTop: 18, gap: 8 }} wrap={false}>
-        {[1, 2, 3].map((i) => (
+        {ribbon.map((src, i) => (
           <View
             key={i}
             wrap={false}
             style={{ flex: 1, height: 150, borderRadius: 12, overflow: "hidden" }}
           >
             <Image
-              src={furniturePhotoFile(i)}
+              src={src}
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
             />
           </View>

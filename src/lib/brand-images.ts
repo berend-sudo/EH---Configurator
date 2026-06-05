@@ -71,3 +71,68 @@ export const heroPhoto = (i = 0): string =>
   webSrc(BRAND_IMAGES.hero[i % BRAND_IMAGES.hero.length]);
 export const furniturePhoto = (i = 0): string =>
   webSrc(BRAND_IMAGES.furniture[i % BRAND_IMAGES.furniture.length]);
+
+// ── Randomisation ───────────────────────────────────────────────────────────
+// Every image surface (cover, hero, configurator collage, spec ribbon) picks
+// from its category/typology pool at random rather than always showing index
+// 0. Two modes:
+//   • unseeded  → Math.random(), for client surfaces that re-pick per mount.
+//   • seeded    → a deterministic PRNG keyed off a string (e.g. the design
+//                 reference), so the server PDF varies across designs but is
+//                 stable when the same design is regenerated.
+// The samplers return raw filenames; client (webSrc) and server (filesystem)
+// helpers map them to their respective path form.
+
+function hashStr(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return h >>> 0;
+}
+
+// mulberry32 — tiny, fast, good-enough PRNG. Returns floats in [0, 1).
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function randFor(seed?: string): () => number {
+  return seed == null ? Math.random : mulberry32(hashStr(seed));
+}
+
+// n distinct items (no repeat until the pool is exhausted, then it wraps).
+function sampleN<T>(arr: readonly T[], n: number, rand: () => number): T[] {
+  const pool = [...arr];
+  const out: T[] = [];
+  while (out.length < n && pool.length > 0) {
+    out.push(pool.splice(Math.floor(rand() * pool.length), 1)[0]);
+  }
+  while (out.length < n) out.push(arr[out.length % arr.length]); // n > pool: wrap
+  return out;
+}
+
+/** Raw filenames — distinct random typology shots. Shared by client + server. */
+export function sampleTypologyFiles(typology: TypologyId, n: number, seed?: string): string[] {
+  return sampleN(BRAND_IMAGES.typology[typology], n, randFor(seed));
+}
+/** Raw filenames — distinct random furniture/interior shots. */
+export function sampleFurnitureFiles(n: number, seed?: string): string[] {
+  return sampleN(BRAND_IMAGES.furniture, n, randFor(seed));
+}
+/** Raw filenames — distinct random hero shots. */
+export function sampleHeroFiles(n: number, seed?: string): string[] {
+  return sampleN(BRAND_IMAGES.hero, n, randFor(seed));
+}
+
+/** n random typology photos as web srcs (distinct). */
+export const randomTypologyPhotos = (typology: TypologyId, n: number, seed?: string): string[] =>
+  sampleTypologyFiles(typology, n, seed).map(webSrc);
+/** One random hero photo as a web src. */
+export const randomHeroPhoto = (seed?: string): string => webSrc(sampleHeroFiles(1, seed)[0]);
+/** n random furniture photos as web srcs (distinct). */
+export const randomFurniturePhotos = (n: number, seed?: string): string[] =>
+  sampleFurnitureFiles(n, seed).map(webSrc);
