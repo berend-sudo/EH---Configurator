@@ -33,7 +33,15 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unknown floor plan" }, { status: 404 });
     }
     const json = parseDxf(text, fileName);
-    return NextResponse.json(json);
+    // Plan files are content-addressed (filename is part of the URL) and the
+    // parser output is a pure function of the file, so the response is safe to
+    // cache aggressively on the browser/CDN. Cuts plan re-visits from ~500ms-1s
+    // (parse) to instant.
+    return NextResponse.json(json, {
+      headers: {
+        "Cache-Control": "public, max-age=86400, s-maxage=86400, immutable",
+      },
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Parse error";
     return NextResponse.json({ error: msg }, { status: 500 });
