@@ -488,6 +488,34 @@ function extractBlockPoints(localGeom: LocalGeom[]): {
   return { tlLocal, trLocal };
 }
 
+// ── Geometry bounding-box centre (world space) ───────────────────────────────
+// Classify a piece by where it actually sits, not by a single corner/vertex.
+// A corner can land on a marker for the wrong zone (e.g. a couch corner on a
+// fixed "PT Top Left"), and a window can split across the boundary so one edge
+// moves and the other doesn't — which shears the walls attached to it. Using
+// the centroid resolves the whole piece to one zone.
+function centreOf(pts: { x: number; y: number }[]): { x: number; y: number } | null {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const v of pts) {
+    if (v.x < minX) minX = v.x;
+    if (v.y < minY) minY = v.y;
+    if (v.x > maxX) maxX = v.x;
+    if (v.y > maxY) maxY = v.y;
+  }
+  if (minX === Infinity) return null;
+  return { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
+}
+
+function geomCentre(geom: BlockGeom[]): { x: number; y: number } | null {
+  const pts: { x: number; y: number }[] = [];
+  for (const g of geom) {
+    if (g.type === "polyline") pts.push(...g.vertices);
+    else if (g.type === "spline") pts.push(...g.points);
+    else if (g.type === "circle") { pts.push({ x: g.cx - g.r, y: g.cy - g.r }, { x: g.cx + g.r, y: g.cy + g.r }); }
+  }
+  return centreOf(pts);
+}
+
 // ── Compute depth vector from TL→TR axis into the furniture body ─────────────
 
 function computeDepthVec(
@@ -690,50 +718,31 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
   for (const raw of polylines) {
     const layer = layerMap.get(raw.layer);
     if (!layer) continue;
+    // Windows translate as a rigid unit: classify the whole window by its
+    // centre and apply that to every vertex. Per-vertex classification could
+    // split a window (one edge moving, one fixed) so it stretched instead of
+    // translating — which sheared the walls attached to its corners. Walls and
+    // rooms stay per-vertex so they still stretch across the zone boundary.
+    const unitMoveX =
+      raw.layer === "Windows"
+        ? (() => { const c = centreOf(raw.vertices); return c ? decideMoveX(c.x, c.y, ptRight, ptLeft) : false; })()
+        : null;
     const vertices: Vertex[] = raw.vertices.map((v) => ({
       x: v.x,
       y: v.y,
-      moveX: decideMoveX(v.x, v.y, ptRight, ptLeft),
+      moveX: unitMoveX ?? decideMoveX(v.x, v.y, ptRight, ptLeft),
     }));
     layer.entities.push({ type: "polyline", closed: raw.closed, vertices } as PolylineEntity);
   }
 
-  // ── Attachment pass: tag wall/room/door vertices coincident with window corners
-  // Wall vertices at a window's cutout corner must track that window vertex's
-  // computed world position (including any width cap), not just shift by delta.
-  const ATTACH_TOL_SQ = 5 * 5; // 5 mm
-  const windowsLayer = layerMap.get("Windows");
-  if (windowsLayer) {
-    const winVerts: Array<{ windowIdx: number; vertexIdx: number; x: number; y: number }> = [];
-    let widx = 0;
-    for (const wEnt of windowsLayer.entities) {
-      if (wEnt.type !== "polyline") continue;
-      for (let vi = 0; vi < wEnt.vertices.length; vi++) {
-        const wv = wEnt.vertices[vi];
-        winVerts.push({ windowIdx: widx, vertexIdx: vi, x: wv.x, y: wv.y });
-      }
-      widx++;
-    }
-    layerMap.forEach((layer, layerName) => {
-      if (layerName === "Windows" || layerName === "Furniture" || layerName === "Furniture Stretch") return;
-      for (const ent of layer.entities) {
-        if (ent.type !== "polyline") continue;
-        for (const v of ent.vertices) {
-          let bestSq = ATTACH_TOL_SQ;
-          let best: { windowIdx: number; vertexIdx: number } | undefined;
-          for (const wv of winVerts) {
-            const dx = wv.x - v.x, dy = wv.y - v.y;
-            const sq = dx * dx + dy * dy;
-            if (sq <= bestSq) {
-              bestSq = sq;
-              best = { windowIdx: wv.windowIdx, vertexIdx: wv.vertexIdx };
-            }
-          }
-          if (best) v.attach = best;
-        }
-      }
-    });
-  }
+  // NOTE: a window→wall vertex "attachment" pass used to live here, snapping
+  // wall/room corners onto window vertices so they'd track a window's capped
+  // edge while stretching. Now that windows are classified as rigid units
+  // (above), they translate rather than stretch, so the cap never fires and the
+  // attachment is redundant — worse, it dragged wall corners onto window
+  // vertices that moved differently, shearing the walls into triangles when
+  // stretched. Removing it lets wall/room vertices follow their own per-vertex
+  // zone, which keeps every wall rectangular through the full slider range.
 
   const furnitureLayer = layerMap.get("Furniture")!;
   const furnitureStretchLayer = layerMap.get("Furniture Stretch")!;
@@ -752,9 +761,11 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
       depthVec = computeDepthVec(tl, tr, geom);
     }
 
-    // Use TL/TR left edge for zone classification; fall back to insertion point
-    const refX = (tl && tr) ? Math.min(tl.x, tr.x) : ins.x;
-    const moveX = decideMoveX(refX, ins.y, ptRight, ptLeft);
+    // Classify the block by its geometry centre so it lands in the zone where
+    // it visually sits. (A TL/TR corner can coincide with a marker for the
+    // wrong zone — e.g. the living-room couch pinned fixed by a corner marker.)
+    const centre = geomCentre(geom) ?? { x: ins.x, y: ins.y };
+    const moveX = decideMoveX(centre.x, centre.y, ptRight, ptLeft);
 
     const targetLayer = ins.layer === "Furniture Stretch" ? furnitureStretchLayer : furnitureLayer;
     targetLayer.entities.push({
