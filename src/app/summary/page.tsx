@@ -589,38 +589,21 @@ function FinalScreen() {
                 )}
               </div>
               <div className="field" style={{ gridColumn: "1 / -1" }}>
-                <label style={{ display: "block", marginBottom: 6 }}>
-                  Do you have land and funds available?
-                </label>
-                <div
-                  role="radiogroup"
-                  aria-label="Do you have land and funds available?"
-                  style={{ display: "flex", flexDirection: "column", gap: 10 }}
+                <label htmlFor="eh-land-funds">Do you have land and funds available?</label>
+                <select
+                  id="eh-land-funds"
+                  value={landFunds}
+                  onChange={(e) => setLandFunds(e.target.value)}
                 >
+                  <option value="" disabled>
+                    Select…
+                  </option>
                   {LAND_FUNDS_OPTIONS.map((opt) => (
-                    <label
-                      key={opt}
-                      style={{
-                        display: "flex",
-                        alignItems: "flex-start",
-                        gap: 8,
-                        fontSize: 14,
-                        lineHeight: 1.4,
-                        cursor: "pointer",
-                      }}
-                    >
-                      <input
-                        type="radio"
-                        name="eh-land-funds"
-                        value={opt}
-                        checked={landFunds === opt}
-                        onChange={(e) => setLandFunds(e.target.value)}
-                        style={{ marginTop: 2, width: 16, height: 16, accentColor: "var(--eh-green-500)", flex: "0 0 auto" }}
-                      />
+                    <option key={opt} value={opt}>
                       {opt}
-                    </label>
+                    </option>
                   ))}
-                </div>
+                </select>
               </div>
             </div>
 
