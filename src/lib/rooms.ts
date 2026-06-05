@@ -5,9 +5,26 @@
 
 export type RoomColorKey = "living" | "bath" | "terrace";
 
+// Canonical, sentence-case room labels. The DXF authoring tool writes
+// space-separated codes like "Bed Room" / "Bath Room" / "Living Room";
+// normalise them here so every surface (on-screen plan, PDF legend, email)
+// inherits the brand-voice form ("Bedroom", "Bathroom", "Living room").
+const LABEL_MAP: Record<string, string> = {
+  "Bed Room": "Bedroom",
+  "Bedroom": "Bedroom",
+  "Bath Room": "Bathroom",
+  "Bathroom": "Bathroom",
+  "Living Room": "Living room",
+  "Living": "Living room",
+  "Terrace": "Terrace",
+  "Kitchen": "Kitchen",
+  "Mezzanine": "Mezzanine",
+};
+
 export function roomDisplayName(layerName: string): string {
   if (layerName === "Rooms") return "Room";
-  return layerName.replace(/^Rooms\s*[$\-]\s*/, "");
+  const raw = layerName.replace(/^Rooms\s*[$\-]\s*/, "").trim();
+  return LABEL_MAP[raw] ?? raw;
 }
 
 export function roomColorKey(layerName: string): RoomColorKey {

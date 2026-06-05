@@ -72,7 +72,11 @@ export async function POST(req: NextRequest) {
 
   const widthM = (plan.baseWidth + delta) / 1000;
   const lengthM = plan.baseDepth / 1000;
-  const footprintM2 = rooms.gfa + rooms.terraceArea;
+  // Single canonical "footprint" = gross width × length. Matches the W × L
+  // dimensions printed on the plan page and the foundation line on the spec
+  // page. Internal/net area lives in the per-room legend; never lump the
+  // two under one label.
+  const footprintM2 = widthM * lengthM;
 
   const dxfName = dxfFilename(parsedSel, parsedBedrooms, parsedVersion);
   const pdfName = pdfFilename(parsedSel, parsedBedrooms, parsedVersion);
@@ -84,21 +88,52 @@ export async function POST(req: NextRequest) {
     year: "numeric",
   });
 
-  // Per-room-type breakdown for the PDF legend.
-  const roomMap = new Map<string, { name: string; areaM2: number; colorKey: RoomColorKey }>();
+  // Per-polyline room legend for the PDF. Each closed polyline becomes one
+  // entry so a 2-bed plan reads "Bedroom 1 · 12.4 m²" + "Bedroom 2 · 14.0 m²"
+  // rather than a single combined "Bedroom · 26.4 m²". Numbering kicks in
+  // only when a label appears more than once.
+  const rawRooms: { name: string; areaM2: number; colorKey: RoomColorKey }[] = [];
   for (const layer of plan.layers) {
     if (!layer.name.startsWith("Rooms")) continue;
+    if (layer.name.includes("Mezzanine")) continue; // mezzanine is upper floor, not part of the ground-floor legend
     const name = roomDisplayName(layer.name);
     const colorKey = roomColorKey(layer.name);
     for (const e of layer.entities) {
       if (e.type !== "polyline" || !e.closed) continue;
-      const area = polygonAreaM2(e.vertices, delta);
-      const cur = roomMap.get(name) ?? { name, areaM2: 0, colorKey };
-      cur.areaM2 += area;
-      roomMap.set(name, cur);
+      rawRooms.push({ name, areaM2: polygonAreaM2(e.vertices, delta), colorKey });
     }
   }
-  const roomBreakdown = Array.from(roomMap.values());
+  const nameCount = new Map<string, number>();
+  for (const r of rawRooms) nameCount.set(r.name, (nameCount.get(r.name) ?? 0) + 1);
+  const seen = new Map<string, number>();
+  const roomBreakdown = rawRooms.map((r) => {
+    const total = nameCount.get(r.name) ?? 1;
+    if (total <= 1) return r;
+    const n = (seen.get(r.name) ?? 0) + 1;
+    seen.set(r.name, n);
+    return { ...r, name: `${r.name} ${n}` };
+  });
+
+  // The drawing's actual bedroom count drives the cover claim — a DXF whose
+  // filename says "2BR" but draws only one bedroom shouldn't ship a PDF
+  // headlined "2-bedroom" over a 1-bed plan. We count "Bedroom" polylines
+  // from the normalised legend (not `countRooms.bedrooms`, which still
+  // matches the legacy "Bedroom" CamelCase layer name and misses the
+  // "Bed Room" form most DXFs ship with).
+  //
+  // Two exceptions keep the headline aligned with the brief:
+  //  - A Studio (parsedBedrooms === 0) stays a Studio even when the DXF
+  //    labels the sleeping nook as a Bedroom polyline — that's a layout
+  //    convention, not a bedroom count.
+  //  - When the drawing has zero bedroom polylines we fall back to the
+  //    filename so a missing legend doesn't silently flip a 2-bed plan
+  //    into a Studio on the cover.
+  //
+  // TODO(plans): re-author any mismatched DXFs so parsedBedrooms ===
+  // drawnBedrooms — until then, the headline follows the drawing.
+  const drawnBedrooms = rawRooms.filter((r) => r.name === "Bedroom").length;
+  const actualBedrooms =
+    parsedBedrooms === 0 || drawnBedrooms === 0 ? parsedBedrooms : drawnBedrooms;
 
   // ── Generate the PDF ───────────────────────────────────────────────────────
   let pdf: Buffer;
@@ -107,18 +142,13 @@ export async function POST(req: NextRequest) {
       plan,
       delta,
       label,
-      bedrooms: parsedBedrooms,
+      bedrooms: actualBedrooms,
       typology: parsedSel.typology,
       reference,
       generatedDate,
       client: { name: client.name, email: client.email },
       dimensions: { widthM, lengthM, footprintM2 },
-      budget: {
-        core: budget.lines.core,
-        optional: budget.lines.optional,
-        coreTotal: budget.coreTotal,
-        grandTotal: budget.grandTotal,
-      },
+      indicativeBudgetUgx: budget.coreTotal,
       rooms: roomBreakdown,
       country,
     });
@@ -134,6 +164,7 @@ export async function POST(req: NextRequest) {
       name: client.name,
       subject,
       label,
+      bedrooms: actualBedrooms,
       reference,
       pdf,
       pdfFilename: pdfName,

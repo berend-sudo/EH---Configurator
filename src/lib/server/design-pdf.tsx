@@ -14,7 +14,6 @@ import {
   renderToBuffer,
 } from "@react-pdf/renderer";
 import type { FloorplanJSON } from "@/types/floorplan";
-import type { BudgetLineItem } from "@/lib/budget";
 import type { RoomColorKey } from "@/lib/rooms";
 import { BASE_COUNTRY, fmtMoney, type Country } from "@/lib/countries";
 import { TYPOLOGIES, type TypologyId } from "@/lib/typologies";
@@ -45,6 +44,14 @@ const ROOM_COLORS: Record<RoomColorKey, string> = {
   terrace: C.terrace,
 };
 
+// Indicative per-m² CO₂ saving for an EH timber-framed home vs. an
+// equivalent concrete-block build. The brand carbon claim has historically
+// been a per-home figure (~26 t for a sample home); this is the per-m²
+// equivalent so the climate box scales with the configured design.
+// TODO(carbon): replace with a confirmed per-typology figure from the
+// embodied-carbon model when ready.
+const CO2_SAVING_PER_M2_KG = 250;
+
 export interface DesignPdfData {
   plan: FloorplanJSON;
   delta: number;
@@ -57,12 +64,12 @@ export interface DesignPdfData {
   generatedDate: string;
   client: { name: string; email: string };
   dimensions: { widthM: number; lengthM: number; footprintM2: number };
-  budget: {
-    core: BudgetLineItem[];
-    optional: BudgetLineItem[];
-    coreTotal: number;
-    grandTotal: number;
-  };
+  /**
+   * Single source-of-truth indicative budget in UGX — the same figure the
+   * user saw in the configurator (calculateBudget(...).coreTotal). Printed
+   * once on the cover and once on the spec page; no derived totals.
+   */
+  indicativeBudgetUgx: number;
   rooms: { name: string; areaM2: number; colorKey: RoomColorKey }[];
   /**
    * Country picked at the gate. Drives the primary money column on the spec
@@ -72,8 +79,6 @@ export interface DesignPdfData {
    */
   country: Country;
 }
-
-const fmtNum = (n: number) => Math.round(n).toLocaleString("en-US");
 
 // Stable string hash so the cover's interior shot is deterministic per
 // design (same reference → same shot every regeneration) but varies across
@@ -114,6 +119,32 @@ const styles = StyleSheet.create({
   h1: { fontSize: 30, fontWeight: 600, fontFamily: FONT_BOLD },
   h2: { fontSize: 20, fontWeight: 600, fontFamily: FONT_BOLD },
 });
+
+// Footer pinned to the page bottom (the prompt's "footer at the page margin,
+// not wherever content ends" rule). Each Page reserves matching paddingBottom.
+const FOOTER_HEIGHT = 36;
+
+function PageFooter({ left, right }: { left: string; right: string }) {
+  return (
+    <View
+      fixed
+      style={{
+        position: "absolute",
+        left: 36,
+        right: 36,
+        bottom: 14,
+        borderTopWidth: 1,
+        borderTopColor: C.stroke,
+        paddingTop: 8,
+        flexDirection: "row",
+        justifyContent: "space-between",
+      }}
+    >
+      <Text style={{ fontSize: 8, color: C.muted }}>{left}</Text>
+      <Text style={{ fontSize: 8, color: C.muted }}>{right}</Text>
+    </View>
+  );
+}
 
 // ── Floor-plan SVG (rooms filled + walls), simplified for the brief ─────────
 function vx(v: { x: number; moveX: boolean }, delta: number) {
@@ -174,9 +205,15 @@ function PlanSvg({ plan, delta, maxW = 480, maxH = 300 }: { plan: FloorplanJSON;
   );
 }
 
+function bedroomDescriptor(bedrooms: number): string {
+  if (bedrooms === 0) return "Studio";
+  if (bedrooms === 1) return "1-bedroom";
+  return `${bedrooms}-bedroom`;
+}
+
 function CoverPage(d: DesignPdfData) {
   return (
-    <Page size="A4" style={styles.page}>
+    <Page size="A4" style={{ ...styles.page, paddingBottom: FOOTER_HEIGHT }} wrap={false}>
       <View style={{ backgroundColor: C.green900, paddingVertical: 24, paddingHorizontal: 36, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
         <Image src={logoWhite} style={{ height: 18, objectFit: "contain" }} />
         <Text style={{ fontSize: 8, letterSpacing: 1.4, color: C.green200, fontWeight: 600 }}>
@@ -207,32 +244,32 @@ function CoverPage(d: DesignPdfData) {
         </View>
       </View>
 
-      <View style={{ backgroundColor: "#fff", paddingHorizontal: 36, paddingTop: 30, paddingBottom: 22 }}>
+      <View style={{ backgroundColor: "#fff", paddingHorizontal: 36, paddingTop: 30, paddingBottom: 22 }} wrap={false}>
         <Text style={{ fontSize: 9, letterSpacing: 1.4, color: C.green700, fontWeight: 600 }}>
           CONFIGURATOR OUTPUT
         </Text>
         <Text style={{ ...styles.h1, marginTop: 6 }}>{d.label}</Text>
         <Text style={{ fontSize: 12, color: C.muted, marginTop: 6 }}>
-          {d.bedrooms === 0 ? "Studio" : `${d.bedrooms}-bedroom`} · {d.dimensions.footprintM2.toFixed(2)} m² · Indicative budget {fmtMoney(d.budget.coreTotal, d.country)}
+          {bedroomDescriptor(d.bedrooms)} · Footprint {d.dimensions.footprintM2.toFixed(2)} m² · Indicative budget {fmtMoney(d.indicativeBudgetUgx, d.country)}
         </Text>
         {d.country.code !== BASE_COUNTRY.code && (
           // UGX equivalent in small print — architects price in UGX, the
           // client saw the local figure on screen. Both belong on the
           // build file.
           <Text style={{ fontSize: 9, color: C.muted, marginTop: 4 }}>
-            ≈ {fmtMoney(d.budget.coreTotal, BASE_COUNTRY)} at 1 {d.country.currency.code} ≈ {d.country.ugxPerUnit} UGX
+            ≈ {fmtMoney(d.indicativeBudgetUgx, BASE_COUNTRY)} at 1 {d.country.currency.code} ≈ {d.country.ugxPerUnit} UGX
           </Text>
         )}
 
         <View style={{ height: 1, backgroundColor: C.stroke, marginVertical: 18 }} />
 
         <View style={{ flexDirection: "row" }}>
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1 }} wrap={false}>
             <Text style={styles.eyebrow}>PREPARED FOR</Text>
             <Text style={{ fontSize: 13, fontWeight: 600, marginTop: 4, fontFamily: FONT_BOLD }}>{d.client.name}</Text>
             <Text style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>{d.client.email}</Text>
           </View>
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1 }} wrap={false}>
             <Text style={styles.eyebrow}>REFERENCE</Text>
             <Text style={{ fontSize: 13, fontWeight: 600, marginTop: 4, fontFamily: FONT_BOLD }}>{d.reference}</Text>
             <Text style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>Generated {d.generatedDate}</Text>
@@ -240,23 +277,20 @@ function CoverPage(d: DesignPdfData) {
         </View>
       </View>
 
-      <View style={{ backgroundColor: C.bgAlt, paddingVertical: 12, paddingHorizontal: 36, flexDirection: "row", justifyContent: "space-between" }}>
-        <Text style={{ fontSize: 8, color: C.muted }}>A home for everyone, Easy Housing</Text>
-        <Text style={{ fontSize: 8, color: C.muted }}>1 / 3</Text>
-      </View>
+      <PageFooter left="A home for everyone, Easy Housing" right="1 / 3" />
     </Page>
   );
 }
 
 function PlanPage(d: DesignPdfData) {
   return (
-    <Page size="A4" style={{ ...styles.page, paddingVertical: 28, paddingHorizontal: 36 }}>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+    <Page size="A4" style={{ ...styles.page, paddingTop: 28, paddingHorizontal: 36, paddingBottom: FOOTER_HEIGHT }} wrap={false}>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }} wrap={false}>
         <Image src={logoColor} style={{ height: 16, objectFit: "contain" }} />
         <Text style={styles.eyebrow}>FLOOR PLAN</Text>
       </View>
 
-      <View style={{ marginTop: 16 }}>
+      <View style={{ marginTop: 16 }} wrap={false}>
         <Text style={styles.h2}>Plan view.</Text>
         <Text style={{ fontSize: 10, color: C.muted, marginTop: 4 }}>
           {d.dimensions.widthM.toFixed(2)} m × {d.dimensions.lengthM.toFixed(2)} m · all dimensions in metres
@@ -269,7 +303,7 @@ function PlanPage(d: DesignPdfData) {
 
       <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 16 }}>
         {d.rooms.map((r, i) => (
-          <View key={i} style={{ width: "25%", flexDirection: "row", alignItems: "center", marginBottom: 6 }}>
+          <View key={i} wrap={false} style={{ width: "25%", flexDirection: "row", alignItems: "center", marginBottom: 6 }}>
             <View style={{ width: 14, height: 14, borderRadius: 3, backgroundColor: ROOM_COLORS[r.colorKey], borderWidth: 1, borderColor: C.stroke, marginRight: 8 }} />
             <View>
               <Text style={{ fontSize: 9, color: C.muted }}>{r.name}</Text>
@@ -279,64 +313,71 @@ function PlanPage(d: DesignPdfData) {
         ))}
       </View>
 
-      <View style={{ borderTopWidth: 1, borderTopColor: C.stroke, marginTop: 12, paddingTop: 8, flexDirection: "row", justifyContent: "space-between" }}>
-        <Text style={{ fontSize: 8, color: C.muted }}>{d.reference} · {d.label}</Text>
-        <Text style={{ fontSize: 8, color: C.muted }}>2 / 3</Text>
-      </View>
+      <PageFooter left={`${d.reference} · ${d.label}`} right="2 / 3" />
     </Page>
   );
 }
 
 function SpecPage(d: DesignPdfData) {
-  const lines = [...d.budget.core, ...d.budget.optional];
-  // Convert each row UGX→local without going through fmtMoney's currency
-  // prefix — the column header carries the code once.
-  const localAmount = (ugx: number) => Math.round(ugx / d.country.ugxPerUnit);
+  // Per-design CO₂ saving (timber-framed vs. concrete block), scaled from
+  // the footprint by CO2_SAVING_PER_M2_KG. See the constant above for the
+  // TODO on confirming the per-typology figure.
+  const co2Tonnes = Math.max(1, Math.round((d.dimensions.footprintM2 * CO2_SAVING_PER_M2_KG) / 1000));
+  // Equivalent km of plane travel — same rule of thumb the brand has used
+  // since the 2022 guidelines (~5 t CO₂ / 25,000 km long-haul).
+  const flightKm = co2Tonnes * 5000;
   return (
-    <Page size="A4" style={{ ...styles.page, paddingVertical: 28, paddingHorizontal: 36 }}>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+    <Page size="A4" style={{ ...styles.page, paddingTop: 28, paddingHorizontal: 36, paddingBottom: FOOTER_HEIGHT }} wrap={false}>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }} wrap={false}>
         <Image src={logoColor} style={{ height: 16, objectFit: "contain" }} />
         <Text style={styles.eyebrow}>SPEC & BUDGET</Text>
       </View>
 
-      <View style={{ marginTop: 16 }}>
+      <View style={{ marginTop: 16 }} wrap={false}>
         <Text style={styles.h2}>Spec sheet.</Text>
         <Text style={{ fontSize: 10, color: C.muted, marginTop: 4 }}>
-          Indicative budget — final pricing depends on site & local sourcing.
+          Indicative budget — final pricing depends on site &amp; local sourcing.
         </Text>
       </View>
 
-      <View style={{ flexGrow: 1, marginTop: 16 }}>
-        <View style={{ flexDirection: "row", paddingVertical: 8, borderBottomWidth: 1.5, borderBottomColor: C.green900 }}>
-          <Text style={{ flex: 1, fontSize: 8, letterSpacing: 1.2, color: C.muted, fontWeight: 600 }}>ITEM</Text>
-          <Text style={{ width: 110, fontSize: 8, letterSpacing: 1.2, color: C.muted, fontWeight: 600, textAlign: "right" }}>
-            {d.country.currency.code}
+      {/* Headline indicative-budget figure — same number as the cover. No
+          line-item table: the per-category cost breakdown the configurator
+          used to expose was illustrative and contradicted the cover's
+          total; a single figure is the brief. */}
+      <View
+        wrap={false}
+        style={{
+          marginTop: 22,
+          padding: "24px 24px",
+          backgroundColor: C.bgAlt,
+          borderRadius: 14,
+          borderWidth: 1,
+          borderColor: C.stroke,
+          flexDirection: "row",
+          alignItems: "baseline",
+          justifyContent: "space-between",
+        }}
+      >
+        <View style={{ flex: 1, paddingRight: 16 }}>
+          <Text style={styles.eyebrow}>INDICATIVE BUDGET</Text>
+          <Text style={{ fontSize: 11, color: C.muted, marginTop: 6, fontWeight: 300 }}>
+            {bedroomDescriptor(d.bedrooms)} · {d.dimensions.widthM.toFixed(2)} m × {d.dimensions.lengthM.toFixed(2)} m · concrete pad {d.dimensions.footprintM2.toFixed(2)} m²
           </Text>
         </View>
-        {lines.map((r, i) => (
-          <View key={i} style={{ flexDirection: "row", paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: C.stroke }}>
-            <Text style={{ flex: 1, fontSize: 11 }}>{r.label}</Text>
-            <Text style={{ width: 110, fontSize: 11, textAlign: "right" }}>{fmtNum(localAmount(r.amount))}</Text>
-          </View>
-        ))}
-        <View style={{ flexDirection: "row", paddingVertical: 12, alignItems: "center" }}>
-          <Text style={{ flex: 1, fontSize: 14, fontWeight: 600, fontFamily: FONT_BOLD }}>Indicative total</Text>
-          <Text style={{ width: 130, fontSize: 16, fontWeight: 600, color: C.green900, textAlign: "right", fontFamily: FONT_BOLD }}>
-            {fmtMoney(d.budget.grandTotal, d.country)}
-          </Text>
-        </View>
+        <Text style={{ fontSize: 26, fontWeight: 600, color: C.green900, fontFamily: FONT_BOLD }}>
+          {fmtMoney(d.indicativeBudgetUgx, d.country)}
+        </Text>
       </View>
 
       {/* Furniture ribbon — three thumbs of how the home wears in. Sits
-          between the cost total and the climate band so the eye lifts off
-          the tariff before the CO2 message. Height kept tight so the page
-          stays at 3 pages even with the longest budget list; if it ever
-          spills, drop to a 2-up first, then move below the climate band. */}
-      <View style={{ flexDirection: "row", marginTop: 12, gap: 8 }}>
+          between the budget figure and the climate band so the eye lifts
+          off the price before the CO₂ message. */}
+      <View style={{ flexDirection: "row", marginTop: 18, gap: 8 }} wrap={false}>
         {[1, 2, 3].map((i) => (
           <View
             key={i}
-            style={{ flex: 1, height: 72, borderRadius: 12, overflow: "hidden" }}
+            wrap={false}
+            style={{ flex: 1, height: 84, borderRadius: 12, overflow: "hidden" }}
           >
             <Image
               src={furniturePhotoFile(i)}
@@ -345,23 +386,51 @@ function SpecPage(d: DesignPdfData) {
           </View>
         ))}
       </View>
-      <Text style={{ fontSize: 9, color: C.muted, marginTop: 6, fontStyle: "italic" }}>
+      <Text style={{ fontSize: 9, color: C.muted, marginTop: 6 }}>
         Plywood lining, compact fittings — built to live in.
       </Text>
 
-      <View style={{ backgroundColor: C.green900, borderRadius: 14, padding: 18, marginTop: 12, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+      <View
+        wrap={false}
+        style={{
+          backgroundColor: C.green900,
+          borderRadius: 14,
+          padding: 18,
+          marginTop: 18,
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
         <View style={{ flex: 1, paddingRight: 12 }}>
-          <Text style={{ fontSize: 8, letterSpacing: 1.4, color: C.green200, fontWeight: 600 }}>CLIMATE IMPACT</Text>
-          <Text style={{ fontSize: 12, color: "#fff", marginTop: 4, fontWeight: 300 }}>
-            Timber-framed and prefabricated — a low-carbon home compared with concrete-block construction.
+          <Text style={{ fontSize: 8, letterSpacing: 1.4, color: C.green200, fontWeight: 600 }}>
+            CLIMATE IMPACT
           </Text>
+          <Text style={{ fontSize: 12, color: "#fff", marginTop: 6, fontWeight: 300 }}>
+            Reduces <Text style={{ fontWeight: 600 }}>{co2Tonnes} tonnes of CO₂</Text> compared with
+            concrete-block construction — equivalent to roughly {flightKm.toLocaleString("en-US")} km of plane travel.
+          </Text>
+        </View>
+        <View style={{ alignItems: "flex-end" }}>
+          <Text
+            style={{
+              fontSize: 42,
+              fontWeight: 600,
+              color: C.green,
+              fontFamily: FONT_BOLD,
+              letterSpacing: -0.5,
+            }}
+          >
+            −{co2Tonnes}
+          </Text>
+          <Text style={{ fontSize: 10, color: C.green200, marginTop: -4 }}>t CO₂</Text>
         </View>
       </View>
 
-      <View style={{ borderTopWidth: 1, borderTopColor: C.stroke, marginTop: 12, paddingTop: 8, flexDirection: "row", justifyContent: "space-between" }}>
-        <Text style={{ fontSize: 8, color: C.muted }}>A home for everyone, Easy Housing · {d.reference}</Text>
-        <Text style={{ fontSize: 8, color: C.muted }}>3 / 3</Text>
-      </View>
+      <PageFooter
+        left={`A home for everyone, Easy Housing · ${d.reference}`}
+        right="3 / 3"
+      />
     </Page>
   );
 }
