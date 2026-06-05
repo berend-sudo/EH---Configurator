@@ -189,7 +189,9 @@ inputs.
   counts and subtypes with a DXF are offered.
 - **Width slider** — `SliderRow`, range = `plan.baseWidth + minDelta`
   to `plan.baseWidth + maxDelta`, **610 mm step** (one stud module).
-  Each DXF declares its own min/max delta.
+  Each DXF gets its own `minDelta` (collision-clearance floor from PT
+  zones + furniture); `maxDelta` is always `minDelta + 4 × 610 mm`, so
+  every plan has the same 4-jump range above its floor.
 - **Summary card** — Footprint, Living area, Terrace, an optional
   Mezzanine row (only when the plan has one), the Indicative budget, and
   the served DXF filename. The single source of truth for price on this
