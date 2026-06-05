@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCountryGuard } from "@/lib/use-active-country";
+import { heroPhoto } from "@/lib/brand-images";
 import EHNavBar from "@/components/EHNavBar";
 import BudgetSlider from "./BudgetSlider";
 import BedroomsCounter from "./BedroomsCounter";
@@ -79,19 +81,13 @@ export default function LandingScreen({ plans }: Props) {
 
   return (
     <main style={{ position: "relative", width: "100%", minHeight: "100vh", overflow: "hidden" }}>
-      {/* TODO: replace with real Easy Housing photograph */}
-      <div
-        aria-hidden
-        style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, #6a8466, #2a4d3a)" }}
-      />
-      <div
-        aria-hidden
-        style={{
-          position: "absolute",
-          inset: 0,
-          background:
-            "linear-gradient(135deg, rgba(0,59,43,0.6) 0%, rgba(0,59,43,0.25) 60%, rgba(0,59,43,0.5) 100%)",
-        }}
+      <Image
+        src={heroPhoto(0)}
+        alt="Easy Housing project, Mukono"
+        fill
+        sizes="100vw"
+        style={{ objectFit: "cover" }}
+        priority
       />
 
       <div style={{ position: "relative", zIndex: 2 }}>
