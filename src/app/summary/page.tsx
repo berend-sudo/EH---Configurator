@@ -159,7 +159,7 @@ function FinalScreen() {
   const [projectType, setProjectType] = useState("");
   const [hearAbout, setHearAbout] = useState("");
   const [landFunds, setLandFunds] = useState("");
-  const [newsletter, setNewsletter] = useState(true);
+  const [newsletter, setNewsletter] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [submit, setSubmit] = useState<SubmitState>({ status: "idle" });
 
