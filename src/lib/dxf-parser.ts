@@ -735,14 +735,39 @@ export function parseDxf(content: string, filename: string): FloorplanJSON {
     layer.entities.push({ type: "polyline", closed: raw.closed, vertices } as PolylineEntity);
   }
 
-  // NOTE: a window→wall vertex "attachment" pass used to live here, snapping
-  // wall/room corners onto window vertices so they'd track a window's capped
-  // edge while stretching. Now that windows are classified as rigid units
-  // (above), they translate rather than stretch, so the cap never fires and the
-  // attachment is redundant — worse, it dragged wall corners onto window
-  // vertices that moved differently, shearing the walls into triangles when
-  // stretched. Removing it lets wall/room vertices follow their own per-vertex
-  // zone, which keeps every wall rectangular through the full slider range.
+  // Window-cutout alignment: a wall/room/door vertex that sits exactly on a
+  // window corner inherits that window's zone (moveX), so the cutout moves
+  // *with* its window when the plan is stretched. Windows are rigid units
+  // (classified above), so a long wall with a window opening stretches without
+  // tearing (the cutout tracks the window) AND a room whose wall holds a window
+  // doesn't shear (the cutout shares the window's single zone). This replaces an
+  // older pass that copied the window's world *position* onto the wall vertex,
+  // which sheared walls into triangles.
+  const ATTACH_TOL_SQ = 5 * 5; // 5 mm
+  const windowsLayer = layerMap.get("Windows");
+  if (windowsLayer) {
+    const winVerts: Array<{ x: number; y: number; moveX: boolean }> = [];
+    for (const wEnt of windowsLayer.entities) {
+      if (wEnt.type !== "polyline") continue;
+      for (const wv of wEnt.vertices) winVerts.push({ x: wv.x, y: wv.y, moveX: wv.moveX });
+    }
+    layerMap.forEach((layer, layerName) => {
+      if (layerName === "Windows" || layerName === "Furniture" || layerName === "Furniture Stretch") return;
+      for (const ent of layer.entities) {
+        if (ent.type !== "polyline") continue;
+        for (const v of ent.vertices) {
+          let bestSq = ATTACH_TOL_SQ;
+          let best: { moveX: boolean } | undefined;
+          for (const wv of winVerts) {
+            const dx = wv.x - v.x, dy = wv.y - v.y;
+            const sq = dx * dx + dy * dy;
+            if (sq <= bestSq) { bestSq = sq; best = wv; }
+          }
+          if (best) v.moveX = best.moveX;
+        }
+      }
+    });
+  }
 
   const furnitureLayer = layerMap.get("Furniture")!;
   const furnitureStretchLayer = layerMap.get("Furniture Stretch")!;
