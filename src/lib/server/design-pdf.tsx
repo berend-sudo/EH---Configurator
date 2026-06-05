@@ -17,6 +17,12 @@ import type { FloorplanJSON } from "@/types/floorplan";
 import type { BudgetLineItem } from "@/lib/budget";
 import type { RoomColorKey } from "@/lib/rooms";
 import { BASE_COUNTRY, fmtMoney, type Country } from "@/lib/countries";
+import { TYPOLOGIES, type TypologyId } from "@/lib/typologies";
+import {
+  BRAND_IMAGES,
+  furniturePhotoFile,
+  typologyPhotoFile,
+} from "@/lib/brand-images";
 
 // ── Brand tokens (mirrors eh-tokens.css) ───────────────────────────────────
 const C = {
@@ -44,6 +50,9 @@ export interface DesignPdfData {
   delta: number;
   label: string;
   bedrooms: number;
+  /** Drives the cover's exterior photo (left half) — picks the canonical
+   *  shot from BRAND_IMAGES.typology[t]. */
+  typology: TypologyId;
   reference: string;
   generatedDate: string;
   client: { name: string; email: string };
@@ -65,6 +74,15 @@ export interface DesignPdfData {
 }
 
 const fmtNum = (n: number) => Math.round(n).toLocaleString("en-US");
+
+// Stable string hash so the cover's interior shot is deterministic per
+// design (same reference → same shot every regeneration) but varies across
+// designs. djb2-style; the unsigned shift makes the result non-negative.
+function hashRef(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return h >>> 0;
+}
 
 // ── Fonts (best-effort; falls back to Helvetica if registration fails) ──────
 let FONT = "Helvetica";
@@ -166,10 +184,27 @@ function CoverPage(d: DesignPdfData) {
         </Text>
       </View>
 
-      <View style={{ flexGrow: 1, backgroundColor: C.bgAlt, justifyContent: "center", alignItems: "center", padding: 36 }}>
-        <Text style={{ fontSize: 9, letterSpacing: 1.2, color: C.muted, fontWeight: 600 }}>
-          MUKONO, UGANDA · EASY HOUSING PILOT
-        </Text>
+      {/* Half/half exterior + interior — the social-grid motif from p.15 of
+          the brand guide. No gap, no green strip between cells: the seam
+          IS the composition. */}
+      <View style={{ flexGrow: 1, flexDirection: "row" }}>
+        <View style={{ flex: 1, position: "relative" }}>
+          <Image
+            src={typologyPhotoFile(d.typology, 0)}
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          />
+          <View style={{ position: "absolute", left: 14, bottom: 12 }}>
+            <Text style={{ fontSize: 8, letterSpacing: 1.2, color: "#fff", fontWeight: 600 }}>
+              {TYPOLOGIES[d.typology].label.toUpperCase()} · EASY HOUSING PROJECT
+            </Text>
+          </View>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Image
+            src={furniturePhotoFile(hashRef(d.reference) % BRAND_IMAGES.furniture.length)}
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          />
+        </View>
       </View>
 
       <View style={{ backgroundColor: "#fff", paddingHorizontal: 36, paddingTop: 30, paddingBottom: 22 }}>
@@ -291,6 +326,28 @@ function SpecPage(d: DesignPdfData) {
           </Text>
         </View>
       </View>
+
+      {/* Furniture ribbon — three thumbs of how the home wears in. Sits
+          between the cost total and the climate band so the eye lifts off
+          the tariff before the CO2 message. Height kept tight so the page
+          stays at 3 pages even with the longest budget list; if it ever
+          spills, drop to a 2-up first, then move below the climate band. */}
+      <View style={{ flexDirection: "row", marginTop: 12, gap: 8 }}>
+        {[1, 2, 3].map((i) => (
+          <View
+            key={i}
+            style={{ flex: 1, height: 72, borderRadius: 12, overflow: "hidden" }}
+          >
+            <Image
+              src={furniturePhotoFile(i)}
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          </View>
+        ))}
+      </View>
+      <Text style={{ fontSize: 9, color: C.muted, marginTop: 6, fontStyle: "italic" }}>
+        Plywood lining, compact fittings — built to live in.
+      </Text>
 
       <View style={{ backgroundColor: C.green900, borderRadius: 14, padding: 18, marginTop: 12, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
         <View style={{ flex: 1, paddingRight: 12 }}>
