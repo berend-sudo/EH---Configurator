@@ -307,6 +307,9 @@ column is blank in the response sheet — not a hard failure.
         "country":            "entry.aaa",
         "projectType":        "entry.bbb",
         "hearAbout":          "entry.ccc",
+        "hearAboutOther":     "entry.ccc.other_option_response",
+        "landFunds":          "entry.ddd",
+        "newsletter":         "entry.eee",
         "reference":          "entry.555555555",
         "floorPlan":          "entry.666666666",
         "bedrooms":           "entry.777777777",
@@ -321,17 +324,38 @@ column is blank in the response sheet — not a hard failure.
       }
       ```
 
-      `country` / `projectType` / `hearAbout` are **placeholder
-      mirror fields** — they assume the existing form already asks
-      "Country / location", "What's this design for?", and "How
-      did you hear about us?". If the real form's questions are
-      different, edit `PROJECT_TYPE_OPTIONS` /
-      `HEAR_ABOUT_OPTIONS` in `src/lib/configurator-submit.ts`
-      and the matching `<select>` blocks in
-      `src/app/summary/page.tsx`, then map the new logical names
-      here. Logical names you don't have a mapping for are
-      silently skipped — so it's fine to leave out *e.g.*
-      `pdfDriveLink` if you skipped Phase 3c.
+      `country` / `projectType` / `hearAbout` / `landFunds` are
+      **placeholder mirror fields** — they assume the existing form
+      already asks "Country / location", "What's this design for?",
+      "How did you hear about us?", and "Do you have land and funds
+      available?". If the real form's questions are different, edit
+      `PROJECT_TYPE_OPTIONS` / `HEAR_ABOUT_OPTIONS` /
+      `LAND_FUNDS_OPTIONS` in `src/lib/configurator-submit.ts`
+      and the matching blocks in `src/app/summary/page.tsx`, then map
+      the new logical names here. Logical names you don't have a
+      mapping for are silently skipped — so it's fine to leave out
+      *e.g.* `pdfDriveLink` if you skipped Phase 3c.
+
+      > **Choice text must match the form exactly.** For the
+      > multiple-choice questions (`projectType`, `hearAbout`,
+      > `landFunds`) Google rejects the *whole* submission if the
+      > value isn't one of that question's options. Keep the option
+      > strings in `configurator-submit.ts` character-for-character
+      > identical to the form's choices (case, punctuation, the
+      > apostrophe in "I'm"). A rejected submission surfaces as
+      > `formSubmitted: false` and no form row — the leads **sheet**
+      > still records the lead either way.
+
+      > **"Other" free-text** on `hearAbout`: when the user picks
+      > "Other" and types an answer, the code sends the
+      > `__other_option__` sentinel on `hearAbout` and the typed text
+      > on `hearAboutOther`. For that to land, the form's "How did you
+      > hear about us?" question must have an **"Other" option
+      > enabled**, and `hearAboutOther` must map to that entry's
+      > `.other_option_response` id (the pre-filled link doesn't expose
+      > it — append `.other_option_response` to the question's
+      > `entry.<id>`). If you omit the `hearAboutOther` mapping, the
+      > answer still records as "Other" but without the typed text.
 
 - [ ] **6.16** Minify the JSON to a single line and paste it into
       `EH_LEADS_FORM_FIELD_IDS_JSON` on Vercel (step 4.7).

@@ -10,14 +10,18 @@ import {
 } from "@/lib/budget";
 import { dxfFilename, parseDxfFilename } from "@/lib/typologies";
 import { pdfFilename, validateReference } from "@/lib/design-id";
-import { isClientInfoValid, type SubmitPayload } from "@/lib/configurator-submit";
+import {
+  HEAR_ABOUT_OPTIONS,
+  isClientInfoValid,
+  type SubmitPayload,
+} from "@/lib/configurator-submit";
 import { roomColorKey, roomDisplayName, type RoomColorKey } from "@/lib/rooms";
 import { renderDesignPdf } from "@/lib/server/design-pdf";
 import { sendDesignEmail } from "@/lib/server/email";
 import { appendLead } from "@/lib/server/sheets";
 import { BASE_COUNTRY, getCountryByCode, ugxToLocal } from "@/lib/countries";
 import { uploadPdfToBacklog } from "@/lib/server/drive";
-import { submitToLeadsForm } from "@/lib/server/forms";
+import { GOOGLE_FORM_OTHER, submitToLeadsForm } from "@/lib/server/forms";
 import { makeReference } from "@/lib/server/reference";
 
 export const runtime = "nodejs";
@@ -225,6 +229,16 @@ export async function POST(req: NextRequest) {
     pdfDriveLink,
     payload.source ?? "",
   ];
+  // "How did you hear about us?" carries a free-text answer when the user
+  // picked "Other" — its value is then NOT one of the enumerated options.
+  // A Google Forms multiple-choice question only accepts that via the
+  // "__other_option__" sentinel on the radio entry plus the typed text on a
+  // companion `.other_option_response` field (logical key `hearAboutOther`,
+  // mapped in EH_LEADS_FORM_FIELD_IDS_JSON). The leads sheet always gets the
+  // literal answer regardless of this split.
+  const hearAbout = client.hearAbout ?? "";
+  const hearAboutIsOther =
+    hearAbout !== "" && !(HEAR_ABOUT_OPTIONS as readonly string[]).includes(hearAbout);
   const formValues: Record<string, string> = {
     name: client.name,
     email: client.email,
@@ -232,7 +246,8 @@ export async function POST(req: NextRequest) {
     timeline: client.timeline,
     country: client.country,
     projectType: client.projectType ?? "",
-    hearAbout: client.hearAbout ?? "",
+    hearAbout: hearAboutIsOther ? GOOGLE_FORM_OTHER : hearAbout,
+    hearAboutOther: hearAboutIsOther ? hearAbout : "",
     landFunds: client.landFunds ?? "",
     newsletter: newsletterYesNo,
     reference,

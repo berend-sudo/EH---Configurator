@@ -17,6 +17,17 @@ const FORM_RESPONSE_URL = (id: string) =>
   `https://docs.google.com/forms/d/e/${id}/formResponse`;
 
 /**
+ * Sentinel value a Google Forms multiple-choice question expects when the
+ * respondent picks the free-text "Other" option. The radio entry carries
+ * this constant and the typed text rides on a companion field whose name is
+ * `entry.<id>.other_option_response`. Sending the raw text to the radio
+ * entry instead makes a *required* multiple-choice question reject the whole
+ * submission, so callers route "Other" answers through this + the companion
+ * logical key (see `hearAboutOther` in the submit route).
+ */
+export const GOOGLE_FORM_OTHER = "__other_option__";
+
+/**
  * Map from logical field name → form `entry.XXX` id, loaded once per process
  * from `EH_LEADS_FORM_FIELD_IDS_JSON`. Wolf extracts these by using the form's
  * *Send → Link → Get pre-filled link* feature — the resulting URL embeds the
