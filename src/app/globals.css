@@ -103,26 +103,20 @@ body {
 }
 .seg button.is-active { background: var(--eh-green-900); color: #fff; }
 
-/* Photo placeholder (warm gradient) — TODO: replace with real Easy Housing photos */
-.photo {
-  background-color: var(--eh-sand);
-  background-image:
-    linear-gradient(135deg, rgba(0,59,43,.08) 0%, rgba(0,59,43,0) 60%),
-    radial-gradient(circle at 30% 70%, rgba(140,94,54,.22), transparent 55%),
-    radial-gradient(circle at 75% 30%, rgba(77,204,122,.18), transparent 55%);
-  position: relative; overflow: hidden;
-}
-.photo::after {
-  content: ""; position: absolute; inset: 0;
-  background:
-    linear-gradient(180deg, transparent 55%, rgba(0,59,43,.18)),
-    repeating-linear-gradient(45deg, rgba(0,59,43,.04) 0 6px, transparent 6px 12px);
-  pointer-events: none;
-}
+/* Photo tile — frame only; the image fills via next/image fill */
+.photo { position: relative; overflow: hidden; }
 .photo__label {
   position: absolute; left: 12px; bottom: 10px; z-index: 1;
   font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
   color: rgba(255,255,255,.85); font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0,59,43,.45);
+}
+/* Crossfade the tile when its typology changes (parent re-keys, so this
+   animation runs on every mount). Opacity only — no slide, no bounce. */
+.eh-photo-fade { animation: ehPhotoFadeIn var(--eh-duration-base) var(--eh-ease); }
+@keyframes ehPhotoFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 /* Step 3 — client info / Generate PDF page. Two columns on ≥1024px,

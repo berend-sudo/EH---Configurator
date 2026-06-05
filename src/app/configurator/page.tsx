@@ -489,7 +489,7 @@ function ConfiguratorScreen() {
                   </div>
                 )
               ) : (
-                <PhotoCollage />
+                <PhotoCollage typology={selection.typology} />
               )}
             </div>
           </div>
