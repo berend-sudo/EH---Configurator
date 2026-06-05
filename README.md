@@ -119,8 +119,9 @@ three inputs.
   updates the URL params and reloads the DXF.
 - **Width slider** — `SliderRow`, range = `plan.baseWidth + minDelta`
   to `plan.baseWidth + maxDelta`, **610 mm step** (one stud module).
-  Each DXF declares its own min/max delta; the slider clamps
-  accordingly.
+  Each DXF gets its own `minDelta` (collision-clearance floor from PT
+  zones + furniture); `maxDelta` is always `minDelta + 4 × 610 mm`, so
+  every plan has the same 4-jump range above its floor.
 - **Summary card** — Footprint, Living area, Terrace, and the
   Indicative budget. The single source of truth for price on this
   screen — do not float a budget chip over the plan.
