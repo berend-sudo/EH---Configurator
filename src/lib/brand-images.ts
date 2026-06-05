@@ -5,7 +5,10 @@
 //
 // Index 0 in each typology array is the canonical card frame (the shot
 // the configurator hero shows first on switch).
-import path from "node:path";
+//
+// Server-side helpers (filesystem paths for @react-pdf/renderer) live in
+// src/lib/server/brand-images.ts so this file can be imported into
+// client bundles without webpack tripping on node:path.
 import type { TypologyId } from "./typologies";
 
 const BRAND_BASE = "/brand/";
@@ -68,18 +71,3 @@ export const heroPhoto = (i = 0): string =>
   webSrc(BRAND_IMAGES.hero[i % BRAND_IMAGES.hero.length]);
 export const furniturePhoto = (i = 0): string =>
   webSrc(BRAND_IMAGES.furniture[i % BRAND_IMAGES.furniture.length]);
-
-// Server-side variants for @react-pdf/renderer — it reads the file off
-// disk at generation time, so it needs an absolute path. Mirrors the
-// logoWhite / logoColor pattern in src/lib/server/design-pdf.tsx.
-const brandFile = (file: string) =>
-  path.join(process.cwd(), "public", "brand", file);
-
-export const typologyPhotoFile = (typology: TypologyId, i = 0): string => {
-  const set = BRAND_IMAGES.typology[typology];
-  return brandFile(set[i % set.length]);
-};
-export const heroPhotoFile = (i = 0): string =>
-  brandFile(BRAND_IMAGES.hero[i % BRAND_IMAGES.hero.length]);
-export const furniturePhotoFile = (i = 0): string =>
-  brandFile(BRAND_IMAGES.furniture[i % BRAND_IMAGES.furniture.length]);

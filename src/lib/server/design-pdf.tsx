@@ -18,11 +18,11 @@ import type { BudgetLineItem } from "@/lib/budget";
 import type { RoomColorKey } from "@/lib/rooms";
 import { BASE_COUNTRY, fmtMoney, type Country } from "@/lib/countries";
 import { TYPOLOGIES, type TypologyId } from "@/lib/typologies";
+import { BRAND_IMAGES } from "@/lib/brand-images";
 import {
-  BRAND_IMAGES,
   furniturePhotoFile,
   typologyPhotoFile,
-} from "@/lib/brand-images";
+} from "@/lib/server/brand-images";
 
 // ── Brand tokens (mirrors eh-tokens.css) ───────────────────────────────────
 const C = {
