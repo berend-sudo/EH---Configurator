@@ -5,15 +5,20 @@ import { getAccessToken } from "@/lib/server/google-auth";
 // Best-effort: the caller logs failures and never blocks the email on a sheet
 // write.
 
-// Locked header row order — keep in sync with appendLead's row builder.
-// UGX is the canonical figure architects price in; the local pair is what the
-// client saw on screen.
+// Locked header row order — keep in sync with the row builder in
+// src/app/api/configurator/submit/route.ts. UGX is the canonical figure
+// architects price in; the local pair is what the client saw on screen.
 export const LEADS_HEADER = [
+  "Easy Housing reference",
   "Timestamp",
-  "Reference",
-  "Name",
-  "Email",
-  "Phone",
+  "Email Address",
+  "Full name",
+  "Phone number",
+  "Project location",
+  "What best describes your building plans?",
+  "Do you have land and funds available?",
+  "How did you hear about us?",
+  "Do you want to receive our quarterly newsletter?",
   "Timeline",
   "Typology",
   "Subtype",

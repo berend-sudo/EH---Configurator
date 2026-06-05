@@ -36,18 +36,19 @@ export const HEAR_ABOUT_OPTIONS = [
   "Other",
 ] as const;
 
+export const LAND_FUNDS_OPTIONS = ["Yes", "No"] as const;
+
 export interface ClientInfo {
   name: string;
   email: string;
   phone: string;
   timeline: string;
   agreed: boolean;
-  // TODO(Wolf): swap these for the real form fields once we have the question
-  // list. All three are required; they feed straight into the form payload
-  // via the logical-name → entry.* map.
   country: string;
   projectType: string;
   hearAbout: string;
+  landFunds: string;
+  newsletter: boolean;
 }
 
 export interface DesignPayloadSelection {
@@ -96,10 +97,8 @@ export interface SubmitPayload {
 }
 
 // Mirrors the page's `canGenerate` predicate. Re-run server-side so a crafted
-// request can't bypass the disabled button. Only the original four core
-// fields + consent + country are required; the other placeholder mirror
-// fields are optional. Defensive against missing properties — at runtime the
-// payload is unknown JSON, not a `ClientInfo`.
+// request can't bypass the disabled button. Defensive against missing
+// properties — at runtime the payload is unknown JSON, not a `ClientInfo`.
 export function isClientInfoValid(c: ClientInfo): boolean {
   const s = (v: unknown) => (typeof v === "string" ? v : "");
   return (
@@ -110,6 +109,8 @@ export function isClientInfoValid(c: ClientInfo): boolean {
     s(c?.country).trim().length > 1 &&
     (PROJECT_TYPE_OPTIONS as readonly string[]).includes(s(c?.projectType)) &&
     (HEAR_ABOUT_OPTIONS as readonly string[]).includes(s(c?.hearAbout)) &&
+    (LAND_FUNDS_OPTIONS as readonly string[]).includes(s(c?.landFunds)) &&
+    typeof c?.newsletter === "boolean" &&
     c?.agreed === true
   );
 }

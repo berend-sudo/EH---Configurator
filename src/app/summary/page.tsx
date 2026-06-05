@@ -19,6 +19,7 @@ import { useCountryGuard } from "@/lib/use-active-country";
 import {
   EMAIL_RE,
   HEAR_ABOUT_OPTIONS,
+  LAND_FUNDS_OPTIONS,
   PROJECT_TYPE_OPTIONS,
   TIMELINE_OPTIONS,
   isClientInfoValid,
@@ -154,12 +155,11 @@ function FinalScreen() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [timeline, setTimeline] = useState("");
-  // Placeholder mirror fields — see `ClientInfo` in
-  // src/lib/configurator-submit.ts for the contract and Phase 6 of
-  // docs/integrations-setup.md for swapping these for the real form Qs.
   const [country, setCountry] = useState("");
   const [projectType, setProjectType] = useState("");
   const [hearAbout, setHearAbout] = useState("");
+  const [landFunds, setLandFunds] = useState("");
+  const [newsletter, setNewsletter] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [submit, setSubmit] = useState<SubmitState>({ status: "idle" });
 
@@ -209,6 +209,7 @@ function FinalScreen() {
     country.trim().length > 1 &&
     projectType !== "" &&
     hearAbout !== "" &&
+    landFunds !== "" &&
     agreed === true;
 
   const goToStep = (step: number) => {
@@ -227,6 +228,8 @@ function FinalScreen() {
       country: country.trim(),
       projectType,
       hearAbout,
+      landFunds,
+      newsletter,
       agreed,
     };
     if (!isClientInfoValid(client)) return;
@@ -522,16 +525,13 @@ function FinalScreen() {
                 </p>
               </div>
 
-              {/* Placeholder mirror fields — swap labels/options here and in
-                  PROJECT_TYPE_OPTIONS / HEAR_ABOUT_OPTIONS once Wolf supplies
-                  the real form questions (Phase 6 of integrations-setup.md). */}
               <div className="field" style={{ gridColumn: "1 / -1" }}>
-                <label htmlFor="eh-country">Country / location</label>
+                <label htmlFor="eh-country">Project location</label>
                 <input
                   id="eh-country"
                   type="text"
                   autoComplete="country-name"
-                  placeholder="e.g. Uganda"
+                  placeholder="e.g. Kampala, Uganda"
                   value={country}
                   onChange={(e) => setCountry(e.target.value)}
                 />
@@ -570,7 +570,60 @@ function FinalScreen() {
                   ))}
                 </select>
               </div>
+              <div className="field" style={{ gridColumn: "1 / -1" }}>
+                <label style={{ display: "block", marginBottom: 6 }}>
+                  Do you have land and funds available?
+                </label>
+                <div
+                  role="radiogroup"
+                  aria-label="Do you have land and funds available?"
+                  style={{ display: "flex", gap: 24, flexWrap: "wrap" }}
+                >
+                  {LAND_FUNDS_OPTIONS.map((opt) => (
+                    <label
+                      key={opt}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 8,
+                        fontSize: 14,
+                        cursor: "pointer",
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="eh-land-funds"
+                        value={opt}
+                        checked={landFunds === opt}
+                        onChange={(e) => setLandFunds(e.target.value)}
+                        style={{ width: 16, height: 16, accentColor: "var(--eh-green-500)" }}
+                      />
+                      {opt}
+                    </label>
+                  ))}
+                </div>
+              </div>
             </div>
+
+            <label
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 12,
+                fontSize: 13,
+                color: "var(--eh-text-muted)",
+                lineHeight: 1.55,
+                marginTop: 18,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={newsletter}
+                onChange={(e) => setNewsletter(e.target.checked)}
+                style={{ marginTop: 3, width: 18, height: 18, accentColor: "var(--eh-green-500)", flex: "0 0 auto" }}
+              />
+              <span>Do you want to receive our quarterly newsletter?</span>
+            </label>
 
             {/* Consent */}
             <label
