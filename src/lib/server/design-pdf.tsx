@@ -44,13 +44,16 @@ const ROOM_COLORS: Record<RoomColorKey, string> = {
   terrace: C.terrace,
 };
 
-// Indicative per-m² CO₂ saving for an EH timber-framed home vs. an
-// equivalent concrete-block build. The brand carbon claim has historically
-// been a per-home figure (~26 t for a sample home); this is the per-m²
-// equivalent so the climate box scales with the configured design.
-// TODO(carbon): replace with a confirmed per-typology figure from the
-// embodied-carbon model when ready.
-const CO2_SAVING_PER_M2_KG = 250;
+// Net Carbon Removal Benefits per Easy Home, taken as a flat figure rather
+// than scaled per-m² — the underlying CSC methodology certifies a per-home
+// number, not a continuous m² rate, and the brand has historically led
+// with a single tonnes claim. ~10 t / home for the average ~75 m² build;
+// see footnote on the climate box.
+// Source: Easy Housing — Carbon Removal Context Document 2024 (v1.2),
+// §1, §2.4 ("Construction Stored Carbon (CSC) of an average Easy Home is
+// around 10 tonnes of CO₂ net carbon removal benefits"). Author: Wolf
+// Bierens. carbon@easyhousing.org.
+const CO2_REMOVAL_PER_HOME_TONNES = 10;
 
 export interface DesignPdfData {
   plan: FloorplanJSON;
@@ -319,10 +322,11 @@ function PlanPage(d: DesignPdfData) {
 }
 
 function SpecPage(d: DesignPdfData) {
-  // Per-design CO₂ saving (timber-framed vs. concrete block), scaled from
-  // the footprint by CO2_SAVING_PER_M2_KG. See the constant above for the
-  // TODO on confirming the per-typology figure.
-  const co2Tonnes = Math.max(1, Math.round((d.dimensions.footprintM2 * CO2_SAVING_PER_M2_KG) / 1000));
+  // Flat per-home Net Carbon Removal Benefit — see the constant up top
+  // for the source. Coarser than a per-m² rate, but it matches how the
+  // CSC methodology actually certifies the benefit (per home, not per
+  // unit area) and how the brand has historically led with the number.
+  const co2Tonnes = CO2_REMOVAL_PER_HOME_TONNES;
   // Equivalent km of plane travel — same rule of thumb the brand has used
   // since the 2022 guidelines (~5 t CO₂ / 25,000 km long-haul).
   const flightKm = co2Tonnes * 5000;
@@ -407,8 +411,9 @@ function SpecPage(d: DesignPdfData) {
             CLIMATE IMPACT
           </Text>
           <Text style={{ fontSize: 12, color: "#fff", marginTop: 6, fontWeight: 300 }}>
-            Reduces <Text style={{ fontWeight: 600 }}>{co2Tonnes} tonnes of CO₂</Text> compared with
-            concrete-block construction — equivalent to roughly {flightKm.toLocaleString("en-US")} km of plane travel.
+            Stores around <Text style={{ fontWeight: 600 }}>{co2Tonnes} tonnes of CO₂</Text> in this
+            home&apos;s biobased timber frame — net carbon removal on top of avoiding the emissions of
+            concrete-block construction. Equivalent to roughly {flightKm.toLocaleString("en-US")} km of plane travel.<Text style={{ color: C.green200 }}>¹</Text>
           </Text>
         </View>
         <View style={{ alignItems: "flex-end" }}>
@@ -426,6 +431,11 @@ function SpecPage(d: DesignPdfData) {
           <Text style={{ fontSize: 10, color: C.green200, marginTop: -4 }}>t CO₂</Text>
         </View>
       </View>
+      <Text style={{ fontSize: 8, color: C.muted, marginTop: 8, lineHeight: 1.4 }}>
+        ¹ Net Carbon Removal Benefits per average Easy Home (~10 t CO₂), certified
+        under the ONCRA CSC methodology. Source: Easy Housing — Carbon Removal
+        Context Document 2024 (v1.2). Questions: carbon@easyhousing.org.
+      </Text>
 
       <PageFooter
         left={`A home for everyone, Easy Housing · ${d.reference}`}
