@@ -405,6 +405,51 @@ function tessellateSpline(
   return pts;
 }
 
+// ── Orphan circular-arc detection ─────────────────────────────────────────────
+// When a rounded furniture/fixture outline is redrawn as a clean closed polyline
+// in CAD, the old corner ARC entities are frequently left behind in the block.
+// They render as little detached curves floating beside the object (e.g. the
+// stray arcs hugging the living-room seating, or the ticks at a toilet base).
+// Drop an ARC only when ALL of these hold, so the removal stays surgical:
+//   • it is a true ARC (lamp cross-hairs are LINEs, plant foliage is SPLINEs);
+//   • BOTH endpoints connect to nothing else in the block — a legitimate corner
+//     or pillow arc shares an endpoint with its neighbour and so is kept;
+//   • its radius is small — a stray rounded corner is ≤95 mm, so the cap keeps a
+//     large lone feature like a toilet's lid sweep (r≈175 mm) even though it,
+//     too, connects to nothing.
+function findOrphanArcs(localGeom: LocalGeom[], scale: number): Set<number> {
+  const TOL = 6;                     // local mm; orphan arcs float >100 mm away
+  const MAX_R = 120 / (scale || 1);  // world-radius cap of 120 mm, scale-adjusted
+  const arcEnds = (g: LocalArc) => {
+    const a0 = (g.sa * Math.PI) / 180, a1 = (g.ea * Math.PI) / 180;
+    return [
+      { x: g.cx + g.r * Math.cos(a0), y: g.cy + g.r * Math.sin(a0) },
+      { x: g.cx + g.r * Math.cos(a1), y: g.cy + g.r * Math.sin(a1) },
+    ];
+  };
+  const anchors: { x: number; y: number }[][] = localGeom.map((g) => {
+    switch (g.type) {
+      case "line":   return [{ x: g.x1, y: g.y1 }, { x: g.x2, y: g.y2 }];
+      case "arc":    return arcEnds(g);
+      case "poly":   return g.verts;
+      case "spline": return g.pts;
+      default:       return [];
+    }
+  });
+  const drop = new Set<number>();
+  localGeom.forEach((g, gi) => {
+    if (g.type !== "arc") return;
+    if (g.r > MAX_R) return; // keep large lone arcs (e.g. toilet lid sweep)
+    const connected = anchors[gi].some((ep) =>
+      localGeom.some((_, oi) =>
+        oi !== gi && anchors[oi].some((q) => Math.hypot(ep.x - q.x, ep.y - q.y) <= TOL),
+      ),
+    );
+    if (!connected) drop.add(gi);
+  });
+  return drop;
+}
+
 // ── Flatten all local geometry to world-space polylines/splines ──────────────
 
 function flattenGeom(
@@ -413,8 +458,12 @@ function flattenGeom(
 ): BlockGeom[] {
   const out: BlockGeom[] = [];
 
-  for (const g of localGeom) {
+  const dropArc = findOrphanArcs(localGeom, Math.max(Math.abs(sx), Math.abs(sy)));
+
+  for (let gIdx = 0; gIdx < localGeom.length; gIdx++) {
+    const g = localGeom[gIdx];
     if (g.type === "point") continue;
+    if (g.type === "arc" && dropArc.has(gIdx)) continue;
     if (g.layer === "FurnitureRefRec" || g.layer === "MeubelRefRec") continue;
 
     if (g.type === "line") {
