@@ -24,6 +24,31 @@ npm start       # serve the production build
 
 Node 18+ is required (Next 14, App Router).
 
+## Sharing a Vercel preview with testers.
+
+Vercel previews on this project sit behind **Deployment Protection**, so
+the bare URL prompts a Vercel login. To let colleagues open the
+configurator without an account, use one of these:
+
+1. **Share the production URL.** Promote the branch to production (or
+   merge to `main`) and send the production domain. Production is
+   reachable without login when protection is set to *Only Preview
+   Deployments*.
+2. **Generate a Protection Bypass link** (per-preview, no login). In
+   Vercel: *Project → Settings → Deployment Protection → Protection
+   Bypass for Automation* → generate a secret, then share the URL as:
+
+   ```
+   https://<preview-url>/?x-vercel-protection-bypass=THE_SECRET&x-vercel-set-bypass-cookie=true
+   ```
+
+   The cookie keeps the tester in for the session. Rotate the secret
+   when testing is done.
+3. **Disable protection entirely** (only if the preview is OK to be
+   publicly indexable) — *Settings → Deployment Protection → Disabled*.
+
+Docs: https://vercel.com/docs/deployment-protection
+
 ## Routes.
 
 | Path                          | What it is                                                       |
