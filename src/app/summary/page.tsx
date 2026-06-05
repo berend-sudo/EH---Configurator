@@ -19,6 +19,7 @@ import { useCountryGuard } from "@/lib/use-active-country";
 import {
   EMAIL_RE,
   HEAR_ABOUT_OPTIONS,
+  HEAR_ABOUT_OTHER,
   LAND_FUNDS_OPTIONS,
   PROJECT_TYPE_OPTIONS,
   TIMELINE_OPTIONS,
@@ -158,6 +159,9 @@ function FinalScreen() {
   const [country, setCountry] = useState("");
   const [projectType, setProjectType] = useState("");
   const [hearAbout, setHearAbout] = useState("");
+  // Free-text shown when "Other" is picked; the submitted hearAbout value
+  // becomes this text so the leads sheet records the actual answer.
+  const [hearAboutOther, setHearAboutOther] = useState("");
   const [landFunds, setLandFunds] = useState("");
   const [newsletter, setNewsletter] = useState(false);
   const [agreed, setAgreed] = useState(false);
@@ -198,6 +202,10 @@ function FinalScreen() {
     };
   }, [email]);
 
+  // When "Other" is selected the typed text is the answer of record.
+  const effectiveHearAbout =
+    hearAbout === HEAR_ABOUT_OTHER ? hearAboutOther.trim() : hearAbout;
+
   const canGenerate =
     reference !== null &&
     entry !== null &&
@@ -208,7 +216,7 @@ function FinalScreen() {
     timeline !== "" &&
     country.trim().length > 1 &&
     projectType !== "" &&
-    hearAbout !== "" &&
+    effectiveHearAbout !== "" &&
     landFunds !== "" &&
     agreed === true;
 
@@ -227,7 +235,7 @@ function FinalScreen() {
       timeline,
       country: country.trim(),
       projectType,
-      hearAbout,
+      hearAbout: effectiveHearAbout,
       landFunds,
       newsletter,
       agreed,
@@ -569,6 +577,16 @@ function FinalScreen() {
                     </option>
                   ))}
                 </select>
+                {hearAbout === HEAR_ABOUT_OTHER && (
+                  <input
+                    type="text"
+                    aria-label="Please tell us how you heard about us"
+                    placeholder="Please tell us how…"
+                    value={hearAboutOther}
+                    onChange={(e) => setHearAboutOther(e.target.value)}
+                    style={{ marginTop: 8 }}
+                  />
+                )}
               </div>
               <div className="field" style={{ gridColumn: "1 / -1" }}>
                 <label style={{ display: "block", marginBottom: 6 }}>
@@ -577,16 +595,17 @@ function FinalScreen() {
                 <div
                   role="radiogroup"
                   aria-label="Do you have land and funds available?"
-                  style={{ display: "flex", gap: 24, flexWrap: "wrap" }}
+                  style={{ display: "flex", flexDirection: "column", gap: 10 }}
                 >
                   {LAND_FUNDS_OPTIONS.map((opt) => (
                     <label
                       key={opt}
                       style={{
-                        display: "inline-flex",
-                        alignItems: "center",
+                        display: "flex",
+                        alignItems: "flex-start",
                         gap: 8,
                         fontSize: 14,
+                        lineHeight: 1.4,
                         cursor: "pointer",
                       }}
                     >
@@ -596,7 +615,7 @@ function FinalScreen() {
                         value={opt}
                         checked={landFunds === opt}
                         onChange={(e) => setLandFunds(e.target.value)}
-                        style={{ width: 16, height: 16, accentColor: "var(--eh-green-500)" }}
+                        style={{ marginTop: 2, width: 16, height: 16, accentColor: "var(--eh-green-500)", flex: "0 0 auto" }}
                       />
                       {opt}
                     </label>

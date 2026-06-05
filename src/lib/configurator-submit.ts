@@ -28,15 +28,30 @@ export const PROJECT_TYPE_OPTIONS = [
 ] as const;
 
 export const HEAR_ABOUT_OPTIONS = [
-  "Google search",
-  "Social media",
-  "Word of mouth",
-  "Press / news",
-  "Event or meetup",
+  "Facebook",
+  "Instagram",
+  "Google Search",
+  "YouTube",
+  "TikTok",
+  "LinkedIn",
+  "TV, radio or newspaper",
+  "Capital FM",
+  "Family or friends",
+  "Event or conference",
   "Other",
 ] as const;
 
-export const LAND_FUNDS_OPTIONS = ["Yes", "No"] as const;
+// The "Other" answer carries a free-text value, so the submitted string
+// won't always be one of the options above — validation only checks it's
+// non-empty (see isClientInfoValid).
+export const HEAR_ABOUT_OTHER = "Other";
+
+export const LAND_FUNDS_OPTIONS = [
+  "Not yet, I am just looking around.",
+  "I have a plot of land that I want to build on. But I'm still looking for funds.",
+  "I have a plot of land and funding available to start construction.",
+  "I have funds to build but no location yet",
+] as const;
 
 export interface ClientInfo {
   name: string;
@@ -108,7 +123,9 @@ export function isClientInfoValid(c: ClientInfo): boolean {
     (TIMELINE_OPTIONS as readonly string[]).includes(s(c?.timeline)) &&
     s(c?.country).trim().length > 1 &&
     (PROJECT_TYPE_OPTIONS as readonly string[]).includes(s(c?.projectType)) &&
-    (HEAR_ABOUT_OPTIONS as readonly string[]).includes(s(c?.hearAbout)) &&
+    // hearAbout can be a free-text "Other" answer, so we only require it to
+    // be non-empty rather than one of the enumerated options.
+    s(c?.hearAbout).trim().length > 0 &&
     (LAND_FUNDS_OPTIONS as readonly string[]).includes(s(c?.landFunds)) &&
     typeof c?.newsletter === "boolean" &&
     c?.agreed === true
