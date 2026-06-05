@@ -37,35 +37,13 @@ function buildWindowPositions(plan: FloorplanJSON, delta: number): WindowPositio
   let widx = 0;
   for (const entity of windowLayer.entities) {
     if (entity.type !== "polyline") continue;
-    const verts = entity.vertices;
-    let minX0 = Infinity, maxX0 = -Infinity;
-    for (const v of verts) {
-      if (v.x < minX0) minX0 = v.x;
-      if (v.x > maxX0) maxX0 = v.x;
-    }
-    let leftMoves = false, rightMoves = false;
-    for (const v of verts) {
-      if (v.x === minX0 && v.moveX) leftMoves = true;
-      if (v.x === maxX0 && v.moveX) rightMoves = true;
-    }
-    const w0 = maxX0 - minX0;
-    let dxLeft = 0, dxRight = 0;
-    if (leftMoves && rightMoves) {
-      // Pure translation — no cap.
-      dxLeft = delta;
-      dxRight = delta;
-    } else if (rightMoves) {
-      // Stretches right; cap the right edge.
-      dxRight = Math.min(delta, Math.max(0, MAX_WINDOW_WIDTH_MM - w0));
-    } else if (leftMoves) {
-      // Stretches left; cap the left edge.
-      dxLeft = Math.min(delta, Math.max(0, MAX_WINDOW_WIDTH_MM - w0));
-    }
-    const positions = verts.map((v) => {
-      const dx = v.x === minX0 ? dxLeft : v.x === maxX0 ? dxRight : 0;
-      return { x: v.x + dx, y: v.y };
-    });
-    map.set(widx, positions);
+    // Windows are classified as rigid units in the parser (every vertex shares
+    // one moveX), so translate the whole window by delta when it's in the moving
+    // zone. The old per-edge stretch/cap logic only shifted the exact min-x /
+    // max-x vertices, so any window vertex slightly off those (wall thickness,
+    // rotation) stayed put and the window crossed into a thin spindle.
+    const dx = entity.vertices.some((v) => v.moveX) ? delta : 0;
+    map.set(widx, entity.vertices.map((v) => ({ x: v.x + dx, y: v.y })));
     widx++;
   }
   return map;
