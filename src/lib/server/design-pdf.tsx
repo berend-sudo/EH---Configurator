@@ -8,6 +8,7 @@ import {
   Polygon,
   Polyline,
   Line,
+  Circle,
   Image,
   Font,
   StyleSheet,
@@ -339,9 +340,6 @@ function SpecPage(d: DesignPdfData) {
 
       <View style={{ marginTop: 16 }} wrap={false}>
         <Text style={styles.h2}>Spec sheet.</Text>
-        <Text style={{ fontSize: 10, color: C.muted, marginTop: 4 }}>
-          Indicative budget — final pricing depends on site &amp; local sourcing.
-        </Text>
       </View>
 
       {/* Headline indicative-budget figure — same number as the cover. No
@@ -351,24 +349,19 @@ function SpecPage(d: DesignPdfData) {
       <View
         wrap={false}
         style={{
-          marginTop: 22,
-          padding: "24px 24px",
+          marginTop: 18,
+          padding: "14px 18px",
           backgroundColor: C.bgAlt,
-          borderRadius: 14,
+          borderRadius: 12,
           borderWidth: 1,
           borderColor: C.stroke,
           flexDirection: "row",
-          alignItems: "baseline",
+          alignItems: "center",
           justifyContent: "space-between",
         }}
       >
-        <View style={{ flex: 1, paddingRight: 16 }}>
-          <Text style={styles.eyebrow}>INDICATIVE BUDGET</Text>
-          <Text style={{ fontSize: 11, color: C.muted, marginTop: 6, fontWeight: 300 }}>
-            {bedroomDescriptor(d.bedrooms)} · {d.dimensions.widthM.toFixed(2)} m × {d.dimensions.lengthM.toFixed(2)} m · concrete pad {d.dimensions.footprintM2.toFixed(2)} m²
-          </Text>
-        </View>
-        <Text style={{ fontSize: 26, fontWeight: 600, color: C.green900, fontFamily: FONT_BOLD }}>
+        <Text style={styles.eyebrow}>INDICATIVE BUDGET</Text>
+        <Text style={{ fontSize: 22, fontWeight: 600, color: C.green900, fontFamily: FONT_BOLD }}>
           {fmtMoney(d.indicativeBudgetUgx, d.country)}
         </Text>
       </View>
@@ -381,7 +374,7 @@ function SpecPage(d: DesignPdfData) {
           <View
             key={i}
             wrap={false}
-            style={{ flex: 1, height: 84, borderRadius: 12, overflow: "hidden" }}
+            style={{ flex: 1, height: 150, borderRadius: 12, overflow: "hidden" }}
           >
             <Image
               src={furniturePhotoFile(i)}
@@ -390,16 +383,13 @@ function SpecPage(d: DesignPdfData) {
           </View>
         ))}
       </View>
-      <Text style={{ fontSize: 9, color: C.muted, marginTop: 6 }}>
-        Plywood lining, compact fittings — built to live in.
-      </Text>
 
       <View
         wrap={false}
         style={{
           backgroundColor: C.green900,
-          borderRadius: 14,
-          padding: 18,
+          borderRadius: 12,
+          padding: "14px 18px",
           marginTop: 18,
           flexDirection: "row",
           justifyContent: "space-between",
@@ -410,16 +400,14 @@ function SpecPage(d: DesignPdfData) {
           <Text style={{ fontSize: 8, letterSpacing: 1.4, color: C.green200, fontWeight: 600 }}>
             CLIMATE IMPACT
           </Text>
-          <Text style={{ fontSize: 12, color: "#fff", marginTop: 6, fontWeight: 300 }}>
-            Stores around <Text style={{ fontWeight: 600 }}>{co2Tonnes} tonnes of CO₂</Text> in this
-            home&apos;s biobased timber frame — net carbon removal on top of avoiding the emissions of
-            concrete-block construction. Equivalent to roughly {flightKm.toLocaleString("en-US")} km of plane travel.<Text style={{ color: C.green200 }}>¹</Text>
+          <Text style={{ fontSize: 11, color: "#fff", marginTop: 4, fontWeight: 300 }}>
+            Stores around <Text style={{ fontWeight: 600 }}>{co2Tonnes} tonnes of CO₂</Text> — biobased timber, certified net carbon removal.<Text style={{ color: C.green200 }}>¹</Text>
           </Text>
         </View>
         <View style={{ alignItems: "flex-end" }}>
           <Text
             style={{
-              fontSize: 42,
+              fontSize: 36,
               fontWeight: 600,
               color: C.green,
               fontFamily: FONT_BOLD,
@@ -428,7 +416,7 @@ function SpecPage(d: DesignPdfData) {
           >
             −{co2Tonnes}
           </Text>
-          <Text style={{ fontSize: 10, color: C.green200, marginTop: -4 }}>t CO₂</Text>
+          <Text style={{ fontSize: 9, color: C.green200, marginTop: -3 }}>t CO₂</Text>
         </View>
       </View>
       <Text style={{ fontSize: 8, color: C.muted, marginTop: 8, lineHeight: 1.4 }}>
