@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
@@ -22,98 +22,23 @@ const Arrow = () => (
   </svg>
 );
 
-// Mint a per-render unique id so a flag rendered twice on the page (panel +
-// confirm card) doesn't share clipPath ids.
-const useUid = () => useMemo(() => "f" + Math.random().toString(36).slice(2, 8), []);
+const FLAG_SOURCES: Record<string, { src: string; width: number; height: number }> = {
+  UG: { src: "/brand/500px-Flag_of_Uganda.svg.png", width: 500, height: 334 },
+  KE: { src: "/brand/Flag_of_Kenya.svg.png", width: 3840, height: 2560 },
+};
 
-function UgandaFlag() {
+function CountryFlag({ code, name }: { code: string; name: string }) {
+  const flag = FLAG_SOURCES[code];
+  if (!flag) return null;
   return (
-    <svg viewBox="0 0 90 60" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Flag of Uganda">
-      <rect width="90" height="60" fill="#000" />
-      <rect y="10" width="90" height="10" fill="#FCDC04" />
-      <rect y="20" width="90" height="10" fill="#D90000" />
-      <rect y="30" width="90" height="10" fill="#000" />
-      <rect y="40" width="90" height="10" fill="#FCDC04" />
-      <rect y="50" width="90" height="10" fill="#D90000" />
-      <circle cx="45" cy="30" r="11" fill="#fff" />
-      <g transform="translate(45 30)">
-        <path d="M-5.4 1.8 q -3.4 -1 -4.6 1.1 q 1.6 1.4 4.6 0.6 Z" fill="#D90000" />
-        <ellipse cx="-0.6" cy="2.2" rx="5.4" ry="2.6" fill="#1f1f1f" />
-        <path d="M-1 1.6 q 2.4 -1.6 5 -1.2 q -0.4 2 -1.9 2.8 q -2.1 0.7 -3.1 -1.6 Z" fill="#fff" />
-        <path d="M2.6 0.4 q 1.2 -3.6 0.1 -7 l -1.6 0.3 q 1 3.2 0 6.3 Z" fill="#1f1f1f" />
-        <ellipse cx="2.7" cy="-7.1" rx="1.5" ry="1.1" fill="#1f1f1f" />
-        <circle cx="2.1" cy="-7.1" r="0.55" fill="#fff" />
-        <path d="M4 -7.1 l 2.7 -0.2 l -2.5 1 Z" fill="#1f1f1f" />
-        <circle cx="3" cy="-5.6" r="0.6" fill="#D90000" />
-        <g stroke="#FCDC04" strokeWidth="0.55" strokeLinecap="round">
-          <line x1="2" y1="-8.2" x2="1" y2="-11" />
-          <line x1="2.7" y1="-8.4" x2="2.4" y2="-11.3" />
-          <line x1="3.4" y1="-8.4" x2="3.8" y2="-11.3" />
-          <line x1="4" y1="-8.2" x2="4.9" y2="-10.7" />
-          <line x1="1.4" y1="-8.1" x2="0.2" y2="-10.5" />
-        </g>
-        <g stroke="#1f1f1f" strokeWidth="0.55" strokeLinecap="round">
-          <line x1="-1.6" y1="4.6" x2="-2.5" y2="9.4" />
-          <line x1="1.2" y1="4.6" x2="2.4" y2="9.4" />
-          <line x1="-2.5" y1="9.4" x2="-3.9" y2="9.6" />
-          <line x1="-2.5" y1="9.4" x2="-1.5" y2="9.6" />
-          <line x1="2.4" y1="9.4" x2="3.8" y2="9.6" />
-          <line x1="2.4" y1="9.4" x2="1.4" y2="9.6" />
-        </g>
-      </g>
-    </svg>
+    <Image
+      src={flag.src}
+      alt={`Flag of ${name}`}
+      width={flag.width}
+      height={flag.height}
+      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+    />
   );
-}
-
-function KenyaFlag() {
-  // clipPath id must be unique per render — two flags on one page collide otherwise.
-  const uid = useUid();
-  return (
-    <svg viewBox="0 0 90 60" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Flag of Kenya">
-      <rect width="90" height="60" fill="#000" />
-      <rect y="19" width="90" height="22" fill="#fff" />
-      <rect y="21" width="90" height="18" fill="#BB0000" />
-      <rect y="40" width="90" height="20" fill="#006600" />
-      <g transform="translate(45 30)">
-        <g stroke="#fff" strokeWidth="1.3" strokeLinecap="round">
-          <line x1="-9" y1="-22" x2="9" y2="22" />
-          <line x1="9" y1="-22" x2="-9" y2="22" />
-        </g>
-        <g fill="#fff">
-          <path d="M-9 -22 l -1.7 -4 l -1.4 1.2 l 0.7 2.6 l 1.9 0.5 Z" />
-          <path d="M9 -22 l 1.7 -4 l 1.4 1.2 l -0.7 2.6 l -1.9 0.5 Z" />
-          <path d="M-9 22 l -1.3 2.6 l -1 -0.8 l 0.6 -1.8 Z" />
-          <path d="M9 22 l 1.3 2.6 l 1 -0.8 l -0.6 -1.8 Z" />
-        </g>
-        <defs>
-          <clipPath id={`keShield-${uid}`}>
-            <path d="M0 -17 C 9 -14 10 -6 10 0 C 10 9 5 15 0 17 C -5 15 -10 9 -10 0 C -10 -6 -9 -14 0 -17 Z" />
-          </clipPath>
-        </defs>
-        <g clipPath={`url(#keShield-${uid})`}>
-          <rect x="-12" y="-18" width="24" height="36" fill="#BB0000" />
-          <ellipse cx="-5.5" cy="0" rx="4.6" ry="13" fill="#000" />
-          <ellipse cx="5.5" cy="0" rx="4.6" ry="13" fill="#000" />
-          <ellipse cx="0" cy="0" rx="3" ry="12" fill="#fff" />
-          <ellipse cx="0" cy="0" rx="1.3" ry="10.5" fill="#BB0000" />
-          <circle cx="0" cy="0" r="1" fill="#fff" />
-        </g>
-        <path
-          d="M0 -17 C 9 -14 10 -6 10 0 C 10 9 5 15 0 17 C -5 15 -10 9 -10 0 C -10 -6 -9 -14 0 -17 Z"
-          fill="none"
-          stroke="rgba(0,0,0,.3)"
-          strokeWidth="0.4"
-        />
-      </g>
-    </svg>
-  );
-}
-
-function CountryFlag({ code }: { code: string }) {
-  if (code === "UG") return <UgandaFlag />;
-  if (code === "KE") return <KenyaFlag />;
-  // Add new countries here as inline SVG — no emoji, no raster flags.
-  return null;
 }
 
 export default function CountryGatePage() {
@@ -268,7 +193,7 @@ export default function CountryGatePage() {
             onClick={() => handlePick(c)}
           >
             <div className="eh-country-flag">
-              <CountryFlag code={c.code} />
+              <CountryFlag code={c.code} name={c.name} />
             </div>
             <div className="eh-country-name">{c.name}</div>
             <div className="eh-country-cur">
@@ -334,7 +259,7 @@ function ConfirmOverlay({
     >
       <div className="eh-country-confirm">
         <div className="eh-country-confirm-flag">
-          <CountryFlag code={country.code} />
+          <CountryFlag code={country.code} name={country.name} />
         </div>
         <div
           style={{
