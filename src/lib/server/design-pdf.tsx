@@ -434,7 +434,7 @@ function SpecPage(d: DesignPdfData) {
       <Text style={{ fontSize: 8, color: C.muted, marginTop: 8, lineHeight: 1.4 }}>
         ¹ Net Carbon Removal Benefits per average Easy Home (~10 t CO₂), certified
         under the ONCRA CSC methodology. Source: Easy Housing — Carbon Removal
-        Context Document 2024 (v1.2). Questions: carbon@easyhousing.org.
+        Context Document 2024 (v1.2).
       </Text>
 
       <PageFooter
