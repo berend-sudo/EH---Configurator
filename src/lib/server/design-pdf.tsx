@@ -28,7 +28,6 @@ import type {
 import type { RoomColorKey } from "@/lib/rooms";
 import { BASE_COUNTRY, fmtMoney, type Country } from "@/lib/countries";
 import { TYPOLOGIES, type TypologyId } from "@/lib/typologies";
-import { BRAND_IMAGES } from "@/lib/brand-images";
 import {
   furniturePhotoFile,
   typologyPhotoFile,
@@ -93,15 +92,6 @@ export interface DesignPdfData {
    * the source-of-truth figure.
    */
   country: Country;
-}
-
-// Stable string hash so the cover's interior shot is deterministic per
-// design (same reference → same shot every regeneration) but varies across
-// designs. djb2-style; the unsigned shift makes the result non-negative.
-function hashRef(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
-  return h >>> 0;
 }
 
 // ── Fonts (best-effort; falls back to Helvetica if registration fails) ──────
@@ -636,26 +626,17 @@ function CoverPage(d: DesignPdfData) {
         </Text>
       </View>
 
-      {/* Half/half exterior + interior — the social-grid motif from p.15 of
-          the brand guide. No gap, no green strip between cells: the seam
-          IS the composition. */}
-      <View style={{ flexGrow: 1, flexDirection: "row" }}>
-        <View style={{ flex: 1, position: "relative" }}>
-          <Image
-            src={typologyPhotoFile(d.typology, 0)}
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-          />
-          <View style={{ position: "absolute", left: 14, bottom: 12 }}>
-            <Text style={{ fontSize: 8, letterSpacing: 1.2, color: "#fff", fontWeight: 600 }}>
-              {TYPOLOGIES[d.typology].label.toUpperCase()} · EASY HOUSING PROJECT
-            </Text>
-          </View>
-        </View>
-        <View style={{ flex: 1 }}>
-          <Image
-            src={furniturePhotoFile(hashRef(d.reference) % BRAND_IMAGES.furniture.length)}
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-          />
+      {/* Single full-bleed exterior shot of the configured typology — no
+          interior/furniture cell. */}
+      <View style={{ flexGrow: 1, position: "relative" }}>
+        <Image
+          src={typologyPhotoFile(d.typology, 0)}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+        />
+        <View style={{ position: "absolute", left: 14, bottom: 12 }}>
+          <Text style={{ fontSize: 8, letterSpacing: 1.2, color: "#fff", fontWeight: 600 }}>
+            {TYPOLOGIES[d.typology].label.toUpperCase()} · EASY HOUSING PROJECT
+          </Text>
         </View>
       </View>
 
