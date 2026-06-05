@@ -417,35 +417,38 @@ function tessellateSpline(
 //   • its radius is small — a stray rounded corner is ≤95 mm, so the cap keeps a
 //     large lone feature like a toilet's lid sweep (r≈175 mm) even though it,
 //     too, connects to nothing.
+function arcEndpoints(g: LocalArc): { x: number; y: number }[] {
+  const a0 = (g.sa * Math.PI) / 180, a1 = (g.ea * Math.PI) / 180;
+  return [
+    { x: g.cx + g.r * Math.cos(a0), y: g.cy + g.r * Math.sin(a0) },
+    { x: g.cx + g.r * Math.cos(a1), y: g.cy + g.r * Math.sin(a1) },
+  ];
+}
+
 function findOrphanArcs(localGeom: LocalGeom[], scale: number): Set<number> {
   const TOL = 6;                     // local mm; orphan arcs float >100 mm away
   const MAX_R = 120 / (scale || 1);  // world-radius cap of 120 mm, scale-adjusted
-  const arcEnds = (g: LocalArc) => {
-    const a0 = (g.sa * Math.PI) / 180, a1 = (g.ea * Math.PI) / 180;
-    return [
-      { x: g.cx + g.r * Math.cos(a0), y: g.cy + g.r * Math.sin(a0) },
-      { x: g.cx + g.r * Math.cos(a1), y: g.cy + g.r * Math.sin(a1) },
-    ];
-  };
+
+  // Each geom's connection points: an arc offers its two endpoints, everything
+  // else offers all of its vertices. Chained corner/pillow arcs share an
+  // endpoint here so they read as connected; a true orphan shares none.
   const anchors: { x: number; y: number }[][] = localGeom.map((g) => {
     switch (g.type) {
       case "line":   return [{ x: g.x1, y: g.y1 }, { x: g.x2, y: g.y2 }];
-      case "arc":    return arcEnds(g);
+      case "arc":    return arcEndpoints(g);
       case "poly":   return g.verts;
       case "spline": return g.pts;
       default:       return [];
     }
   });
+
+  const touchesAnother = (p: { x: number; y: number }, self: number) =>
+    anchors.some((pts, i) => i !== self && pts.some((q) => Math.hypot(p.x - q.x, p.y - q.y) <= TOL));
+
   const drop = new Set<number>();
-  localGeom.forEach((g, gi) => {
-    if (g.type !== "arc") return;
-    if (g.r > MAX_R) return; // keep large lone arcs (e.g. toilet lid sweep)
-    const connected = anchors[gi].some((ep) =>
-      localGeom.some((_, oi) =>
-        oi !== gi && anchors[oi].some((q) => Math.hypot(ep.x - q.x, ep.y - q.y) <= TOL),
-      ),
-    );
-    if (!connected) drop.add(gi);
+  localGeom.forEach((g, i) => {
+    if (g.type !== "arc" || g.r > MAX_R) return; // keep lines, splines, big lone arcs
+    if (!anchors[i].some((ep) => touchesAnother(ep, i))) drop.add(i);
   });
   return drop;
 }
