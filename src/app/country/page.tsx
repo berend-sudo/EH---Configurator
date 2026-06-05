@@ -35,28 +35,30 @@ function UgandaFlag() {
       <rect y="30" width="90" height="10" fill="#000" />
       <rect y="40" width="90" height="10" fill="#FCDC04" />
       <rect y="50" width="90" height="10" fill="#D90000" />
-      <circle cx="45" cy="30" r="11.5" fill="#fff" />
+      <circle cx="45" cy="30" r="11" fill="#fff" />
       <g transform="translate(45 30)">
-        <g fill="#9a9a9a" stroke="#6f6f6f" strokeWidth="0.4">
-          <ellipse cx="1.5" cy="2.8" rx="6.2" ry="3.6" />
-          <path d="M6.6 1.6 L10 -0.4 L9.6 3.4 Z" />
-          <path d="M-3.4 1.4 q -2.4 -3.6 -1.2 -7.2 l 1.9 0.3 q -0.7 3 1.1 6.1 Z" />
-          <path d="M-5.4 -6.8 q -1.7 -0.4 -2.9 0.9 q 1.1 1.5 2.9 1.3 Z" />
+        <path d="M-5.4 1.8 q -3.4 -1 -4.6 1.1 q 1.6 1.4 4.6 0.6 Z" fill="#D90000" />
+        <ellipse cx="-0.6" cy="2.2" rx="5.4" ry="2.6" fill="#1f1f1f" />
+        <path d="M-1 1.6 q 2.4 -1.6 5 -1.2 q -0.4 2 -1.9 2.8 q -2.1 0.7 -3.1 -1.6 Z" fill="#fff" />
+        <path d="M2.6 0.4 q 1.2 -3.6 0.1 -7 l -1.6 0.3 q 1 3.2 0 6.3 Z" fill="#1f1f1f" />
+        <ellipse cx="2.7" cy="-7.1" rx="1.5" ry="1.1" fill="#1f1f1f" />
+        <circle cx="2.1" cy="-7.1" r="0.55" fill="#fff" />
+        <path d="M4 -7.1 l 2.7 -0.2 l -2.5 1 Z" fill="#1f1f1f" />
+        <circle cx="3" cy="-5.6" r="0.6" fill="#D90000" />
+        <g stroke="#FCDC04" strokeWidth="0.55" strokeLinecap="round">
+          <line x1="2" y1="-8.2" x2="1" y2="-11" />
+          <line x1="2.7" y1="-8.4" x2="2.4" y2="-11.3" />
+          <line x1="3.4" y1="-8.4" x2="3.8" y2="-11.3" />
+          <line x1="4" y1="-8.2" x2="4.9" y2="-10.7" />
+          <line x1="1.4" y1="-8.1" x2="0.2" y2="-10.5" />
         </g>
-        <path d="M-8.3 -6 l -2.6 0.5 l 2.5 1 Z" fill="#2a2a2a" />
-        <circle cx="-6" cy="-4.2" r="0.9" fill="#D90000" />
-        <circle cx="-5.6" cy="-6" r="0.85" fill="#fff" />
-        <g stroke="#FCDC04" strokeWidth="0.6" strokeLinecap="round">
-          <line x1="-5" y1="-7.4" x2="-5.6" y2="-10.6" />
-          <line x1="-4.4" y1="-7.5" x2="-4" y2="-10.6" />
-          <line x1="-5.7" y1="-7.4" x2="-7" y2="-10.1" />
-          <line x1="-3.9" y1="-7.4" x2="-2.7" y2="-10" />
-        </g>
-        <g stroke="#3a3a3a" strokeWidth="0.7" strokeLinecap="round">
-          <line x1="0" y1="6.2" x2="-1.4" y2="11" />
-          <line x1="3" y1="6.2" x2="3.4" y2="11" />
-          <line x1="-1.4" y1="11" x2="-3" y2="11.2" />
-          <line x1="3.4" y1="11" x2="4.9" y2="11.2" />
+        <g stroke="#1f1f1f" strokeWidth="0.55" strokeLinecap="round">
+          <line x1="-1.6" y1="4.6" x2="-2.5" y2="9.4" />
+          <line x1="1.2" y1="4.6" x2="2.4" y2="9.4" />
+          <line x1="-2.5" y1="9.4" x2="-3.9" y2="9.6" />
+          <line x1="-2.5" y1="9.4" x2="-1.5" y2="9.6" />
+          <line x1="2.4" y1="9.4" x2="3.8" y2="9.6" />
+          <line x1="2.4" y1="9.4" x2="1.4" y2="9.6" />
         </g>
       </g>
     </svg>
@@ -69,40 +71,37 @@ function KenyaFlag() {
   return (
     <svg viewBox="0 0 90 60" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Flag of Kenya">
       <rect width="90" height="60" fill="#000" />
-      <rect y="20" width="90" height="20" fill="#fff" />
-      <rect y="22" width="90" height="16" fill="#BB0000" />
+      <rect y="19" width="90" height="22" fill="#fff" />
+      <rect y="21" width="90" height="18" fill="#BB0000" />
       <rect y="40" width="90" height="20" fill="#006600" />
-      <rect y="19" width="90" height="1.6" fill="#fff" />
-      <rect y="38.4" width="90" height="1.6" fill="#fff" />
       <g transform="translate(45 30)">
-        <g stroke="#fff" strokeWidth="1.5" strokeLinecap="round">
-          <line x1="-10.5" y1="-20" x2="10.5" y2="20" />
-          <line x1="10.5" y1="-20" x2="-10.5" y2="20" />
+        <g stroke="#fff" strokeWidth="1.3" strokeLinecap="round">
+          <line x1="-9" y1="-22" x2="9" y2="22" />
+          <line x1="9" y1="-22" x2="-9" y2="22" />
         </g>
         <g fill="#fff">
-          <path d="M-10.5 -20 l -1.7 -3.6 l 3.7 0.4 Z" />
-          <path d="M10.5 -20 l 1.7 -3.6 l -3.7 0.4 Z" />
-          <path d="M-10.5 20 l -1.7 3.6 l 3.7 -0.4 Z" />
-          <path d="M10.5 20 l 1.7 3.6 l -3.7 -0.4 Z" />
+          <path d="M-9 -22 l -1.7 -4 l -1.4 1.2 l 0.7 2.6 l 1.9 0.5 Z" />
+          <path d="M9 -22 l 1.7 -4 l 1.4 1.2 l -0.7 2.6 l -1.9 0.5 Z" />
+          <path d="M-9 22 l -1.3 2.6 l -1 -0.8 l 0.6 -1.8 Z" />
+          <path d="M9 22 l 1.3 2.6 l 1 -0.8 l -0.6 -1.8 Z" />
         </g>
         <defs>
           <clipPath id={`keShield-${uid}`}>
-            <path d="M0 -17 C 8.5 -14 9.6 -6 9.6 0 C 9.6 9 4.6 14.5 0 17 C -4.6 14.5 -9.6 9 -9.6 0 C -9.6 -6 -8.5 -14 0 -17 Z" />
+            <path d="M0 -17 C 9 -14 10 -6 10 0 C 10 9 5 15 0 17 C -5 15 -10 9 -10 0 C -10 -6 -9 -14 0 -17 Z" />
           </clipPath>
         </defs>
         <g clipPath={`url(#keShield-${uid})`}>
-          <rect x="-11" y="-18" width="22" height="36" fill="#BB0000" />
-          <rect x="-11" y="-18" width="22" height="6.5" fill="#000" />
-          <rect x="-11" y="11.5" width="22" height="6.5" fill="#000" />
-          <rect x="-11" y="-11.8" width="22" height="1.8" fill="#fff" />
-          <rect x="-11" y="10" width="22" height="1.8" fill="#fff" />
-          <path d="M0 -9 C 3.6 -5.5 3.6 5.5 0 9 C -3.6 5.5 -3.6 -5.5 0 -9 Z" fill="#fff" />
-          <path d="M0 -6.4 C 1.9 -4 1.9 4 0 6.4 C -1.9 4 -1.9 -4 0 -6.4 Z" fill="#BB0000" />
+          <rect x="-12" y="-18" width="24" height="36" fill="#BB0000" />
+          <ellipse cx="-5.5" cy="0" rx="4.6" ry="13" fill="#000" />
+          <ellipse cx="5.5" cy="0" rx="4.6" ry="13" fill="#000" />
+          <ellipse cx="0" cy="0" rx="3" ry="12" fill="#fff" />
+          <ellipse cx="0" cy="0" rx="1.3" ry="10.5" fill="#BB0000" />
+          <circle cx="0" cy="0" r="1" fill="#fff" />
         </g>
         <path
-          d="M0 -17 C 8.5 -14 9.6 -6 9.6 0 C 9.6 9 4.6 14.5 0 17 C -4.6 14.5 -9.6 9 -9.6 0 C -9.6 -6 -8.5 -14 0 -17 Z"
+          d="M0 -17 C 9 -14 10 -6 10 0 C 10 9 5 15 0 17 C -5 15 -10 9 -10 0 C -10 -6 -9 -14 0 -17 Z"
           fill="none"
-          stroke="rgba(0,0,0,.25)"
+          stroke="rgba(0,0,0,.3)"
           strokeWidth="0.4"
         />
       </g>
