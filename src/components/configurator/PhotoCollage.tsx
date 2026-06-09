@@ -1,28 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Image from "next/image";
-import { randomTypologyPhotos, typologyPhoto } from "@/lib/brand-images";
+import { typologyPhotosFor } from "@/lib/brand-images";
 import { TYPOLOGIES, type TypologyId } from "@/lib/typologies";
 
 interface Props {
   typology: TypologyId;
+  /** Subtype id, used to pick a subtype-specific photo set when curated. */
+  subtype?: string | null;
 }
 
-export default function PhotoCollage({ typology }: Props) {
+export default function PhotoCollage({ typology, subtype }: Props) {
   const label = TYPOLOGIES[typology].label;
 
-  // Start from the deterministic first three shots so SSR and the first
-  // client render agree (no hydration mismatch), then swap to a random
-  // distinct trio on mount and whenever the typology changes.
-  const [imgs, setImgs] = useState<string[]>(() => [
-    typologyPhoto(typology, 0),
-    typologyPhoto(typology, 1),
-    typologyPhoto(typology, 2),
-  ]);
-  useEffect(() => {
-    setImgs(randomTypologyPhotos(typology, 3));
-  }, [typology]);
+  // Fixed 1:1 set of three curated photos for the selected model (P1/P2).
+  // No rotation, no random fallback — the photos always represent the
+  // model the user picked.
+  const imgs = typologyPhotosFor(typology, subtype);
 
   return (
     <div

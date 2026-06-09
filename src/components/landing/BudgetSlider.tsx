@@ -21,6 +21,9 @@ export default function BudgetSlider({ value, min = 42_000_000, max = 115_000_00
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 }}>
+        {/* TODO(X2): the label "Budget" vs "Price" on the landing wants a
+            wording decision from sales. Single change point — flip the
+            string here once confirmed. */}
         <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--eh-text-muted)" }}>
           Budget
         </span>

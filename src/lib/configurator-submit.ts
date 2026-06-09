@@ -14,6 +14,10 @@ export type Timeline = (typeof TIMELINE_OPTIONS)[number];
 
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// Single source of truth for the opener line on every "design ready"
+// surface (email body, PDF cover, confirmation screen). Edit here once.
+export const DESIGN_OPENER = "Congratulations — you've designed your dream home!";
+
 // ── Placeholder mirror fields ──────────────────────────────────────────────
 // These three fields stand in for the existing "request price list" Google
 // Form's questions until Wolf supplies the real list (see Phase 6 of

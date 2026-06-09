@@ -148,6 +148,7 @@ export async function POST(req: NextRequest) {
       label,
       bedrooms: actualBedrooms,
       typology: parsedSel.typology,
+      subtype: parsedSel.subtype,
       reference,
       generatedDate,
       client: { name: client.name, email: client.email },

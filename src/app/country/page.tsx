@@ -176,8 +176,8 @@ export default function CountryGatePage() {
               margin: "16px 0 0",
             }}
           >
-            We build a little differently in each country — local materials,
-            local crews, local prices. Pick yours and we&apos;ll show every
+            The same quality and design — built with local materials, local
+            crews and local prices. Pick yours and we&apos;ll show every
             budget in your own currency.
           </p>
         </div>

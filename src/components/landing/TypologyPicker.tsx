@@ -64,14 +64,22 @@ export default function TypologyPicker({
     if (!t.subtypes) return false;
     return !plans || availableSubtypes(plans, id).length > 0;
   });
+  // Monopitch has no subtypes by design, but the strip is rendered for it
+  // too — with a single "Standard" pseudo-chip — so every roof type shows
+  // the same green options block on selection (D1, picker consistency).
+  const monopitchActive = !activeTyp.subtypes;
   const stripTypology: TypologyId =
     activeTyp.subtypes && (!plans || availableSubtypes(plans, selection.typology).length > 0)
       ? selection.typology
+      : monopitchActive
+      ? selection.typology
       : (firstSubtyped ?? selection.typology);
-  const stripHidden = stripTypology !== selection.typology;
+  const stripHidden = !monopitchActive && stripTypology !== selection.typology;
   const subAvail = subtypeAvailability(budget, stripTypology);
   const stripDef = TYPOLOGIES[stripTypology];
-  const subtypeIdsShown: string[] = plans
+  const subtypeIdsShown: string[] = monopitchActive
+    ? ["__monopitch_standard__"]
+    : plans
     ? availableSubtypes(plans, stripTypology)
     : Object.keys(stripDef.subtypes ?? {});
 
@@ -96,6 +104,8 @@ export default function TypologyPicker({
 
   const selectSubtype = (sub: string) => {
     if (stripHidden) return;
+    // Monopitch's synthetic "Standard" chip is a no-op — already selected.
+    if (sub === "__monopitch_standard__") return;
     if (!subAvail[sub]) return; // disabled chip — ignore
     onChange({ typology: selection.typology, subtype: sub });
   };
@@ -220,11 +230,21 @@ export default function TypologyPicker({
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap }}>
           {subtypeIdsShown.map((subId) => {
-            const sub = stripDef.subtypes![subId];
-            const active = !stripHidden && subId === selection.subtype;
-            const affordable = subAvail[subId];
-            const disabled = !stripHidden && !affordable;
-            const depth = depthLabel({ typology: stripTypology, subtype: subId });
+            // Monopitch carries a single synthetic "Standard" chip so its
+            // options block matches the other typologies visually. No real
+            // subtype exists in the data model — selection stays `null`.
+            const isMonopitchPseudo = monopitchActive && subId === "__monopitch_standard__";
+            const sub = isMonopitchPseudo
+              ? { label: "Standard" }
+              : stripDef.subtypes![subId];
+            const active = isMonopitchPseudo
+              ? true
+              : !stripHidden && subId === selection.subtype;
+            const affordable = isMonopitchPseudo ? true : subAvail[subId];
+            const disabled = !isMonopitchPseudo && !stripHidden && !affordable;
+            const depth = isMonopitchPseudo
+              ? depthLabel({ typology: "monopitch", subtype: null })
+              : depthLabel({ typology: stripTypology, subtype: subId });
             return (
               <button
                 key={subId}

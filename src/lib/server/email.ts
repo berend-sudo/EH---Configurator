@@ -1,6 +1,7 @@
 import path from "path";
 import { readFile } from "fs/promises";
 import { Resend } from "resend";
+import { DESIGN_OPENER } from "@/lib/configurator-submit";
 
 export interface SendDesignEmailInput {
   to: string;
@@ -43,16 +44,19 @@ const LINE = 1.6;
 
 const LOGO_CID = "eh-logo";
 
-function firstNameOf(full: string): string {
-  return full.trim().split(/\s+/)[0] || "there";
+// "Dear <full name>," when we have one, "Dear there," when we don't.
+// Title (Mr/Mrs/Ms) isn't captured today; once it is, prefix it here.
+// TODO(form): collect title and prepend it as "Dear <title> <full name>,".
+function greetingOf(full: string): string {
+  const trimmed = full.trim().replace(/\s+/g, " ");
+  return trimmed.length > 0 ? `Dear ${trimmed},` : "Dear there,";
 }
 
 function bodyText(i: SendDesignEmailInput): string {
-  const first = firstNameOf(i.name);
   return [
-    `Hi ${first},`,
+    greetingOf(i.name),
     "",
-    `Congratulations — your home has a shape. We loved helping you design your ${i.label}, and it's attached here as a PDF. Bring it along when you meet our architects — it's the perfect place to start the conversation.`,
+    `${DESIGN_OPENER} We loved helping you design your ${i.label}, and it's attached here as a PDF. Bring it along when you meet our architects — it's the perfect place to start the conversation.`,
     "",
     "We're genuinely excited to help bring it to life. One of our architects will be in touch within a couple of working days to walk you through the next steps.",
     "",
@@ -65,7 +69,7 @@ function bodyText(i: SendDesignEmailInput): string {
 
 // Exported for preview/test harnesses — the live send path calls it internally.
 export function bodyHtml(i: SendDesignEmailInput, hasLogo: boolean): string {
-  const first = firstNameOf(i.name);
+  const greeting = greetingOf(i.name);
   // Every node carries its own font-family / size / line-height / colour
   // inline — the <link> in <head> loads Poppins for clients that honour
   // web fonts; the inline stack carries everyone else cleanly down to a
@@ -106,9 +110,9 @@ export function bodyHtml(i: SendDesignEmailInput, hasLogo: boolean): string {
           <!-- Body -->
           <tr>
             <td style="padding:36px 36px 30px;">
-              <p style="${para}">Hi ${escapeHtml(first)},</p>
+              <p style="${para}">${escapeHtml(greeting)}</p>
               <p style="${para}">
-                Congratulations — your home has a shape. We loved helping you design your
+                ${escapeHtml(DESIGN_OPENER)} We loved helping you design your
                 <span style="${name}">${escapeHtml(i.label)}</span>, and it's attached here as a PDF.
                 Bring it along when you meet our architects — it's the perfect place to start the conversation.
               </p>

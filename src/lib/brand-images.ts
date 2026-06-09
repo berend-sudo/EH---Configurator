@@ -63,6 +63,46 @@ export const BRAND_IMAGES = {
 
 const webSrc = (file: string) => BRAND_BASE + file;
 
+// ── Curated typology photo set (P1/P2) ─────────────────────────────────────
+// Exactly three full-home photos per typology, shown 1:1 with the selected
+// model rather than rotating from the broader pool. The configurator's
+// PhotoCollage reads from here so a selected model always shows photos of
+// THAT model — no random fallback, no detail crops.
+//
+// TODO(curation): the three filenames below are placeholders pulled from
+// the existing pool. The marketing team needs to confirm which three
+// uncropped, full-home shots best represent each model (and ideally a
+// per-subtype override for Gable / A-frame / Clerestory) before launch.
+// Subtype-level curation lives in `bySubtype` once provided; until then
+// every subtype of a typology shares the typology's three shots.
+export const TYPOLOGY_PHOTOS: Record<
+  TypologyId,
+  { photos: readonly [string, string, string]; bySubtype?: Record<string, readonly [string, string, string]> }
+> = {
+  monopitch: {
+    photos: ["monopitch1.jpg", "monopitch2.jpg", "monopitch3.jpg"],
+  },
+  gable: {
+    photos: ["gable1.jpg", "gable2.jpg", "gable3.jpg"],
+  },
+  aframe: {
+    photos: ["aframe1.jpg", "aframe2.jpg", "aframe3.jpg"],
+  },
+  clerestory: {
+    photos: ["clerestory1.jpg", "clerestory2.jpg", "clerestory3.jpg"],
+  },
+};
+
+/**
+ * Three curated photos as web srcs for a given selection. Subtype override
+ * wins when present; otherwise the typology's three shots are returned.
+ */
+export function typologyPhotosFor(typology: TypologyId, subtype?: string | null): string[] {
+  const entry = TYPOLOGY_PHOTOS[typology];
+  const set = (subtype && entry.bySubtype?.[subtype]) || entry.photos;
+  return set.map(webSrc);
+}
+
 export const typologyPhoto = (typology: TypologyId, i = 0): string => {
   const set = BRAND_IMAGES.typology[typology];
   return webSrc(set[i % set.length]);

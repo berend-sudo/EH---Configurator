@@ -359,11 +359,15 @@ function ConfiguratorScreen() {
 
           {/* CTAs */}
           <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: "auto" }}>
+            {/* Primary CTA stepped down to the kit's medium size — the
+                landing's "Open the configurator" uses the larger 16/36 form
+                of .ab-cta; this stays at the default medium so it doesn't
+                dominate the rail. */}
             <button
               type="button"
               className="ab-cta"
               onClick={goToSummary}
-              style={{ justifyContent: "center" }}
+              style={{ justifyContent: "center", padding: "10px 22px", fontSize: 14 }}
             >
               Continue to summary →
             </button>
@@ -453,6 +457,7 @@ function ConfiguratorScreen() {
               padding: view === "plan" ? "40px 48px" : 24,
               minHeight: 0,
               display: "flex",
+              flexDirection: "column",
               transition: "padding var(--eh-duration-base) var(--eh-ease)",
             }}
           >
@@ -489,10 +494,29 @@ function ConfiguratorScreen() {
                   </div>
                 )
               ) : (
-                <PhotoCollage typology={selection.typology} />
+                <PhotoCollage typology={selection.typology} subtype={selection.subtype} />
               )}
             </div>
           </div>
+
+          {/* D3 — caveat sits below the canvas, in the muted caption style
+              so it informs without alarming. True-scale furniture is a
+              pending decision (TODO X4 — decide whether to redraw furniture
+              to true scale; remove this caveat once that's done); until
+              then this stays. */}
+          {view === "plan" && (
+            <p
+              style={{
+                marginTop: 10,
+                fontSize: 12,
+                lineHeight: 1.45,
+                color: "var(--eh-text-soft)",
+                fontWeight: 300,
+              }}
+            >
+              Furniture and fixtures are indicative and not shown to exact scale.
+            </p>
+          )}
         </div>
       </div>
     </div>

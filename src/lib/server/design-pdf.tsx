@@ -29,8 +29,8 @@ import type { RoomColorKey } from "@/lib/rooms";
 import { BASE_COUNTRY, fmtMoney, type Country } from "@/lib/countries";
 import { TYPOLOGIES, type TypologyId } from "@/lib/typologies";
 import {
-  randomFurniturePhotoFiles,
   randomTypologyPhotoFile,
+  typologyPhotoFilesFor,
 } from "@/lib/server/brand-images";
 
 // ── Brand tokens (mirrors eh-tokens.css) ───────────────────────────────────
@@ -74,6 +74,8 @@ export interface DesignPdfData {
   /** Drives the cover's exterior photo (left half) — picks the canonical
    *  shot from BRAND_IMAGES.typology[t]. */
   typology: TypologyId;
+  /** Subtype id for subtype-specific photo curation. null for Monopitch. */
+  subtype?: string | null;
   reference: string;
   generatedDate: string;
   client: { name: string; email: string };
@@ -626,9 +628,10 @@ function CoverPage(d: DesignPdfData) {
         </Text>
       </View>
 
-      {/* Single full-bleed exterior shot of the configured typology — no
-          interior/furniture cell. */}
-      <View style={{ flexGrow: 1, position: "relative" }}>
+      {/* Exterior shot of the configured typology, sized proportionate to
+          the page so the cover doesn't lead with one giant image (F1).
+          Fixed height keeps the cover balance the same across all designs. */}
+      <View style={{ height: 320, position: "relative" }}>
         <Image
           src={randomTypologyPhotoFile(d.typology, d.reference)}
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
@@ -723,9 +726,11 @@ function SpecPage(d: DesignPdfData) {
   // Equivalent km of plane travel — same rule of thumb the brand has used
   // since the 2022 guidelines (~5 t CO₂ / 25,000 km long-haul).
   const flightKm = co2Tonnes * 5000;
-  // Three distinct interior/furniture shots, seeded by the reference so the
-  // ribbon varies across designs but is stable on regeneration.
-  const ribbon = randomFurniturePhotoFiles(3, d.reference);
+  // Three curated photos of the selected model (P3). Previously this used
+  // a random furniture/interior pool which could surface unappealing detail
+  // crops (e.g. a toilet close-up) as the closing image; the ribbon now
+  // shows finished-home shots that match the typology the client picked.
+  const ribbon = typologyPhotoFilesFor(d.typology, d.subtype);
   return (
     <Page size="A4" style={{ ...styles.page, paddingTop: 28, paddingHorizontal: 36, paddingBottom: FOOTER_HEIGHT }} wrap={false}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }} wrap={false}>
@@ -736,6 +741,12 @@ function SpecPage(d: DesignPdfData) {
       <View style={{ marginTop: 16 }} wrap={false}>
         <Text style={styles.h2}>Spec sheet.</Text>
       </View>
+
+      {/* TODO(X5): this page is called a "spec sheet" but doesn't carry
+          actual specs yet. The team needs to define which specs belong
+          (dimensions, materials, roof type, floor area, CO₂, indicative
+          price, DXF reference, …). Rebuild this page around the agreed
+          list once it's in — don't fabricate specs in the meantime. */}
 
       {/* Headline indicative-budget figure — same number as the cover. No
           line-item table: the per-category cost breakdown the configurator
