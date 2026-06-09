@@ -737,23 +737,22 @@ function SpecPage(d: DesignPdfData) {
     <Page size="A4" style={{ ...styles.page, paddingTop: 28, paddingHorizontal: 36, paddingBottom: FOOTER_HEIGHT }} wrap={false}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }} wrap={false}>
         <Image src={logoColor} style={{ height: 16, objectFit: "contain" }} />
-        <Text style={styles.eyebrow}>SPEC & BUDGET</Text>
+        <Text style={styles.eyebrow}>BUDGET & IMPACT</Text>
       </View>
 
       <View style={{ marginTop: 16 }} wrap={false}>
-        <Text style={styles.h2}>Spec sheet.</Text>
+        <Text style={styles.h2}>Budget & impact.</Text>
       </View>
 
-      {/* TODO(X5): this page is called a "spec sheet" but doesn't carry
-          actual specs yet. The team needs to define which specs belong
-          (dimensions, materials, roof type, floor area, CO₂, indicative
-          price, DXF reference, …). Rebuild this page around the agreed
-          list once it's in — don't fabricate specs in the meantime. */}
+      {/* TODO(X5): the spec-sheet content is still pending — the team
+          needs to define which specs belong (materials, roof type, floor
+          area, CO₂, DXF reference, …). The page now leads with the
+          budget figures it does have plus the climate band, and reads as
+          "Budget & impact" until that list is in. */}
 
-      {/* Headline indicative-budget figure — same number as the cover. No
-          line-item table: the per-category cost breakdown the configurator
-          used to expose was illustrative and contradicted the cover's
-          total; a single figure is the brief. */}
+      {/* Headline indicative-budget figure — same number as the cover.
+          Per-m² is derived from the same budget so the two numbers can
+          never drift; we never store or recompute a separate rate. */}
       <View
         wrap={false}
         style={{
@@ -768,7 +767,15 @@ function SpecPage(d: DesignPdfData) {
           justifyContent: "space-between",
         }}
       >
-        <Text style={styles.eyebrow}>INDICATIVE BUDGET</Text>
+        <View>
+          <Text style={styles.eyebrow}>INDICATIVE BUDGET</Text>
+          {d.dimensions.footprintM2 > 0 && (
+            <Text style={{ fontSize: 9, color: C.muted, marginTop: 4 }}>
+              ≈ {fmtMoney(Math.round(d.indicativeBudgetUgx / d.dimensions.footprintM2), d.country)} / m² ·
+              {" "}{d.dimensions.footprintM2.toFixed(1)} m² footprint
+            </Text>
+          )}
+        </View>
         <Text style={{ fontSize: 22, fontWeight: 600, color: C.green900, fontFamily: FONT_BOLD }}>
           {fmtMoney(d.indicativeBudgetUgx, d.country)}
         </Text>

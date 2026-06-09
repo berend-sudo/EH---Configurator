@@ -32,6 +32,13 @@ body {
   font-weight: 600; font-size: 15px; border: 0; cursor: pointer;
   transition: background .22s var(--eh-ease), transform .12s var(--eh-ease);
 }
+/* SVGs without explicit width/height default to ~300×150 in most
+   browsers; cap any icon inside a .ab-cta (e.g. the country gate's
+   Arrow component) to the kit's icon size so the chevron doesn't
+   loom over the label. */
+.ab-cta > svg {
+  width: 18px; height: 18px; flex-shrink: 0;
+}
 .ab-cta:hover { background: var(--eh-green-500); }
 .ab-cta:active { transform: scale(0.98); }
 .ab-cta:focus-visible { outline: none; box-shadow: var(--eh-shadow-glow); }
@@ -79,11 +86,19 @@ body {
   pointer-events: none;
 }
 
-/* Native range input made invisible — the visual rail handles the look. */
+/* Native range input made invisible — the visual rail handles the look.
+   Extends 11 px past each rail edge so the knob's visual circle (22 px
+   wide, positioned at left:0…100% so it protrudes half its width at the
+   extremes) stays inside the input's hit area. Without this, tapping
+   the visible knob at min/max sat outside the input and only the rail
+   side opposite the knob was draggable. */
 .range-native {
-  position: absolute; inset: 0;
-  width: 100%; height: 22px;
+  position: absolute;
+  top: 0; bottom: 0;
+  left: -11px; right: -11px;
+  width: auto; height: 22px;
   opacity: 0; cursor: pointer; margin: 0;
+  touch-action: none;
 }
 .range-native:focus-visible + .rail .rail__knob,
 .range-native:focus-visible ~ .rail .rail__knob { box-shadow: var(--eh-shadow-glow), 0 2px 6px rgba(0, 59, 43, 0.18); }
@@ -780,13 +795,37 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    /* Bottom padding matches the closed-sheet detent (120 px) so the
-       floor plan fills the room above the peek instead of being
-       crammed by a sheet-sized reservation. When the user drags the
-       sheet to its half-open detent it overlays the lower half of the
-       plan rather than reflowing the canvas — same behaviour as the
-       standard iOS bottom-sheet pattern. */
-    padding: 80px 14px 120px;
+    /* Top padding clears BOTH the floating top bar (~64 px + safe-area)
+       AND the floating Plan / Example-images segmented control that
+       sits below it. Earlier the canvas only reserved 80 px and the
+       plan crept up behind the top bar on phones with a notch.
+       Bottom padding matches the closed-sheet detent (120 px) so the
+       plan fills the room above the peek instead of being crammed by
+       a sheet-sized reservation. When the user drags the sheet up to
+       its half-open detent it overlays the lower half of the plan
+       rather than reflowing the canvas — the standard iOS
+       bottom-sheet pattern. */
+    padding-top: max(140px, calc(env(safe-area-inset-top) + 124px));
+    padding-right: 14px;
+    padding-bottom: 120px;
+    padding-left: 14px;
+  }
+  /* Plan / Example-images view toggle — floats above the canvas just
+     below the top bar so it's reachable without expanding the sheet.
+     Glass surface so it sits over the plan without obscuring it. */
+  .eh-configurator-mobile__view-toggle {
+    position: fixed;
+    top: max(76px, calc(env(safe-area-inset-top) + 64px));
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 24;
+    pointer-events: auto;
+  }
+  .eh-configurator-mobile__view-toggle .seg {
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: var(--eh-shadow-sm);
   }
   .eh-configurator-mobile__notice {
     position: fixed;

@@ -71,11 +71,17 @@ export default function BedroomsCounter({ value, options, onChange }: Props) {
         <div
           style={{
             minWidth: 90,
+            // Fixed height so the column doesn't shrink to fit "Studio"
+            // (26 px) vs a numeric value (34 px). Without it the flex row
+            // recentres and the +/- buttons appear to jump vertically on
+            // every Studio ↔ 1BR toggle.
+            height: 50,
             textAlign: "center",
             color: "var(--eh-text)",
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
+            justifyContent: "center",
             gap: 2,
           }}
         >
