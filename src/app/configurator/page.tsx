@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { FloorplanJSON } from "@/types/floorplan";
 import FloorplanSVG from "@/components/FloorplanSVG";
@@ -11,8 +11,16 @@ import ViewToggle, { type View } from "@/components/configurator/ViewToggle";
 import PhotoCollage from "@/components/configurator/PhotoCollage";
 import PlanSwitcher from "@/components/configurator/PlanSwitcher";
 import BudgetSlider from "@/components/landing/BudgetSlider";
+import BedroomsCounter from "@/components/landing/BedroomsCounter";
+import BottomSheet from "@/components/mobile/BottomSheet";
+import PinchZoomCanvas, { type PinchZoomHandle } from "@/components/mobile/PinchZoomCanvas";
+import MobileTopBar from "@/components/mobile/MobileTopBar";
+import MobileSliderRow from "@/components/mobile/MobileSliderRow";
+import MobileBudgetSlider from "@/components/mobile/MobileBudgetSlider";
+import TypologyPicker from "@/components/landing/TypologyPicker";
 import {
   pickPlan,
+  availableBedrooms,
   resolveAvailableBedrooms,
   resolveAvailableSelection,
   type FloorPlanEntry,
@@ -20,7 +28,11 @@ import {
 import { useFloorPlans } from "@/lib/useFloorPlans";
 import { useCountryGuard } from "@/lib/use-active-country";
 import { calculateBudget, countRooms, typologyInfoFor } from "@/lib/budget";
+import { fmtMoney } from "@/lib/countries";
+import { roomDisplayName } from "@/lib/rooms";
+import { useIsMobile, usePrefersReducedMotion } from "@/lib/use-media-query";
 import {
+  depthLabel,
   maxBedroomsFor,
   minBedroomsFor,
   priceFor,
@@ -33,6 +45,7 @@ import {
 const LANDING_DEFAULT_BUDGET = 75_000_000;
 
 function ConfiguratorScreen() {
+  const isMobile = useIsMobile();
   // Block the configurator until a country has been picked at the gate.
   // Renders no money in the wrong currency, even briefly.
   const country = useCountryGuard();
@@ -217,6 +230,36 @@ function ConfiguratorScreen() {
   }, [budget, selection, requestedBedrooms, plans]);
 
   if (!country) return null;
+
+  if (isMobile) {
+    return (
+      <MobileConfigurator
+        plan={plan}
+        delta={delta}
+        setDelta={setDelta}
+        loading={loading}
+        error={error}
+        view={view}
+        setView={setView}
+        showMezzanine={showMezzanine}
+        setShowMezzanine={setShowMezzanine}
+        modelLabel={modelLabel}
+        bedrooms={bedrooms}
+        selection={selection}
+        budget={budget}
+        showFallbackNotice={showFallbackNotice}
+        servedLabel={servedLabel}
+        roomsBreakdown={derived.rooms}
+        budgetUgx={derived.budgetUgx}
+        plans={plans}
+        onChangeBedrooms={(n) => updateParams({ bedrooms: n })}
+        onChangeSelection={(s) => updateParams({ selection: s })}
+        onChangeBudget={setBudget}
+        onBack={() => router.push("/")}
+        onContinue={goToSummary}
+      />
+    );
+  }
 
   return (
     <div
@@ -520,6 +563,336 @@ function ConfiguratorScreen() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Mobile configurator — Direction A "Immersive sheet".
+// Plan canvas is full-bleed inside PinchZoomCanvas; controls live in a
+// draggable BottomSheet. URL sync stays in the parent ConfiguratorScreen
+// so width/view/plan edits round-trip exactly as on desktop.
+// ──────────────────────────────────────────────────────────────────────────
+
+interface MobileConfiguratorProps {
+  plan: FloorplanJSON | null;
+  delta: number;
+  setDelta: (n: number) => void;
+  loading: boolean;
+  error: string | null;
+  view: View;
+  setView: (v: View) => void;
+  showMezzanine: boolean;
+  setShowMezzanine: (b: boolean) => void;
+  modelLabel: string;
+  bedrooms: number;
+  selection: Selection;
+  budget: number;
+  showFallbackNotice: boolean;
+  servedLabel: string | null;
+  roomsBreakdown: ReturnType<typeof countRooms> | null;
+  budgetUgx: number;
+  plans: FloorPlanEntry[] | null;
+  onChangeBedrooms: (n: number) => void;
+  onChangeSelection: (s: Selection) => void;
+  onChangeBudget: (n: number) => void;
+  onBack: () => void;
+  onContinue: () => void;
+}
+
+// Discover individual room polygons so the schedule can list them with areas.
+// We iterate the parsed plan directly rather than relying on countRooms (which
+// aggregates) so the design's "Living room · 16.7 m²" layout works.
+function listRooms(plan: FloorplanJSON, delta: number) {
+  const rows: { name: string; area: number; key: string }[] = [];
+  let idx = 0;
+  for (const layer of plan.layers) {
+    if (!layer.name.startsWith("Rooms")) continue;
+    if (layer.name.includes("Mezzanine")) continue; // listed separately
+    const display = roomDisplayName(layer.name);
+    for (const entity of layer.entities) {
+      if (entity.type !== "polyline" || !entity.closed) continue;
+      let a = 0;
+      for (let i = 0; i < entity.vertices.length; i++) {
+        const j = (i + 1) % entity.vertices.length;
+        const xi = entity.vertices[i].x + (entity.vertices[i].moveX ? delta : 0);
+        const xj = entity.vertices[j].x + (entity.vertices[j].moveX ? delta : 0);
+        a += xi * entity.vertices[j].y - xj * entity.vertices[i].y;
+      }
+      rows.push({ name: display, area: Math.abs(a) / 2 / 1_000_000, key: `${layer.name}-${idx++}` });
+    }
+  }
+  return rows;
+}
+
+function MobileConfigurator({
+  plan,
+  delta,
+  setDelta,
+  loading,
+  error,
+  view,
+  setView,
+  showMezzanine,
+  setShowMezzanine,
+  modelLabel,
+  bedrooms,
+  selection,
+  budget,
+  showFallbackNotice,
+  servedLabel,
+  roomsBreakdown,
+  budgetUgx,
+  plans,
+  onChangeBedrooms,
+  onChangeSelection,
+  onChangeBudget,
+  onBack,
+  onContinue,
+}: MobileConfiguratorProps) {
+  const [sheetIndex, setSheetIndex] = useState(0);
+  const [detents, setDetents] = useState<number[]>([540, 720, 800]);
+  const pinchRef = useRef<PinchZoomHandle | null>(null);
+  const [isZoomed, setIsZoomed] = useState(false);
+  const reducedMotion = usePrefersReducedMotion();
+
+  // Detent heights are viewport-relative — recompute on resize so the half /
+  // full snaps follow rotation, soft keyboard, dynamic toolbars.
+  useEffect(() => {
+    const compute = () => {
+      const h = window.innerHeight;
+      // Peek packs all primary controls (width + budget + bedrooms + roof +
+      // CTA) so the user never has to scroll for the main design knobs.
+      // Half/full add the view toggle, mezzanine toggle and room schedule.
+      setDetents([
+        Math.min(560, Math.round(h * 0.78)),
+        Math.round(h * 0.84),
+        Math.round(h * 0.94),
+      ]);
+    };
+    compute();
+    window.addEventListener("resize", compute);
+    return () => window.removeEventListener("resize", compute);
+  }, []);
+
+  // Poll zoom state from the imperative ref — keeps the top-bar reset button
+  // in sync without coupling parent state to the zoom hook.
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const z = pinchRef.current?.isZoomed() ?? false;
+      setIsZoomed((prev) => (prev === z ? prev : z));
+    }, 120);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const widthMm = plan ? plan.baseWidth + delta : 0;
+  const minMm = plan ? plan.baseWidth + plan.minDelta : 0;
+  const maxMm = plan ? plan.baseWidth + plan.maxDelta : 0;
+  const steps = plan ? Math.round((delta - plan.minDelta) / 610) : 0;
+  const stepsMax = plan ? Math.round((plan.maxDelta - plan.minDelta) / 610) : 0;
+  const depth = depthLabel(selection) || "";
+  const bedroomOptions = plans
+    ? Array.from(new Set(availableBedrooms(plans, selection).concat([bedrooms]))).sort(
+        (a, b) => a - b,
+      )
+    : [bedrooms];
+
+  const subtitle =
+    `${bedrooms === 0 ? "Studio" : `${bedrooms} bed`}${depth ? ` · ${depth} deep` : ""}`;
+
+  const rooms = plan ? listRooms(plan, delta) : [];
+  const livingTotal = roomsBreakdown
+    ? roomsBreakdown.gfa + roomsBreakdown.terraceArea
+    : 0;
+
+  return (
+    <div className="eh-configurator-mobile">
+      <MobileTopBar
+        title={modelLabel}
+        subtitle={subtitle}
+        onBack={onBack}
+        showResetZoom={isZoomed}
+        onResetZoom={() => pinchRef.current?.reset()}
+      />
+
+      <div className="eh-configurator-mobile__canvas">
+        <PinchZoomCanvas ref={pinchRef} disabled={reducedMotion}>
+          {view === "plan" ? (
+            plan ? (
+              <FloorplanSVG plan={plan} delta={delta} showMezzanine={showMezzanine} />
+            ) : (
+              <div style={{ color: "var(--eh-text-soft)", fontSize: 14, textAlign: "center", padding: 16 }}>
+                {loading || plans == null ? "Loading floor plan…" : error ?? "No plan loaded"}
+              </div>
+            )
+          ) : (
+            <div style={{ width: "100%", height: "100%" }}>
+              <PhotoCollage typology={selection.typology} subtype={selection.subtype} />
+            </div>
+          )}
+        </PinchZoomCanvas>
+      </div>
+
+      {showFallbackNotice && servedLabel && (
+        <div className="eh-configurator-mobile__notice" role="status">
+          Closest plan — showing {servedLabel}
+        </div>
+      )}
+
+      <BottomSheet
+        detents={detents}
+        index={sheetIndex}
+        onIndexChange={setSheetIndex}
+        ariaLabel="Adjust configurator panel"
+      >
+        {/* PEEK — always visible */}
+        <div className="eh-configurator-mobile__peek-row">
+          <div className="eh-configurator-mobile__peek-block">
+            <span className="eh-configurator-mobile__peek-label">Width</span>
+            <span className="eh-configurator-mobile__peek-value">
+              {plan ? (widthMm / 1000).toFixed(2) : "—"}
+              <span className="eh-configurator-mobile__peek-unit">m</span>
+            </span>
+          </div>
+          <div className="eh-configurator-mobile__peek-block" style={{ textAlign: "right" }}>
+            <span className="eh-configurator-mobile__peek-label">Indicative budget</span>
+            <span className="eh-configurator-mobile__peek-budget">
+              {fmtMoney(Math.round(budgetUgx))}
+            </span>
+          </div>
+        </div>
+
+        {plan ? (
+          <MobileSliderRow
+            valueMm={widthMm}
+            minMm={minMm}
+            maxMm={maxMm}
+            stepMm={610}
+            onChange={(mm) => setDelta(mm - plan.baseWidth)}
+            helper={`${steps} of ${stepsMax} steps · 610 mm each`}
+          />
+        ) : (
+          <div style={{ fontSize: 13, color: "var(--eh-text-soft)" }}>
+            {loading || plans == null ? "Loading…" : error ?? "Plan not available"}
+          </div>
+        )}
+
+        {/* D3 — same furniture-scale caveat as the desktop rail. Mobile
+            hides the canvas behind the bottom sheet, so the caveat sits
+            with the dimensional controls instead of next to the drawing.
+            TODO(X4): drop once furniture is redrawn to true scale. */}
+        {view === "plan" && (
+          <p
+            style={{
+              margin: 0,
+              fontSize: 12,
+              lineHeight: 1.45,
+              color: "var(--eh-text-soft)",
+              fontWeight: 300,
+            }}
+          >
+            Furniture and fixtures are indicative and not shown to exact scale.
+          </p>
+        )}
+
+        {/* Bedrooms sits right under width — the two dimensional choices live
+            together so the user doesn't hunt for the counter at the bottom. */}
+        <div className="eh-configurator-mobile__bedrooms-row">
+          <BedroomsCounter
+            value={bedrooms}
+            onChange={onChangeBedrooms}
+            options={bedroomOptions}
+          />
+        </div>
+
+        {/* Budget + roof live in the peek too so the user can re-shape the
+            design without going back to the landing. */}
+        <MobileBudgetSlider value={budget} onChange={onChangeBudget} />
+
+        <div className="eh-configurator-mobile__typology-wrap">
+          <TypologyPicker
+            selection={selection}
+            onChange={onChangeSelection}
+            budget={budget}
+            plans={plans ?? undefined}
+            compact
+            columns={2}
+          />
+        </div>
+
+        <button
+          type="button"
+          className="ab-cta"
+          onClick={onContinue}
+          style={{ justifyContent: "center", width: "100%" }}
+        >
+          Continue to summary →
+        </button>
+
+        {/* HALF — view toggle, mezzanine toggle, room schedule */}
+        <div style={{ display: "flex", justifyContent: "center" }}>
+          <ViewToggle value={view} onChange={setView} />
+        </div>
+
+        {plan?.mezzanine && view === "plan" && (
+          <div style={{ display: "flex", justifyContent: "center" }}>
+            <div className="seg" role="tablist" aria-label="Mezzanine visibility">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={!showMezzanine}
+                className={!showMezzanine ? "is-active" : ""}
+                onClick={() => setShowMezzanine(false)}
+              >
+                Plan only
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={showMezzanine}
+                className={showMezzanine ? "is-active" : ""}
+                onClick={() => setShowMezzanine(true)}
+              >
+                With mezzanine
+              </button>
+            </div>
+          </div>
+        )}
+
+        {rooms.length > 0 && (
+          <div className="eh-configurator-mobile__rooms">
+            <div className="eh-configurator-mobile__rooms-head">
+              <div className="eh-configurator-mobile__rooms-title">Rooms</div>
+              <div className="eh-configurator-mobile__rooms-total">
+                {livingTotal.toFixed(1)} m² total
+              </div>
+            </div>
+            {rooms.map((r) => (
+              <div className="eh-configurator-mobile__room-row" key={r.key}>
+                <span className="eh-configurator-mobile__room-name">
+                  <span className="eh-configurator-mobile__room-dot" />
+                  {r.name}
+                </span>
+                <span className="eh-configurator-mobile__room-area">
+                  {r.area.toFixed(1)} m²
+                </span>
+              </div>
+            ))}
+            {roomsBreakdown && roomsBreakdown.mezzanineAreaM2 > 0 && (
+              <div className="eh-configurator-mobile__room-row">
+                <span className="eh-configurator-mobile__room-name">
+                  <span className="eh-configurator-mobile__room-dot" style={{ background: "var(--eh-green)" }} />
+                  Mezzanine
+                </span>
+                <span className="eh-configurator-mobile__room-area">
+                  {roomsBreakdown.mezzanineAreaM2.toFixed(1)} m²
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+      </BottomSheet>
     </div>
   );
 }

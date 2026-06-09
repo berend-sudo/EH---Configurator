@@ -39,8 +39,8 @@ export default function PhotoCollage({ typology, subtype }: Props) {
           alt={`${label} home, Easy Housing project`}
           fill
           sizes="(min-width: 1024px) 50vw, 100vw"
+          quality={65}
           style={{ objectFit: "cover" }}
-          priority
         />
         <div className="photo__label">{label} · Easy Housing project</div>
       </div>
@@ -53,6 +53,8 @@ export default function PhotoCollage({ typology, subtype }: Props) {
           alt=""
           fill
           sizes="(min-width: 1024px) 25vw, 50vw"
+          quality={60}
+          loading="lazy"
           style={{ objectFit: "cover" }}
         />
       </div>
@@ -65,6 +67,8 @@ export default function PhotoCollage({ typology, subtype }: Props) {
           alt=""
           fill
           sizes="(min-width: 1024px) 25vw, 50vw"
+          quality={60}
+          loading="lazy"
           style={{ objectFit: "cover" }}
         />
       </div>

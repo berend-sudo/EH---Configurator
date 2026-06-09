@@ -1,6 +1,8 @@
 "use client";
 
 interface Props {
+  /** Label shown above the rail. Pass empty string to hide the label row
+   *  entirely (mobile peek already shows the value in its own row). */
   label: string;
   valueMm: number;
   minMm: number;
@@ -14,35 +16,38 @@ export default function SliderRow({ label, valueMm, minMm, maxMm, stepMm, onChan
   const minM = minMm / 1000;
   const maxM = maxMm / 1000;
   const pct = maxMm > minMm ? ((valueMm - minMm) / (maxMm - minMm)) * 100 : 0;
+  const showLabelRow = label.length > 0;
 
   return (
     <div>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "baseline",
-          justifyContent: "space-between",
-          marginBottom: 14,
-        }}
-      >
-        <span style={{ fontSize: 14, fontWeight: 500, color: "var(--eh-text)" }}>{label}</span>
-        <span
+      {showLabelRow && (
+        <div
           style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 4,
-            background: "var(--eh-bg-alt)",
-            borderRadius: 10,
-            padding: "4px 12px",
-            fontSize: 14,
-            fontWeight: 600,
-            color: "var(--eh-text)",
-            fontVariantNumeric: "tabular-nums",
+            display: "flex",
+            alignItems: "baseline",
+            justifyContent: "space-between",
+            marginBottom: 14,
           }}
         >
-          {valueM.toFixed(2)} <span style={{ opacity: 0.55, fontWeight: 400 }}>m</span>
-        </span>
-      </div>
+          <span style={{ fontSize: 14, fontWeight: 500, color: "var(--eh-text)" }}>{label}</span>
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              background: "var(--eh-bg-alt)",
+              borderRadius: 10,
+              padding: "4px 12px",
+              fontSize: 14,
+              fontWeight: 600,
+              color: "var(--eh-text)",
+              fontVariantNumeric: "tabular-nums",
+            }}
+          >
+            {valueM.toFixed(2)} <span style={{ opacity: 0.55, fontWeight: 400 }}>m</span>
+          </span>
+        </div>
+      )}
 
       {/* Visual rail with an invisible <input type=range> overlay — pattern from globals.css.
           Order matters: rail first, input second. With both absolutely positioned and equal
@@ -61,7 +66,7 @@ export default function SliderRow({ label, valueMm, minMm, maxMm, stepMm, onChan
           step={stepMm}
           value={valueMm}
           onChange={(e) => onChange(Number(e.target.value))}
-          aria-label={label}
+          aria-label={label || "Width"}
         />
       </div>
 

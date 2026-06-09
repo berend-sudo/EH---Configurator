@@ -28,6 +28,10 @@ type Props = {
    * TYPOLOGIES is shown (legacy behavior).
    */
   plans?: FloorPlanEntry[];
+  /** Override the grid column count. Default = one column per typology
+   *  (4 across at the desktop default). The mobile landing passes 2 so the
+   *  cards stack 2-up on narrow viewports. */
+  columns?: number;
 };
 
 export default function TypologyPicker({
@@ -36,6 +40,7 @@ export default function TypologyPicker({
   budget,
   compact = false,
   plans,
+  columns,
 }: Props) {
   const gap = compact ? 6 : 8;
   const radius = compact ? 12 : 14;
@@ -129,7 +134,7 @@ export default function TypologyPicker({
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: `repeat(${Math.max(typologiesShown.length, 1)}, 1fr)`,
+          gridTemplateColumns: `repeat(${Math.max(columns ?? typologiesShown.length, 1)}, 1fr)`,
           gap,
         }}
       >

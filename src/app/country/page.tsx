@@ -10,6 +10,7 @@ import {
   setActiveCountry,
   type Country,
 } from "@/lib/countries";
+import { useIsMobile } from "@/lib/use-media-query";
 
 // Sample design used only to preview the currency change in the confirmation
 // card — mirrors a "Gable Compact" base price in UGX.
@@ -42,6 +43,7 @@ function CountryFlag({ code, name }: { code: string; name: string }) {
 }
 
 export default function CountryGatePage() {
+  const isMobile = useIsMobile();
   const router = useRouter();
   const [selected, setSelected] = useState<Country | null>(null);
 
@@ -65,6 +67,10 @@ export default function CountryGatePage() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [selected]);
+
+  if (isMobile) {
+    return <MobileGate router={router} />;
+  }
 
   function handlePick(country: Country) {
     setActiveCountry(country);
@@ -235,6 +241,106 @@ export default function CountryGatePage() {
           onChange={() => setSelected(null)}
         />
       )}
+    </div>
+  );
+}
+
+// Mobile country gate — Direction A immersive variant. Photo behind a
+// deep-green scrim, content hugs the bottom, two stacked cards, one CTA.
+// Picking a card stores the country immediately (matching desktop semantics)
+// but doesn't navigate until the user taps Continue, so they can switch.
+function MobileGate({ router }: { router: ReturnType<typeof useRouter> }) {
+  const [picked, setPicked] = useState<Country | null>(null);
+  const choose = (c: Country) => {
+    setPicked(c);
+    setActiveCountry(c);
+  };
+  const cont = () => {
+    if (!picked) return;
+    router.replace("/");
+  };
+  return (
+    <div className="eh-country-mobile">
+      <div className="eh-country-mobile__photo" aria-hidden>
+        <Image
+          src="/brand/heroimage1.jpg"
+          alt=""
+          fill
+          sizes="(max-width: 768px) 100vw, 768px"
+          quality={62}
+          priority
+          style={{ objectFit: "cover" }}
+        />
+      </div>
+      <div className="eh-country-mobile__scrim" aria-hidden />
+      <div className="eh-country-mobile__inner">
+        <div className="eh-country-mobile__brand">
+          <Image
+            src="/brand/logo-full-white.png"
+            alt="Easy Housing"
+            width={120}
+            height={28}
+            style={{ height: 24, width: "auto", display: "block" }}
+            priority
+          />
+        </div>
+        <div className="eh-country-mobile__bottom">
+          <p className="eh-country-mobile__eyebrow">A home for everyone</p>
+          <h1 className="eh-country-mobile__h1">
+            First, where are you building?
+          </h1>
+          <p className="eh-country-mobile__lead">
+            This sets the currency we&apos;ll use everywhere. You can&apos;t
+            change it later, so pick the country where your home will stand.
+          </p>
+          {COUNTRIES.map((c) => {
+            const isPicked = picked?.code === c.code;
+            return (
+              <button
+                key={c.code}
+                type="button"
+                className="eh-country-mobile__card"
+                aria-pressed={isPicked}
+                onClick={() => choose(c)}
+              >
+                <span className="eh-country-mobile__flag">
+                  <CountryFlag code={c.code} name={c.name} />
+                </span>
+                <span className="eh-country-mobile__name">
+                  <span className="eh-country-mobile__name-row">{c.name}</span>
+                  <span className="eh-country-mobile__name-sub">
+                    Prices in {c.currency.code}
+                  </span>
+                </span>
+                <span className="eh-country-mobile__radio" aria-hidden>
+                  {isPicked && (
+                    <svg
+                      viewBox="0 0 24 24"
+                      width={14}
+                      height={14}
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={3}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M20 6 9 17l-5-5" />
+                    </svg>
+                  )}
+                </span>
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            className="ab-cta eh-country-mobile__cta"
+            disabled={!picked}
+            onClick={cont}
+          >
+            <Arrow /> Continue
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
