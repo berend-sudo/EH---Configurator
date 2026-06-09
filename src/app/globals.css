@@ -893,6 +893,16 @@ body {
     border-radius: 14px;
     background: var(--eh-bg-alt);
   }
+  .eh-configurator-mobile__section-divider {
+    height: 1px;
+    background: var(--eh-stroke);
+    margin: 6px 0 4px;
+  }
+  .eh-configurator-mobile__typology-wrap {
+    /* The picker has an inline-grid that may overflow when the strip wraps;
+       contain it inside the sheet's scrollable column. */
+    overflow: hidden;
+  }
   /* Touch-friendly rails. touch-action:none lets the native range input
      receive horizontal touch even though the sheet content scrolls. */
   .eh-mobile-sheet .range-native {

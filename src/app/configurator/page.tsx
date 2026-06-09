@@ -15,6 +15,9 @@ import BedroomsCounter from "@/components/landing/BedroomsCounter";
 import BottomSheet from "@/components/mobile/BottomSheet";
 import PinchZoomCanvas, { type PinchZoomHandle } from "@/components/mobile/PinchZoomCanvas";
 import MobileTopBar from "@/components/mobile/MobileTopBar";
+import MobileSliderRow from "@/components/mobile/MobileSliderRow";
+import MobileBudgetSlider from "@/components/mobile/MobileBudgetSlider";
+import TypologyPicker from "@/components/landing/TypologyPicker";
 import {
   pickPlan,
   availableBedrooms,
@@ -250,6 +253,8 @@ function ConfiguratorScreen() {
         budgetUgx={derived.budgetUgx}
         plans={plans}
         onChangeBedrooms={(n) => updateParams({ bedrooms: n })}
+        onChangeSelection={(s) => updateParams({ selection: s })}
+        onChangeBudget={setBudget}
         onBack={() => router.push("/")}
         onContinue={goToSummary}
       />
@@ -564,6 +569,8 @@ interface MobileConfiguratorProps {
   budgetUgx: number;
   plans: FloorPlanEntry[] | null;
   onChangeBedrooms: (n: number) => void;
+  onChangeSelection: (s: Selection) => void;
+  onChangeBudget: (n: number) => void;
   onBack: () => void;
   onContinue: () => void;
 }
@@ -613,6 +620,8 @@ function MobileConfigurator({
   budgetUgx,
   plans,
   onChangeBedrooms,
+  onChangeSelection,
+  onChangeBudget,
   onBack,
   onContinue,
 }: MobileConfiguratorProps) {
@@ -725,22 +734,19 @@ function MobileConfigurator({
         </div>
 
         {plan ? (
-          <SliderRow
-            label=""
+          <MobileSliderRow
             valueMm={widthMm}
             minMm={minMm}
             maxMm={maxMm}
             stepMm={610}
             onChange={(mm) => setDelta(mm - plan.baseWidth)}
+            helper={`${steps} of ${stepsMax} steps · 610 mm each`}
           />
         ) : (
           <div style={{ fontSize: 13, color: "var(--eh-text-soft)" }}>
             {loading || plans == null ? "Loading…" : error ?? "Plan not available"}
           </div>
         )}
-        <div className="eh-configurator-mobile__step-helper">
-          {plan ? `${steps} of ${stepsMax} steps · 610 mm each` : " "}
-        </div>
 
         {/* Bedrooms sits right under width — the two dimensional choices live
             together so the user doesn't hunt for the counter at the bottom. */}
@@ -823,6 +829,21 @@ function MobileConfigurator({
             )}
           </div>
         )}
+
+        {/* FULL — budget + roof so the user can re-shape without going back. */}
+        <div className="eh-configurator-mobile__section-divider" aria-hidden />
+        <MobileBudgetSlider value={budget} onChange={onChangeBudget} />
+
+        <div className="eh-configurator-mobile__typology-wrap">
+          <TypologyPicker
+            selection={selection}
+            onChange={onChangeSelection}
+            budget={budget}
+            plans={plans ?? undefined}
+            compact
+            columns={2}
+          />
+        </div>
 
       </BottomSheet>
     </div>
