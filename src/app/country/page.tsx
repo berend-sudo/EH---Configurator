@@ -58,10 +58,6 @@ export default function CountryGatePage() {
     };
   }, [selected]);
 
-  if (isMobile) {
-    return <MobileGate router={router} />;
-  }
-
   // Escape closes the confirmation (so the prototype stays explorable).
   useEffect(() => {
     if (!selected) return;
@@ -71,6 +67,10 @@ export default function CountryGatePage() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [selected]);
+
+  if (isMobile) {
+    return <MobileGate router={router} />;
+  }
 
   function handlePick(country: Country) {
     setActiveCountry(country);
