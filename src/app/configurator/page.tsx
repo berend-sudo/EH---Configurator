@@ -650,25 +650,25 @@ function MobileConfigurator({
   onBack,
   onContinue,
 }: MobileConfiguratorProps) {
+  // Sheet starts CLOSED (index 0). On mobile the user should land on the
+  // floor plan, not on a wall of controls — drag the handle up to reveal
+  // them. Two detents only:
+  //   0 — closed peek: handle + the read-only width/budget summary, no
+  //       buttons. The floor plan above is the dominant element.
+  //   1 — half-open: ~50 % of the viewport so the plan above stays
+  //       comfortably visible while the controls become reachable.
   const [sheetIndex, setSheetIndex] = useState(0);
-  const [detents, setDetents] = useState<number[]>([540, 720, 800]);
+  const [detents, setDetents] = useState<number[]>([120, 360]);
   const pinchRef = useRef<PinchZoomHandle | null>(null);
   const [isZoomed, setIsZoomed] = useState(false);
   const reducedMotion = usePrefersReducedMotion();
 
-  // Detent heights are viewport-relative — recompute on resize so the half /
-  // full snaps follow rotation, soft keyboard, dynamic toolbars.
+  // Detent heights are viewport-relative — recompute on resize so the
+  // half-open snap follows rotation, soft keyboard, dynamic toolbars.
   useEffect(() => {
     const compute = () => {
       const h = window.innerHeight;
-      // Peek packs all primary controls (width + budget + bedrooms + roof +
-      // CTA) so the user never has to scroll for the main design knobs.
-      // Half/full add the view toggle, mezzanine toggle and room schedule.
-      setDetents([
-        Math.min(560, Math.round(h * 0.78)),
-        Math.round(h * 0.84),
-        Math.round(h * 0.94),
-      ]);
+      setDetents([120, Math.round(h * 0.5)]);
     };
     compute();
     window.addEventListener("resize", compute);
