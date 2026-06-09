@@ -617,7 +617,7 @@ function MobileConfigurator({
   onContinue,
 }: MobileConfiguratorProps) {
   const [sheetIndex, setSheetIndex] = useState(0);
-  const [detents, setDetents] = useState<number[]>([268, 480, 720]);
+  const [detents, setDetents] = useState<number[]>([380, 560, 760]);
   const pinchRef = useRef<PinchZoomHandle | null>(null);
   const [isZoomed, setIsZoomed] = useState(false);
   const reducedMotion = usePrefersReducedMotion();
@@ -627,9 +627,10 @@ function MobileConfigurator({
   useEffect(() => {
     const compute = () => {
       const h = window.innerHeight;
-      // Peek is fixed (width row + slider + CTA + helper); half/full grow with
-      // viewport so the room schedule has room to breathe.
-      setDetents([268, Math.round(h * 0.52), Math.round(h * 0.86)]);
+      // Peek must fit: width row + slider + step helper + bedrooms row +
+      // primary CTA. Half/full grow with viewport so the room schedule has
+      // room to breathe.
+      setDetents([380, Math.round(h * 0.62), Math.round(h * 0.9)]);
     };
     compute();
     window.addEventListener("resize", compute);
@@ -680,7 +681,7 @@ function MobileConfigurator({
         <PinchZoomCanvas ref={pinchRef} disabled={reducedMotion}>
           {view === "plan" ? (
             plan ? (
-              <FloorplanSVG plan={plan} delta={delta} showMezzanine={showMezzanine} showDims={false} />
+              <FloorplanSVG plan={plan} delta={delta} showMezzanine={showMezzanine} />
             ) : (
               <div style={{ color: "var(--eh-text-soft)", fontSize: 14, textAlign: "center", padding: 16 }}>
                 {loading || plans == null ? "Loading floor plan…" : error ?? "No plan loaded"}
@@ -739,6 +740,16 @@ function MobileConfigurator({
         )}
         <div className="eh-configurator-mobile__step-helper">
           {plan ? `${steps} of ${stepsMax} steps · 610 mm each` : " "}
+        </div>
+
+        {/* Bedrooms sits right under width — the two dimensional choices live
+            together so the user doesn't hunt for the counter at the bottom. */}
+        <div className="eh-configurator-mobile__bedrooms-row">
+          <BedroomsCounter
+            value={bedrooms}
+            onChange={onChangeBedrooms}
+            options={bedroomOptions}
+          />
         </div>
 
         <button
@@ -813,25 +824,6 @@ function MobileConfigurator({
           </div>
         )}
 
-        {/* FULL — bedrooms quick adjust */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              letterSpacing: ".08em",
-              textTransform: "uppercase",
-              color: "var(--eh-text-muted)",
-            }}
-          >
-            Bedrooms
-          </div>
-          <BedroomsCounter
-            value={bedrooms}
-            onChange={onChangeBedrooms}
-            options={bedroomOptions}
-          />
-        </div>
       </BottomSheet>
     </div>
   );

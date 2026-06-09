@@ -326,8 +326,8 @@ body {
   }
 }
 .eh-mobile-sheet__handle {
-  flex: 0 0 28px;
-  height: 28px;
+  flex: 0 0 36px;
+  height: 36px;
   width: 100%;
   border: 0;
   background: transparent;
@@ -336,6 +336,8 @@ body {
   justify-content: center;
   cursor: grab;
   touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
   padding: 0;
   font: inherit;
   color: inherit;
@@ -343,10 +345,15 @@ body {
 .eh-mobile-sheet__handle:active { cursor: grabbing; }
 .eh-mobile-sheet__grab {
   display: block;
-  width: 42px;
-  height: 4px;
-  border-radius: 2px;
+  width: 48px;
+  height: 5px;
+  border-radius: 3px;
   background: var(--eh-stroke-strong);
+  transition: background var(--eh-duration-base) var(--eh-ease);
+}
+.eh-mobile-sheet__handle:hover .eh-mobile-sheet__grab,
+.eh-mobile-sheet__handle:focus-visible .eh-mobile-sheet__grab {
+  background: var(--eh-text-soft);
 }
 .eh-mobile-sheet__content {
   flex: 1 1 auto;
@@ -732,7 +739,10 @@ body {
     padding: 14px 22px;
   }
   /* Touch-friendly slider rail variant — wider hit area on phones */
-  .eh-landing-mobile .range-native { height: 44px; }
+  .eh-landing-mobile .range-native {
+    height: 44px;
+    touch-action: none;
+  }
   .eh-landing-mobile .rail__knob {
     width: 28px;
     height: 28px;
@@ -764,7 +774,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 86px 20px 296px;
+    padding: 86px 16px 400px;
   }
   .eh-configurator-mobile__notice {
     position: fixed;
@@ -877,8 +887,18 @@ body {
     text-align: center;
     margin-top: -6px;
   }
-  /* Touch-friendly rails */
-  .eh-mobile-sheet .range-native { height: 44px; }
+  .eh-configurator-mobile__bedrooms-row {
+    padding: 6px 12px 10px;
+    border: 1px solid var(--eh-stroke);
+    border-radius: 14px;
+    background: var(--eh-bg-alt);
+  }
+  /* Touch-friendly rails. touch-action:none lets the native range input
+     receive horizontal touch even though the sheet content scrolls. */
+  .eh-mobile-sheet .range-native {
+    height: 44px;
+    touch-action: none;
+  }
   .eh-mobile-sheet .rail__knob {
     width: 28px;
     height: 28px;
