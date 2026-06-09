@@ -261,11 +261,17 @@ function MobileGate({ router }: { router: ReturnType<typeof useRouter> }) {
   };
   return (
     <div className="eh-country-mobile">
-      <div
-        className="eh-country-mobile__photo"
-        style={{ backgroundImage: "url(/brand/heroimage1.jpg)" }}
-        aria-hidden
-      />
+      <div className="eh-country-mobile__photo" aria-hidden>
+        <Image
+          src="/brand/heroimage1.jpg"
+          alt=""
+          fill
+          sizes="(max-width: 768px) 100vw, 768px"
+          quality={62}
+          priority
+          style={{ objectFit: "cover" }}
+        />
+      </div>
       <div className="eh-country-mobile__scrim" aria-hidden />
       <div className="eh-country-mobile__inner">
         <div className="eh-country-mobile__brand">

@@ -626,7 +626,7 @@ function MobileConfigurator({
   onContinue,
 }: MobileConfiguratorProps) {
   const [sheetIndex, setSheetIndex] = useState(0);
-  const [detents, setDetents] = useState<number[]>([380, 560, 760]);
+  const [detents, setDetents] = useState<number[]>([540, 720, 800]);
   const pinchRef = useRef<PinchZoomHandle | null>(null);
   const [isZoomed, setIsZoomed] = useState(false);
   const reducedMotion = usePrefersReducedMotion();
@@ -636,10 +636,14 @@ function MobileConfigurator({
   useEffect(() => {
     const compute = () => {
       const h = window.innerHeight;
-      // Peek must fit: width row + slider + step helper + bedrooms row +
-      // primary CTA. Half/full grow with viewport so the room schedule has
-      // room to breathe.
-      setDetents([380, Math.round(h * 0.62), Math.round(h * 0.9)]);
+      // Peek packs all primary controls (width + budget + bedrooms + roof +
+      // CTA) so the user never has to scroll for the main design knobs.
+      // Half/full add the view toggle, mezzanine toggle and room schedule.
+      setDetents([
+        Math.min(560, Math.round(h * 0.78)),
+        Math.round(h * 0.84),
+        Math.round(h * 0.94),
+      ]);
     };
     compute();
     window.addEventListener("resize", compute);
@@ -758,6 +762,21 @@ function MobileConfigurator({
           />
         </div>
 
+        {/* Budget + roof live in the peek too so the user can re-shape the
+            design without going back to the landing. */}
+        <MobileBudgetSlider value={budget} onChange={onChangeBudget} />
+
+        <div className="eh-configurator-mobile__typology-wrap">
+          <TypologyPicker
+            selection={selection}
+            onChange={onChangeSelection}
+            budget={budget}
+            plans={plans ?? undefined}
+            compact
+            columns={2}
+          />
+        </div>
+
         <button
           type="button"
           className="ab-cta"
@@ -829,21 +848,6 @@ function MobileConfigurator({
             )}
           </div>
         )}
-
-        {/* FULL — budget + roof so the user can re-shape without going back. */}
-        <div className="eh-configurator-mobile__section-divider" aria-hidden />
-        <MobileBudgetSlider value={budget} onChange={onChangeBudget} />
-
-        <div className="eh-configurator-mobile__typology-wrap">
-          <TypologyPicker
-            selection={selection}
-            onChange={onChangeSelection}
-            budget={budget}
-            plans={plans ?? undefined}
-            compact
-            columns={2}
-          />
-        </div>
 
       </BottomSheet>
     </div>

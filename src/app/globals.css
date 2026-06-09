@@ -774,7 +774,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 86px 16px 400px;
+    padding: 80px 14px 560px;
   }
   .eh-configurator-mobile__notice {
     position: fixed;
@@ -899,9 +899,9 @@ body {
     margin: 6px 0 4px;
   }
   .eh-configurator-mobile__typology-wrap {
-    /* The picker has an inline-grid that may overflow when the strip wraps;
-       contain it inside the sheet's scrollable column. */
-    overflow: hidden;
+    /* Contain wide subtype chips inside the sheet column. */
+    width: 100%;
+    flex: 0 0 auto;
   }
   /* Touch-friendly rails. touch-action:none lets the native range input
      receive horizontal touch even though the sheet content scrolls. */

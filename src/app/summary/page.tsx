@@ -874,8 +874,8 @@ function MobileSummary(props: MobileSummaryProps) {
               alt={`${typologyLabel} home`}
               fill
               sizes="(max-width: 1023px) 100vw, 520px"
+              quality={62}
               style={{ objectFit: "cover" }}
-              priority
             />
             <span className="eh-summary-mobile__recap-label">{label} · impression</span>
           </div>
