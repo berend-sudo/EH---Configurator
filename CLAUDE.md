@@ -319,7 +319,10 @@ src/
     contact-checks.ts         Disposable / typo domain lists.
     design-id.ts              Reference helpers shared client+server.
     rooms.ts                  Room-counting helpers used by UI.
-    brand-images.ts           Brand photo metadata.
+    brand-images.ts           Brand photo metadata + the curated
+                              TYPOLOGY_PHOTOS map (typology / subtype →
+                              exactly 3 full-home photos) that drives
+                              the configurator collage and the PDF.
     server/
       design-pdf.tsx          react-pdf 3-page template.
       email.ts                Resend wrapper.

@@ -104,7 +104,19 @@ export function setActiveCountry(country: Country): void {
   }
 }
 
-/** Convert a UGX amount to the local currency, rounded for display. */
+/**
+ * Convert a UGX amount to the local currency, rounded for display.
+ *
+ * TODO(X1 — Kenya pricing basis): every non-UGX budget shown to a client
+ * is derived from this UGX → local conversion using the fixed
+ * `ugxPerUnit` rate above. Kim flagged that Kenyan budgets may not
+ * reflect real on-the-ground Kenyan build costs (materials, labour,
+ * logistics differ). Confirm with the team whether KE should:
+ *   (a) keep this UGX-derived figure, or
+ *   (b) carry its own per-m² pricing basis (would need its own track
+ *       in src/lib/budget.ts and per-country rates).
+ * Pricing logic is unchanged here pending that decision.
+ */
 export function ugxToLocal(ugx: number, country: Country = getActiveCountry()): number {
   const raw = ugx / country.ugxPerUnit;
   const step = country.currency.displayRound || 1;

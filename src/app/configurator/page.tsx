@@ -402,11 +402,16 @@ function ConfiguratorScreen() {
 
           {/* CTAs */}
           <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: "auto" }}>
+            {/* Primary CTA stepped down to the kit's medium size — the
+                landing's "Open the configurator" uses the larger 16/36 form
+                of .ab-cta; this stays smaller so it doesn't dominate the
+                rail. Padding kept ≥12 px vertical so the hit target still
+                clears the 44 px iOS touch minimum. */}
             <button
               type="button"
               className="ab-cta"
               onClick={goToSummary}
-              style={{ justifyContent: "center" }}
+              style={{ justifyContent: "center", padding: "12px 24px", fontSize: 14 }}
             >
               Continue to summary →
             </button>
@@ -496,6 +501,7 @@ function ConfiguratorScreen() {
               padding: view === "plan" ? "40px 48px" : 24,
               minHeight: 0,
               display: "flex",
+              flexDirection: "column",
               transition: "padding var(--eh-duration-base) var(--eh-ease)",
             }}
           >
@@ -532,10 +538,29 @@ function ConfiguratorScreen() {
                   </div>
                 )
               ) : (
-                <PhotoCollage typology={selection.typology} />
+                <PhotoCollage typology={selection.typology} subtype={selection.subtype} />
               )}
             </div>
           </div>
+
+          {/* D3 — caveat sits below the canvas, in the muted caption style
+              so it informs without alarming. True-scale furniture is a
+              pending decision (TODO X4 — decide whether to redraw furniture
+              to true scale; remove this caveat once that's done); until
+              then this stays. */}
+          {view === "plan" && (
+            <p
+              style={{
+                marginTop: 10,
+                fontSize: 12,
+                lineHeight: 1.45,
+                color: "var(--eh-text-soft)",
+                fontWeight: 300,
+              }}
+            >
+              Furniture and fixtures are indicative and not shown to exact scale.
+            </p>
+          )}
         </div>
       </div>
     </div>
@@ -625,25 +650,25 @@ function MobileConfigurator({
   onBack,
   onContinue,
 }: MobileConfiguratorProps) {
+  // Sheet starts CLOSED (index 0). On mobile the user should land on the
+  // floor plan, not on a wall of controls — drag the handle up to reveal
+  // them. Two detents only:
+  //   0 — closed peek: handle + the read-only width/budget summary, no
+  //       buttons. The floor plan above is the dominant element.
+  //   1 — half-open: ~50 % of the viewport so the plan above stays
+  //       comfortably visible while the controls become reachable.
   const [sheetIndex, setSheetIndex] = useState(0);
-  const [detents, setDetents] = useState<number[]>([540, 720, 800]);
+  const [detents, setDetents] = useState<number[]>([120, 360]);
   const pinchRef = useRef<PinchZoomHandle | null>(null);
   const [isZoomed, setIsZoomed] = useState(false);
   const reducedMotion = usePrefersReducedMotion();
 
-  // Detent heights are viewport-relative — recompute on resize so the half /
-  // full snaps follow rotation, soft keyboard, dynamic toolbars.
+  // Detent heights are viewport-relative — recompute on resize so the
+  // half-open snap follows rotation, soft keyboard, dynamic toolbars.
   useEffect(() => {
     const compute = () => {
       const h = window.innerHeight;
-      // Peek packs all primary controls (width + budget + bedrooms + roof +
-      // CTA) so the user never has to scroll for the main design knobs.
-      // Half/full add the view toggle, mezzanine toggle and room schedule.
-      setDetents([
-        Math.min(560, Math.round(h * 0.78)),
-        Math.round(h * 0.84),
-        Math.round(h * 0.94),
-      ]);
+      setDetents([120, Math.round(h * 0.5)]);
     };
     compute();
     window.addEventListener("resize", compute);
@@ -702,7 +727,7 @@ function MobileConfigurator({
             )
           ) : (
             <div style={{ width: "100%", height: "100%" }}>
-              <PhotoCollage typology={selection.typology} />
+              <PhotoCollage typology={selection.typology} subtype={selection.subtype} />
             </div>
           )}
         </PinchZoomCanvas>
@@ -750,6 +775,24 @@ function MobileConfigurator({
           <div style={{ fontSize: 13, color: "var(--eh-text-soft)" }}>
             {loading || plans == null ? "Loading…" : error ?? "Plan not available"}
           </div>
+        )}
+
+        {/* D3 — same furniture-scale caveat as the desktop rail. Mobile
+            hides the canvas behind the bottom sheet, so the caveat sits
+            with the dimensional controls instead of next to the drawing.
+            TODO(X4): drop once furniture is redrawn to true scale. */}
+        {view === "plan" && (
+          <p
+            style={{
+              margin: 0,
+              fontSize: 12,
+              lineHeight: 1.45,
+              color: "var(--eh-text-soft)",
+              fontWeight: 300,
+            }}
+          >
+            Furniture and fixtures are indicative and not shown to exact scale.
+          </p>
         )}
 
         {/* Bedrooms sits right under width — the two dimensional choices live

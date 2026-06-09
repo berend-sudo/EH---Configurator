@@ -341,7 +341,7 @@ function MobileLandingScreen({
           onClick={onContinue}
         >
           Design it
-          <span style={{ fontSize: 16, lineHeight: 1 }}>→</span>
+          <span style={{ fontSize: 14, lineHeight: 1 }}>→</span>
         </button>
       </div>
     </main>

@@ -736,7 +736,13 @@ body {
   }
   .eh-landing-mobile__cta {
     flex: 0 0 auto;
-    padding: 14px 22px;
+    /* Stepped down to the kit's medium size (D4 follow-up) so the
+       sticky CTA bar reads as one balanced row instead of a giant
+       button next to the selection summary. Vertical padding stays
+       ≥12 px so the hit target still clears the 44 px touch minimum. */
+    padding: 12px 18px;
+    font-size: 14px;
+    gap: 6px;
   }
   /* Touch-friendly slider rail variant — wider hit area on phones */
   .eh-landing-mobile .range-native {
@@ -774,7 +780,13 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 80px 14px 560px;
+    /* Bottom padding matches the closed-sheet detent (120 px) so the
+       floor plan fills the room above the peek instead of being
+       crammed by a sheet-sized reservation. When the user drags the
+       sheet to its half-open detent it overlays the lower half of the
+       plan rather than reflowing the canvas — same behaviour as the
+       standard iOS bottom-sheet pattern. */
+    padding: 80px 14px 120px;
   }
   .eh-configurator-mobile__notice {
     position: fixed;

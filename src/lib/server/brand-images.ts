@@ -5,6 +5,7 @@
 import path from "path";
 import {
   BRAND_IMAGES,
+  TYPOLOGY_PHOTOS,
   sampleFurnitureFiles,
   sampleHeroFiles,
   sampleTypologyFiles,
@@ -13,6 +14,16 @@ import type { TypologyId } from "@/lib/typologies";
 
 const brandFile = (file: string) =>
   path.join(process.cwd(), "public", "brand", file);
+
+/**
+ * Curated typology photos as absolute filesystem paths for @react-pdf
+ * (P1/P2). Subtype override wins when present.
+ */
+export function typologyPhotoFilesFor(typology: TypologyId, subtype?: string | null): string[] {
+  const entry = TYPOLOGY_PHOTOS[typology];
+  const set = (subtype && entry.bySubtype?.[subtype]) || entry.photos;
+  return set.map(brandFile);
+}
 
 export const typologyPhotoFile = (typology: TypologyId, i = 0): string => {
   const set = BRAND_IMAGES.typology[typology];

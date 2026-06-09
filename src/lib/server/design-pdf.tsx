@@ -28,10 +28,7 @@ import type {
 import type { RoomColorKey } from "@/lib/rooms";
 import { BASE_COUNTRY, fmtMoney, type Country } from "@/lib/countries";
 import { TYPOLOGIES, type TypologyId } from "@/lib/typologies";
-import {
-  randomFurniturePhotoFiles,
-  randomTypologyPhotoFile,
-} from "@/lib/server/brand-images";
+import { typologyPhotoFilesFor } from "@/lib/server/brand-images";
 
 // ── Brand tokens (mirrors eh-tokens.css) ───────────────────────────────────
 const C = {
@@ -71,9 +68,12 @@ export interface DesignPdfData {
   delta: number;
   label: string;
   bedrooms: number;
-  /** Drives the cover's exterior photo (left half) — picks the canonical
-   *  shot from BRAND_IMAGES.typology[t]. */
+  /** Drives the cover's exterior photo + the closing ribbon — both pull
+   *  from the curated TYPOLOGY_PHOTOS set so the imagery always matches
+   *  the selected model (P1/P2). */
   typology: TypologyId;
+  /** Subtype id for subtype-specific photo curation. null for Monopitch. */
+  subtype?: string | null;
   reference: string;
   generatedDate: string;
   client: { name: string; email: string };
@@ -617,6 +617,10 @@ function bedroomDescriptor(bedrooms: number): string {
 }
 
 function CoverPage(d: DesignPdfData) {
+  // Cover uses the curated set's first frame (the canonical "hero" shot
+  // for this model), same source the spec ribbon below draws from, so
+  // the imagery story is consistent across the brief.
+  const coverPhoto = typologyPhotoFilesFor(d.typology, d.subtype)[0];
   return (
     <Page size="A4" style={{ ...styles.page, paddingBottom: FOOTER_HEIGHT }} wrap={false}>
       <View style={{ backgroundColor: C.green900, paddingVertical: 24, paddingHorizontal: 36, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
@@ -626,11 +630,12 @@ function CoverPage(d: DesignPdfData) {
         </Text>
       </View>
 
-      {/* Single full-bleed exterior shot of the configured typology — no
-          interior/furniture cell. */}
-      <View style={{ flexGrow: 1, position: "relative" }}>
+      {/* Exterior shot of the configured typology, sized proportionate to
+          the page so the cover doesn't lead with one giant image (F1).
+          Fixed height keeps the cover balance the same across all designs. */}
+      <View style={{ height: 320, position: "relative" }}>
         <Image
-          src={randomTypologyPhotoFile(d.typology, d.reference)}
+          src={coverPhoto}
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
         />
         <View style={{ position: "absolute", left: 14, bottom: 12 }}>
@@ -723,9 +728,11 @@ function SpecPage(d: DesignPdfData) {
   // Equivalent km of plane travel — same rule of thumb the brand has used
   // since the 2022 guidelines (~5 t CO₂ / 25,000 km long-haul).
   const flightKm = co2Tonnes * 5000;
-  // Three distinct interior/furniture shots, seeded by the reference so the
-  // ribbon varies across designs but is stable on regeneration.
-  const ribbon = randomFurniturePhotoFiles(3, d.reference);
+  // Three curated photos of the selected model (P3). Previously this used
+  // a random furniture/interior pool which could surface unappealing detail
+  // crops (e.g. a toilet close-up) as the closing image; the ribbon now
+  // shows finished-home shots that match the typology the client picked.
+  const ribbon = typologyPhotoFilesFor(d.typology, d.subtype);
   return (
     <Page size="A4" style={{ ...styles.page, paddingTop: 28, paddingHorizontal: 36, paddingBottom: FOOTER_HEIGHT }} wrap={false}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }} wrap={false}>
@@ -736,6 +743,12 @@ function SpecPage(d: DesignPdfData) {
       <View style={{ marginTop: 16 }} wrap={false}>
         <Text style={styles.h2}>Spec sheet.</Text>
       </View>
+
+      {/* TODO(X5): this page is called a "spec sheet" but doesn't carry
+          actual specs yet. The team needs to define which specs belong
+          (dimensions, materials, roof type, floor area, CO₂, indicative
+          price, DXF reference, …). Rebuild this page around the agreed
+          list once it's in — don't fabricate specs in the meantime. */}
 
       {/* Headline indicative-budget figure — same number as the cover. No
           line-item table: the per-category cost breakdown the configurator

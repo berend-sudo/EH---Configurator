@@ -9,7 +9,7 @@ import EHNavBar from "@/components/EHNavBar";
 import { pickPlan, type FloorPlanEntry } from "@/lib/floor-plans";
 import { useFloorPlans } from "@/lib/useFloorPlans";
 import { calculateBudget, countRooms, typologyInfoFor } from "@/lib/budget";
-import { typologyPhoto } from "@/lib/brand-images";
+import { typologyPhotosFor } from "@/lib/brand-images";
 import {
   dxfFilename,
   selectionFromParams,
@@ -387,7 +387,7 @@ function FinalScreen() {
               borderRadius: 24,
               border: "1px solid var(--eh-stroke)",
               padding: 24,
-              marginBottom: 24,
+              marginBottom: 8,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -402,6 +402,18 @@ function FinalScreen() {
               </div>
             )}
           </div>
+          {/* D3 — same caveat as the configurator canvas. */}
+          <p
+            style={{
+              margin: "0 0 24px",
+              fontSize: 12,
+              lineHeight: 1.45,
+              color: "var(--eh-text-soft)",
+              fontWeight: 300,
+            }}
+          >
+            Furniture and fixtures are indicative and not shown to exact scale.
+          </p>
 
           {/* 4-stat strip */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
@@ -427,7 +439,12 @@ function FinalScreen() {
           </div>
         </div>
 
-        {/* RIGHT — contact form */}
+        {/* RIGHT — contact form, or the thank-you confirmation once the
+            submit has come back successful (F2). The form stays on error so
+            the user can retry; we only advance after `emailed: true`. */}
+        {submit.status === "ok" ? (
+          <ThankYouPanel />
+        ) : (
         <div
           className="eh-final-col eh-final-right"
           style={{ background: "#fff", display: "flex", flexDirection: "column", justifyContent: "space-between" }}
@@ -586,7 +603,12 @@ function FinalScreen() {
                 />
               </div>
               <div className="field">
-                <label htmlFor="eh-project-type">What&apos;s this design for?</label>
+                {/* TODO(X3): the option list ("My own home / To rent out /
+                    NGO–community / Other") needs sales input — likely real
+                    uses include second home / village home and tourism /
+                    Airbnb, and the vague "NGO / community" wants clarifying.
+                    Leaving the options unchanged until the team confirms. */}
+                <label htmlFor="eh-project-type">What is this design for?</label>
                 <select
                   id="eh-project-type"
                   value={projectType}
@@ -719,15 +741,6 @@ function FinalScreen() {
                 {submit.message}
               </p>
             )}
-            {submit.status === "ok" && (
-              <p
-                role="status"
-                style={{ marginTop: 18, fontSize: 13, color: "var(--eh-green-700)", fontWeight: 600 }}
-              >
-                Sent — check {email.trim()} for your design PDF. An architect will be in touch within a
-                couple of working days.
-              </p>
-            )}
           </div>
 
           {/* Footer */}
@@ -758,7 +771,7 @@ function FinalScreen() {
               type="button"
               className="ab-cta"
               onClick={handleSubmit}
-              disabled={!canGenerate || submit.status === "sending" || submit.status === "ok"}
+              disabled={!canGenerate || submit.status === "sending"}
               title={
                 canGenerate
                   ? undefined
@@ -766,15 +779,80 @@ function FinalScreen() {
               }
               style={{ padding: "16px 30px" }}
             >
-              {submit.status === "sending"
-                ? "Generating…"
-                : submit.status === "ok"
-                ? "PDF sent ✓"
-                : "Generate PDF"}
+              {submit.status === "sending" ? "Generating…" : "Generate PDF"}
             </button>
           </div>
         </div>
+        )}
       </div>
+    </div>
+  );
+}
+
+// Desktop thank-you panel (F2). Renders inside the right column slot when
+// the submit comes back successful. Mobile shows MobileSuccess instead.
+function ThankYouPanel() {
+  return (
+    <div
+      className="eh-final-col eh-final-right"
+      style={{
+        background: "var(--eh-green-900)",
+        color: "#fff",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        textAlign: "center",
+        gap: 24,
+      }}
+    >
+      <Image
+        src="/brand/logo-full-white.png"
+        alt="Easy Housing"
+        width={140}
+        height={32}
+        style={{ height: 32, width: "auto" }}
+      />
+      <h2
+        style={{
+          // Clamps so the headline scales down on narrow viewports (≤480 px)
+          // without ever climbing past the desktop comp.
+          fontSize: "clamp(26px, 5vw, 36px)",
+          fontWeight: 600,
+          letterSpacing: "-0.02em",
+          lineHeight: 1.1,
+          margin: 0,
+          maxWidth: "22ch",
+        }}
+      >
+        Thank you for designing your home.
+      </h2>
+      <p
+        style={{
+          fontSize: "clamp(14px, 2.2vw, 16px)",
+          lineHeight: 1.55,
+          fontWeight: 300,
+          color: "var(--eh-text-on-dark-muted)",
+          maxWidth: "42ch",
+          margin: 0,
+        }}
+      >
+        We&apos;ve emailed your design to you, and an architect will be in touch
+        within a couple of working days.
+      </p>
+      <p
+        style={{
+          fontSize: 14,
+          lineHeight: 1.5,
+          color: "var(--eh-green-200)",
+          fontWeight: 400,
+          margin: 0,
+        }}
+      >
+        A home for everyone,
+        <br />
+        <span style={{ fontWeight: 600, color: "#fff" }}>Easy Housing</span>
+      </p>
     </div>
   );
 }
@@ -851,7 +929,10 @@ function MobileSummary(props: MobileSummaryProps) {
     );
   }
 
-  const recapPhoto = typologyPhoto(selection.typology, 0);
+  // Curated hero shot (P1/P2) — same set the configurator collage and
+  // the PDF cover read from, so the model the user picked is the model
+  // shown back to them here.
+  const recapPhoto = typologyPhotosFor(selection.typology, selection.subtype)[0];
   const typologyLabel = TYPOLOGIES[selection.typology].label;
 
   return (
@@ -959,7 +1040,10 @@ function MobileSummary(props: MobileSummaryProps) {
               onChange={(e) => setCountry(e.target.value)} />
           </div>
           <div className="field">
-            <label htmlFor="m-project">What&apos;s this design for?</label>
+            {/* C3 — wording matched to the desktop form. The option list
+                is still pending the X3 sales review; only the label
+                changes here. */}
+            <label htmlFor="m-project">What is this design for?</label>
             <select id="m-project" value={projectType}
               onChange={(e) => setProjectType(e.target.value)}>
               <option value="" disabled>Select…</option>
