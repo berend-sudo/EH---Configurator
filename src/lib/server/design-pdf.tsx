@@ -28,10 +28,7 @@ import type {
 import type { RoomColorKey } from "@/lib/rooms";
 import { BASE_COUNTRY, fmtMoney, type Country } from "@/lib/countries";
 import { TYPOLOGIES, type TypologyId } from "@/lib/typologies";
-import {
-  randomTypologyPhotoFile,
-  typologyPhotoFilesFor,
-} from "@/lib/server/brand-images";
+import { typologyPhotoFilesFor } from "@/lib/server/brand-images";
 
 // ── Brand tokens (mirrors eh-tokens.css) ───────────────────────────────────
 const C = {
@@ -71,8 +68,9 @@ export interface DesignPdfData {
   delta: number;
   label: string;
   bedrooms: number;
-  /** Drives the cover's exterior photo (left half) — picks the canonical
-   *  shot from BRAND_IMAGES.typology[t]. */
+  /** Drives the cover's exterior photo + the closing ribbon — both pull
+   *  from the curated TYPOLOGY_PHOTOS set so the imagery always matches
+   *  the selected model (P1/P2). */
   typology: TypologyId;
   /** Subtype id for subtype-specific photo curation. null for Monopitch. */
   subtype?: string | null;
@@ -619,6 +617,10 @@ function bedroomDescriptor(bedrooms: number): string {
 }
 
 function CoverPage(d: DesignPdfData) {
+  // Cover uses the curated set's first frame (the canonical "hero" shot
+  // for this model), same source the spec ribbon below draws from, so
+  // the imagery story is consistent across the brief.
+  const coverPhoto = typologyPhotoFilesFor(d.typology, d.subtype)[0];
   return (
     <Page size="A4" style={{ ...styles.page, paddingBottom: FOOTER_HEIGHT }} wrap={false}>
       <View style={{ backgroundColor: C.green900, paddingVertical: 24, paddingHorizontal: 36, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
@@ -633,7 +635,7 @@ function CoverPage(d: DesignPdfData) {
           Fixed height keeps the cover balance the same across all designs. */}
       <View style={{ height: 320, position: "relative" }}>
         <Image
-          src={randomTypologyPhotoFile(d.typology, d.reference)}
+          src={coverPhoto}
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
         />
         <View style={{ position: "absolute", left: 14, bottom: 12 }}>

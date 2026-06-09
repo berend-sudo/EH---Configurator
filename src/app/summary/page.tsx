@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { FloorplanJSON } from "@/types/floorplan";
 import FloorplanSVG from "@/components/FloorplanSVG";
@@ -763,14 +764,18 @@ function ThankYouPanel() {
         gap: 24,
       }}
     >
-      <img
+      <Image
         src="/brand/logo-full-white.png"
         alt="Easy Housing"
+        width={140}
+        height={32}
         style={{ height: 32, width: "auto" }}
       />
       <h2
         style={{
-          fontSize: 36,
+          // Clamps so the headline scales down on narrow viewports (≤480 px)
+          // without ever climbing past the desktop comp.
+          fontSize: "clamp(26px, 5vw, 36px)",
           fontWeight: 600,
           letterSpacing: "-0.02em",
           lineHeight: 1.1,
@@ -782,7 +787,7 @@ function ThankYouPanel() {
       </h2>
       <p
         style={{
-          fontSize: 16,
+          fontSize: "clamp(14px, 2.2vw, 16px)",
           lineHeight: 1.55,
           fontWeight: 300,
           color: "var(--eh-text-on-dark-muted)",

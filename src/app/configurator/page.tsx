@@ -361,13 +361,14 @@ function ConfiguratorScreen() {
           <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: "auto" }}>
             {/* Primary CTA stepped down to the kit's medium size — the
                 landing's "Open the configurator" uses the larger 16/36 form
-                of .ab-cta; this stays at the default medium so it doesn't
-                dominate the rail. */}
+                of .ab-cta; this stays smaller so it doesn't dominate the
+                rail. Padding kept ≥12 px vertical so the hit target still
+                clears the 44 px iOS touch minimum. */}
             <button
               type="button"
               className="ab-cta"
               onClick={goToSummary}
-              style={{ justifyContent: "center", padding: "10px 22px", fontSize: 14 }}
+              style={{ justifyContent: "center", padding: "12px 24px", fontSize: 14 }}
             >
               Continue to summary →
             </button>
