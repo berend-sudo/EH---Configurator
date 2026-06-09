@@ -222,7 +222,7 @@ and consent is ticked (`canGenerate` in `src/app/summary/page.tsx`).
 On submit the page POSTs the full design to
 `/api/configurator/submit`, which:
 
-1. **Renders the 3-page PDF** (Cover · Plan · Spec & budget) with
+1. **Renders the 3-page PDF** (Cover · Plan · Budget & impact) with
    `@react-pdf/renderer` — `src/lib/server/design-pdf.tsx`. The plan
    and budget are recomputed server-side from the DXF, so prices stay
    data-driven.

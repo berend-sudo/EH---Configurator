@@ -407,11 +407,21 @@ function ConfiguratorScreen() {
                 of .ab-cta; this stays smaller so it doesn't dominate the
                 rail. Padding kept ≥12 px vertical so the hit target still
                 clears the 44 px iOS touch minimum. */}
+            {/* Both CTAs stay at the kit's medium size with matching
+                padding / font / border so they read as a balanced pair.
+                The 1.5 px transparent border on the primary keeps its
+                box height identical to the secondary's outlined version
+                — without it the bordered button reads 3 px taller. */}
             <button
               type="button"
               className="ab-cta"
               onClick={goToSummary}
-              style={{ justifyContent: "center", padding: "12px 24px", fontSize: 14 }}
+              style={{
+                justifyContent: "center",
+                padding: "12px 24px",
+                fontSize: 14,
+                border: "1.5px solid transparent",
+              }}
             >
               Continue to summary →
             </button>
@@ -419,7 +429,14 @@ function ConfiguratorScreen() {
               type="button"
               className="ab-cta"
               onClick={handleReset}
-              style={{ background: "transparent", color: "var(--eh-green-900)", border: "1.5px solid var(--eh-green-900)" }}
+              style={{
+                justifyContent: "center",
+                padding: "12px 24px",
+                fontSize: 14,
+                background: "transparent",
+                color: "var(--eh-green-900)",
+                border: "1.5px solid var(--eh-green-900)",
+              }}
             >
               Reset to default
             </button>
@@ -715,6 +732,13 @@ function MobileConfigurator({
         onResetZoom={() => pinchRef.current?.reset()}
       />
 
+      {/* View toggle floats over the top of the canvas so it's reachable
+          without expanding the sheet — that was buried at the bottom of
+          the sheet before. Same component as the desktop rail uses. */}
+      <div className="eh-configurator-mobile__view-toggle">
+        <ViewToggle value={view} onChange={setView} />
+      </div>
+
       <div className="eh-configurator-mobile__canvas">
         <PinchZoomCanvas ref={pinchRef} disabled={reducedMotion}>
           {view === "plan" ? (
@@ -829,11 +853,8 @@ function MobileConfigurator({
           Continue to summary →
         </button>
 
-        {/* HALF — view toggle, mezzanine toggle, room schedule */}
-        <div style={{ display: "flex", justifyContent: "center" }}>
-          <ViewToggle value={view} onChange={setView} />
-        </div>
-
+        {/* HALF — mezzanine toggle, room schedule. View toggle now lives
+            above the canvas (see header), not in the sheet. */}
         {plan?.mezzanine && view === "plan" && (
           <div style={{ display: "flex", justifyContent: "center" }}>
             <div className="seg" role="tablist" aria-label="Mezzanine visibility">

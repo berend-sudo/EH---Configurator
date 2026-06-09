@@ -226,7 +226,7 @@ On Generate PDF the page POSTs the entire design. The server:
 1. **Re-derives** the plan and budget from the DXF — so the PDF and
    email always reflect server-side truth, not whatever the client
    sent.
-2. **Renders the 3-page PDF** (Cover · Plan · Spec & budget) with
+2. **Renders the 3-page PDF** (Cover · Plan · Budget & impact) with
    `@react-pdf/renderer` (`src/lib/server/design-pdf.tsx`).
 3. **Emails it** via Resend (`src/lib/server/email.ts`). This is the
    **gating** step — the UI only shows success when the email returns

@@ -56,9 +56,9 @@ function bodyText(i: SendDesignEmailInput): string {
   return [
     greetingOf(i.name),
     "",
-    `${DESIGN_OPENER} We loved helping you design your ${i.label}, and it's attached here as a PDF. Bring it along when you meet our architects — it's the perfect place to start the conversation.`,
+    `${DESIGN_OPENER} We loved helping you design your ${i.label}, attached here as a PDF. Bring it to your meeting with our architects — it's the perfect starting point for the conversation.`,
     "",
-    "We're genuinely excited to help bring it to life. One of our architects will be in touch within a couple of working days to walk you through the next steps.",
+    "One of our architects will be in touch shortly to walk you through the next steps. We can't wait to help bring it to life.",
     "",
     `Reference: ${i.reference}`,
     "",
@@ -113,12 +113,12 @@ export function bodyHtml(i: SendDesignEmailInput, hasLogo: boolean): string {
               <p style="${para}">${escapeHtml(greeting)}</p>
               <p style="${para}">
                 ${escapeHtml(DESIGN_OPENER)} We loved helping you design your
-                <span style="${name}">${escapeHtml(i.label)}</span>, and it's attached here as a PDF.
-                Bring it along when you meet our architects — it's the perfect place to start the conversation.
+                <span style="${name}">${escapeHtml(i.label)}</span>, attached here as a PDF.
+                Bring it to your meeting with our architects — it's the perfect starting point for the conversation.
               </p>
               <p style="${para}">
-                We're genuinely excited to help bring it to life. One of our architects will be in touch
-                within a couple of working days to walk you through the next steps.
+                One of our architects will be in touch shortly to walk you through the next steps.
+                We can't wait to help bring it to life.
               </p>
               <p style="${ref}">Reference: ${escapeHtml(i.reference)}</p>
             </td>
