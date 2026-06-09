@@ -617,7 +617,7 @@ function MobileConfigurator({
   onContinue,
 }: MobileConfiguratorProps) {
   const [sheetIndex, setSheetIndex] = useState(0);
-  const [detents, setDetents] = useState<number[]>([232, 480, 720]);
+  const [detents, setDetents] = useState<number[]>([268, 480, 720]);
   const pinchRef = useRef<PinchZoomHandle | null>(null);
   const [isZoomed, setIsZoomed] = useState(false);
   const reducedMotion = usePrefersReducedMotion();
@@ -627,7 +627,9 @@ function MobileConfigurator({
   useEffect(() => {
     const compute = () => {
       const h = window.innerHeight;
-      setDetents([232, Math.round(h * 0.52), Math.round(h * 0.86)]);
+      // Peek is fixed (width row + slider + CTA + helper); half/full grow with
+      // viewport so the room schedule has room to breathe.
+      setDetents([268, Math.round(h * 0.52), Math.round(h * 0.86)]);
     };
     compute();
     window.addEventListener("resize", compute);
