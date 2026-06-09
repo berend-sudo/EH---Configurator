@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { FloorplanJSON } from "@/types/floorplan";
 import FloorplanSVG from "@/components/FloorplanSVG";
@@ -8,14 +9,17 @@ import EHNavBar from "@/components/EHNavBar";
 import { pickPlan, type FloorPlanEntry } from "@/lib/floor-plans";
 import { useFloorPlans } from "@/lib/useFloorPlans";
 import { calculateBudget, countRooms, typologyInfoFor } from "@/lib/budget";
+import { typologyPhoto } from "@/lib/brand-images";
 import {
   dxfFilename,
   selectionFromParams,
   selectionLabel,
+  TYPOLOGIES,
   type Selection,
 } from "@/lib/typologies";
-import { fmtMoney } from "@/lib/countries";
+import { fmtMoney, STORAGE_KEYS } from "@/lib/countries";
 import { useCountryGuard } from "@/lib/use-active-country";
+import { useIsMobile } from "@/lib/use-media-query";
 import {
   EMAIL_RE,
   HEAR_ABOUT_OPTIONS,
@@ -41,6 +45,7 @@ type SubmitState =
 
 function FinalScreen() {
   const router = useRouter();
+  const isMobile = useIsMobile();
   const searchParams = useSearchParams();
   // Block until the gate has set a country — the submit payload below carries
   // the country code through to the sheet, PDF cover, and email subject. The
@@ -290,6 +295,42 @@ function FinalScreen() {
   };
 
   if (!activeCountry) return null;
+
+  if (isMobile) {
+    return (
+      <MobileSummary
+        label={label}
+        bedrooms={bedrooms}
+        widthMm={widthMm}
+        lengthMm={lengthMm}
+        plan={plan}
+        budgetUgx={derived.budgetUgx}
+        footprintM2={derived.footprintM2}
+        selection={selection}
+        reference={reference}
+        emailValue={email}
+        // form state pass-through
+        name={name} setName={setName}
+        email={email} setEmail={setEmail}
+        phone={phone} setPhone={setPhone}
+        timeline={timeline} setTimeline={setTimeline}
+        country={country} setCountry={setCountry}
+        projectType={projectType} setProjectType={setProjectType}
+        hearAbout={hearAbout} setHearAbout={setHearAbout}
+        hearAboutOther={hearAboutOther} setHearAboutOther={setHearAboutOther}
+        landFunds={landFunds} setLandFunds={setLandFunds}
+        newsletter={newsletter} setNewsletter={setNewsletter}
+        agreed={agreed} setAgreed={setAgreed}
+        phoneWarning={phone.trim().length >= 6 ? phoneCheck.warning : null}
+        emailWarning={emailWarning}
+        emailChecking={emailChecking}
+        canGenerate={canGenerate}
+        submit={submit}
+        onSubmit={handleSubmit}
+        onBack={() => goToStep(2)}
+      />
+    );
+  }
 
   return (
     <div
@@ -733,6 +774,313 @@ function FinalScreen() {
             </button>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Mobile summary — single scrolling column, recap card on top, full-width
+// fields, sticky CTA. On success a full-screen deep-green confirmation
+// replaces the form (mirrors the design's screen 06).
+// ──────────────────────────────────────────────────────────────────────────
+
+interface MobileSummaryProps {
+  label: string;
+  bedrooms: number;
+  widthMm: number;
+  lengthMm: number;
+  plan: FloorplanJSON | null;
+  budgetUgx: number;
+  footprintM2: number;
+  selection: Selection;
+  reference: string | null;
+  emailValue: string;
+  name: string; setName: (s: string) => void;
+  email: string; setEmail: (s: string) => void;
+  phone: string; setPhone: (s: string) => void;
+  timeline: string; setTimeline: (s: string) => void;
+  country: string; setCountry: (s: string) => void;
+  projectType: string; setProjectType: (s: string) => void;
+  hearAbout: string; setHearAbout: (s: string) => void;
+  hearAboutOther: string; setHearAboutOther: (s: string) => void;
+  landFunds: string; setLandFunds: (s: string) => void;
+  newsletter: boolean; setNewsletter: (b: boolean) => void;
+  agreed: boolean; setAgreed: (b: boolean) => void;
+  phoneWarning: string | null;
+  emailWarning: string | null;
+  emailChecking: boolean;
+  canGenerate: boolean;
+  submit: SubmitState;
+  onSubmit: () => void;
+  onBack: () => void;
+}
+
+function MobileSummary(props: MobileSummaryProps) {
+  const {
+    label, bedrooms, widthMm, lengthMm, plan, budgetUgx,
+    footprintM2, selection, reference, name, setName, email, setEmail,
+    phone, setPhone, timeline, setTimeline, country, setCountry,
+    projectType, setProjectType, hearAbout, setHearAbout,
+    hearAboutOther, setHearAboutOther, landFunds, setLandFunds,
+    newsletter, setNewsletter, agreed, setAgreed, phoneWarning,
+    emailWarning, emailChecking, canGenerate, submit, onSubmit, onBack,
+  } = props;
+  const router = useRouter();
+
+  if (submit.status === "ok") {
+    return (
+      <MobileSuccess
+        label={label}
+        bedrooms={bedrooms}
+        reference={reference}
+        onBackToDesign={onBack}
+        onRestart={() => {
+          // Mirror the desktop "Start a new design" behaviour — clear country
+          // selection so the user lands on the gate fresh.
+          try {
+            window.localStorage.removeItem(STORAGE_KEYS.country);
+            window.localStorage.removeItem(STORAGE_KEYS.currency);
+            window.localStorage.removeItem(STORAGE_KEYS.fx);
+          } catch {
+            /* localStorage may be unavailable */
+          }
+          router.replace("/country");
+        }}
+      />
+    );
+  }
+
+  const recapPhoto = typologyPhoto(selection.typology, 0);
+  const typologyLabel = TYPOLOGIES[selection.typology].label;
+
+  return (
+    <main className="eh-summary-mobile">
+      <header className="eh-summary-mobile__topbar">
+        <button type="button" className="eh-summary-mobile__topbar-back" onClick={onBack}>
+          <svg viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <path d="m15 18-6-6 6-6" />
+          </svg>
+          Your details
+        </button>
+        <span className="eh-summary-mobile__topbar-step">Step 4 of 4</span>
+      </header>
+
+      <div className="eh-summary-mobile__main">
+        <section className="eh-summary-mobile__recap">
+          <div className="eh-summary-mobile__recap-img" style={{ overflow: "hidden", position: "relative" }}>
+            <Image
+              src={recapPhoto}
+              alt={`${typologyLabel} home`}
+              fill
+              sizes="(max-width: 1023px) 100vw, 520px"
+              style={{ objectFit: "cover" }}
+              priority
+            />
+            <span className="eh-summary-mobile__recap-label">{label} · impression</span>
+          </div>
+          <div className="eh-summary-mobile__recap-body">
+            <h2 className="eh-summary-mobile__recap-title">{label}</h2>
+            <div className="eh-summary-mobile__recap-grid">
+              <div>
+                <div className="eh-summary-mobile__stat-label">Bedrooms</div>
+                <div className="eh-summary-mobile__stat-value">{bedrooms === 0 ? "Studio" : bedrooms}</div>
+              </div>
+              <div>
+                <div className="eh-summary-mobile__stat-label">Width</div>
+                <div className="eh-summary-mobile__stat-value">{plan ? `${(widthMm / 1000).toFixed(2)} m` : "—"}</div>
+              </div>
+              <div>
+                <div className="eh-summary-mobile__stat-label">Depth</div>
+                <div className="eh-summary-mobile__stat-value">{plan ? `${(lengthMm / 1000).toFixed(2)} m` : "—"}</div>
+              </div>
+              <div>
+                <div className="eh-summary-mobile__stat-label">Floor area</div>
+                <div className="eh-summary-mobile__stat-value">{plan ? `${footprintM2.toFixed(1)} m²` : "—"}</div>
+              </div>
+            </div>
+          </div>
+          <div className="eh-summary-mobile__budget-row">
+            <span className="eh-summary-mobile__budget-label">Indicative budget</span>
+            <span className="eh-summary-mobile__budget-value">{fmtMoney(Math.round(budgetUgx))}</span>
+          </div>
+        </section>
+
+        <h2 className="eh-summary-mobile__section-h">Where should we send your brief?</h2>
+        <p className="eh-summary-mobile__section-lead">
+          We&apos;ll email a PDF of this design and a member of our team will follow up.
+        </p>
+
+        <div className="eh-summary-mobile__form">
+          <div className="field">
+            <label htmlFor="m-name">Full name</label>
+            <input id="m-name" type="text" autoComplete="name" placeholder="Your full name"
+              value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div className="field">
+            <label htmlFor="m-email">Email</label>
+            <input id="m-email" type="email" inputMode="email" autoComplete="email"
+              placeholder="you@example.com" value={email}
+              onChange={(e) => setEmail(e.target.value)} />
+            {emailChecking && (
+              <p style={{ fontSize: 12, color: "var(--eh-text-soft)", margin: "2px 0 0" }}>
+                Checking the address…
+              </p>
+            )}
+            {!emailChecking && emailWarning && (
+              <p style={{ fontSize: 12, color: "var(--eh-warning)", margin: "2px 0 0" }}>
+                {emailWarning}
+              </p>
+            )}
+          </div>
+          <div className="field">
+            <label htmlFor="m-phone">Phone</label>
+            <input id="m-phone" type="tel" inputMode="tel" autoComplete="tel"
+              placeholder="+256 700 000 000" value={phone}
+              onChange={(e) => setPhone(e.target.value)} />
+            {phoneWarning && (
+              <p style={{ fontSize: 12, color: "var(--eh-warning)", margin: "2px 0 0" }}>
+                {phoneWarning}
+              </p>
+            )}
+          </div>
+          <div className="field">
+            <label htmlFor="m-timeline">Intended timeline</label>
+            <select id="m-timeline" value={timeline}
+              onChange={(e) => setTimeline(e.target.value)}>
+              <option value="" disabled>Select a timeline…</option>
+              {TIMELINE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="m-loc">Project location</label>
+            <input id="m-loc" type="text" autoComplete="country-name"
+              placeholder="e.g. Kampala, Uganda" value={country}
+              onChange={(e) => setCountry(e.target.value)} />
+          </div>
+          <div className="field">
+            <label htmlFor="m-project">What&apos;s this design for?</label>
+            <select id="m-project" value={projectType}
+              onChange={(e) => setProjectType(e.target.value)}>
+              <option value="" disabled>Select…</option>
+              {PROJECT_TYPE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="m-hear">How did you hear about us?</label>
+            <select id="m-hear" value={hearAbout}
+              onChange={(e) => setHearAbout(e.target.value)}>
+              <option value="" disabled>Select…</option>
+              {HEAR_ABOUT_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+            </select>
+            {hearAbout === HEAR_ABOUT_OTHER && (
+              <input type="text" aria-label="Please tell us how you heard about us"
+                placeholder="Please tell us how…" value={hearAboutOther}
+                onChange={(e) => setHearAboutOther(e.target.value)}
+                style={{ marginTop: 8 }} />
+            )}
+          </div>
+          <div className="field">
+            <label htmlFor="m-land">Do you have land and funds available?</label>
+            <select id="m-land" value={landFunds}
+              onChange={(e) => setLandFunds(e.target.value)}>
+              <option value="" disabled>Select…</option>
+              {LAND_FUNDS_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+            </select>
+          </div>
+
+          <label className="eh-summary-mobile__consent">
+            <input type="checkbox" checked={newsletter}
+              onChange={(e) => setNewsletter(e.target.checked)} />
+            <span>Send me the Easy Housing quarterly newsletter.</span>
+          </label>
+
+          <label className="eh-summary-mobile__consent">
+            <input type="checkbox" checked={agreed}
+              onChange={(e) => setAgreed(e.target.checked)} />
+            <span>
+              I agree that Easy Housing may contact me about this design and accept the{" "}
+              <a href="/legal/terms-and-conditions.pdf" target="_blank" rel="noopener"
+                style={{ color: "var(--eh-green-700)", fontWeight: 600 }}>
+                terms
+              </a>
+              {" "}&amp;{" "}
+              <a href="/legal/privacy-policy.pdf" target="_blank" rel="noopener"
+                style={{ color: "var(--eh-green-700)", fontWeight: 600 }}>
+                privacy policy
+              </a>
+              .
+            </span>
+          </label>
+
+          {submit.status === "error" && (
+            <p role="alert" style={{ marginTop: 4, fontSize: 13, color: "var(--eh-danger)", fontWeight: 500 }}>
+              {submit.message}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="eh-summary-mobile__cta-bar">
+        <button
+          type="button"
+          className="ab-cta eh-summary-mobile__cta"
+          disabled={!canGenerate || submit.status === "sending"}
+          onClick={onSubmit}
+        >
+          {submit.status === "sending" ? "Generating…" : (
+            <>
+              <svg viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              Generate my PDF
+            </>
+          )}
+        </button>
+      </div>
+    </main>
+  );
+}
+
+function MobileSuccess({
+  label,
+  bedrooms,
+  reference,
+  onBackToDesign,
+  onRestart,
+}: {
+  label: string;
+  bedrooms: number;
+  reference: string | null;
+  onBackToDesign: () => void;
+  onRestart: () => void;
+}) {
+  const bedsCopy = bedrooms === 0 ? "Studio" : `${bedrooms} bed`;
+  return (
+    <div className="eh-success-mobile" role="dialog" aria-live="polite">
+      <div className="eh-success-mobile__check">
+        <svg viewBox="0 0 24 24" width={32} height={32} fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M20 6 9 17l-5-5" />
+        </svg>
+      </div>
+      <h1 className="eh-success-mobile__h">Your brief is on its way.</h1>
+      <p className="eh-success-mobile__body">
+        We&apos;ve emailed a PDF of your {label} ({bedsCopy}). Our team will reach
+        out shortly.
+      </p>
+      <div className="eh-success-mobile__ref-card">
+        <div className="eh-success-mobile__ref-label">Reference</div>
+        <div className="eh-success-mobile__ref-value">{reference ?? "—"}</div>
+      </div>
+      <div className="eh-success-mobile__actions">
+        <button type="button" className="ab-cta" onClick={onBackToDesign}>
+          ← Back to my design
+        </button>
+        <button type="button" className="eh-success-mobile__restart" onClick={onRestart}>
+          Start a new design
+        </button>
       </div>
     </div>
   );
