@@ -987,9 +987,10 @@ function MobileSummary(props: MobileSummaryProps) {
           </div>
         </section>
 
-        <h2 className="eh-summary-mobile__section-h">Where should we send your brief?</h2>
+        <h2 className="eh-summary-mobile__section-h">Where should we send your design?</h2>
         <p className="eh-summary-mobile__section-lead">
-          We&apos;ll email a PDF of this design and a member of our team will follow up.
+          We&apos;ll email a PDF of this design to you. A member of our team will follow up with
+          you soon.
         </p>
 
         <div className="eh-summary-mobile__form">
