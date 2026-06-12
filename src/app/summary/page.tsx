@@ -604,11 +604,9 @@ function FinalScreen() {
                 />
               </div>
               <div className="field">
-                {/* TODO(X3): the option list ("My own home / To rent out /
-                    NGO–community / Other") needs sales input — likely real
-                    uses include second home / village home and tourism /
-                    Airbnb, and the vague "NGO / community" wants clarifying.
-                    Leaving the options unchanged until the team confirms. */}
+                {/* Option list confirmed with the team: own home / second
+                    home / rent out / tourism / other. Edit the canonical
+                    list in PROJECT_TYPE_OPTIONS (configurator-submit.ts). */}
                 <label htmlFor="eh-project-type">What is this design for?</label>
                 <select
                   id="eh-project-type"
@@ -1042,9 +1040,8 @@ function MobileSummary(props: MobileSummaryProps) {
               onChange={(e) => setCountry(e.target.value)} />
           </div>
           <div className="field">
-            {/* C3 — wording matched to the desktop form. The option list
-                is still pending the X3 sales review; only the label
-                changes here. */}
+            {/* Mirrors the desktop form; options come from the canonical
+                PROJECT_TYPE_OPTIONS list (configurator-submit.ts). */}
             <label htmlFor="m-project">What is this design for?</label>
             <select id="m-project" value={projectType}
               onChange={(e) => setProjectType(e.target.value)}>

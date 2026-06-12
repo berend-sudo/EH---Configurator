@@ -33,8 +33,9 @@ export const FURNITURE_CAVEAT =
 // EH_LEADS_FORM_FIELD_IDS_JSON, so no other code needs to change.
 export const PROJECT_TYPE_OPTIONS = [
   "My own home",
+  "A second home (on the countryside)",
   "To rent out",
-  "NGO / community",
+  "For tourism purposes (e.g. Airbnb)",
   "Other",
 ] as const;
 
