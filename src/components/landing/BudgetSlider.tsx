@@ -21,11 +21,11 @@ export default function BudgetSlider({ value, min = 42_000_000, max = 115_000_00
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 }}>
-        {/* TODO(X2): the label "Budget" vs "Price" on the landing wants a
+        {/* TODO(X2): "Your budget" vs "Price" on the landing wants a final
             wording decision from sales. Single change point — flip the
             string here once confirmed. */}
         <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--eh-text-muted)" }}>
-          Budget
+          Your budget
         </span>
         <span style={{ fontSize: 20, fontWeight: 600, color: "var(--eh-text)", fontVariantNumeric: "tabular-nums" }}>
           {fmtMoney(shown)}
@@ -51,7 +51,7 @@ export default function BudgetSlider({ value, min = 42_000_000, max = 115_000_00
           onPointerUp={endDrag}
           onPointerCancel={endDrag}
           onBlur={endDrag}
-          aria-label="Budget"
+          aria-label="Your budget"
         />
       </div>
       <div

@@ -92,7 +92,7 @@ export default function MobileBudgetSlider({
             color: "var(--eh-text-muted)",
           }}
         >
-          Budget
+          Your budget
         </span>
         <span
           style={{
@@ -110,7 +110,7 @@ export default function MobileBudgetSlider({
         ref={trackRef}
         role="slider"
         tabIndex={0}
-        aria-label="Budget"
+        aria-label="Your budget"
         aria-valuemin={min}
         aria-valuemax={max}
         aria-valuenow={value}
