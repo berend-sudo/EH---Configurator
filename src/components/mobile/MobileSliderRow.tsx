@@ -158,8 +158,13 @@ export default function MobileSliderRow({
         </div>
       )}
 
-      {/* Pointer-event hit area. 52px tall to give a fat target, with 14px
-          horizontal inset so the knob at 0% / 100% stays inside the row. */}
+      {/* Pointer-event hit area. The visible rail + knob sit at the
+          row's vertical centre; the box is 104 px tall (double the
+          previous 52 px) so a finger has slack above and below the
+          6 px rail, but we counter with -26 px top/bottom margins so
+          the box behaves as 52 px in the surrounding flow — the rail
+          and following content stay at exactly the same Y. Horizontal
+          18 px padding keeps the knob inside the row at min/max. */}
       <div
         ref={trackRef}
         role="slider"
@@ -176,8 +181,8 @@ export default function MobileSliderRow({
         onKeyDown={onKeyDown}
         style={{
           position: "relative",
-          height: 52,
-          margin: "0 -4px",
+          height: 104,
+          margin: "-26px -4px",
           padding: "0 18px",
           display: "flex",
           alignItems: "center",
