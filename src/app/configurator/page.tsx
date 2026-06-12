@@ -31,6 +31,7 @@ import { calculateBudget, countRooms, typologyInfoFor } from "@/lib/budget";
 import { fmtMoney } from "@/lib/countries";
 import { roomDisplayName } from "@/lib/rooms";
 import { useIsMobile, usePrefersReducedMotion } from "@/lib/use-media-query";
+import { FURNITURE_CAVEAT } from "@/lib/configurator-submit";
 import {
   depthLabel,
   maxBedroomsFor,
@@ -575,7 +576,7 @@ function ConfiguratorScreen() {
                 fontWeight: 300,
               }}
             >
-              Furniture and fixtures are indicative and not shown to exact scale.
+              {FURNITURE_CAVEAT}
             </p>
           )}
         </div>
@@ -815,7 +816,7 @@ function MobileConfigurator({
               fontWeight: 300,
             }}
           >
-            Furniture and fixtures are indicative and not shown to exact scale.
+            {FURNITURE_CAVEAT}
           </p>
         )}
 

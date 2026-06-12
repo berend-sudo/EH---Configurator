@@ -22,6 +22,7 @@ import { useCountryGuard } from "@/lib/use-active-country";
 import { useIsMobile } from "@/lib/use-media-query";
 import {
   EMAIL_RE,
+  FURNITURE_CAVEAT,
   HEAR_ABOUT_OPTIONS,
   HEAR_ABOUT_OTHER,
   LAND_FUNDS_OPTIONS,
@@ -412,7 +413,7 @@ function FinalScreen() {
               fontWeight: 300,
             }}
           >
-            Furniture and fixtures are indicative and not shown to exact scale.
+            {FURNITURE_CAVEAT}
           </p>
 
           {/* 4-stat strip */}

@@ -28,6 +28,7 @@ import type {
 import type { RoomColorKey } from "@/lib/rooms";
 import { BASE_COUNTRY, fmtMoney, type Country } from "@/lib/countries";
 import { TYPOLOGIES, type TypologyId } from "@/lib/typologies";
+import { FURNITURE_CAVEAT } from "@/lib/configurator-submit";
 import { typologyPhotoFilesFor } from "@/lib/server/brand-images";
 
 // ── Brand tokens (mirrors eh-tokens.css) ───────────────────────────────────
@@ -713,6 +714,14 @@ function PlanPage(d: DesignPdfData) {
           </View>
         ))}
       </View>
+
+      {/* Caveat — same string as the on-screen configurator + summary
+          surfaces, kept in sync via FURNITURE_CAVEAT. Sits below the
+          room legend so it reads as a note on the drawing rather than
+          a separate disclaimer. */}
+      <Text style={{ fontSize: 8, color: C.muted, marginTop: 10, lineHeight: 1.4 }}>
+        {FURNITURE_CAVEAT}
+      </Text>
 
       <PageFooter left={`${d.reference} · ${d.label}`} right="2 / 3" />
     </Page>
