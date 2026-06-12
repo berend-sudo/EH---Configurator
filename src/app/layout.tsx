@@ -18,7 +18,7 @@ const poppins = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "EH Configurator",
+  title: "Easy Housing - Configurator",
   description: "Design your Easy Housing home.",
 };
 
