@@ -19,20 +19,9 @@ export default function PhotoCollage({ typology, subtype }: Props) {
   const imgs = typologyPhotosFor(typology, subtype);
 
   return (
-    <div
-      key={typology}
-      style={{
-        flex: 1,
-        display: "grid",
-        gridTemplateColumns: "2fr 1fr",
-        gridTemplateRows: "1fr 1fr",
-        gap: 14,
-        minHeight: 0,
-      }}
-    >
+    <div key={typology} className="eh-photo-collage">
       <div
-        className="photo eh-photo-fade"
-        style={{ gridRow: "1 / span 2", borderRadius: 18, overflow: "hidden" }}
+        className="photo eh-photo-fade eh-photo-collage__hero"
       >
         <Image
           src={imgs[0]}
@@ -44,29 +33,23 @@ export default function PhotoCollage({ typology, subtype }: Props) {
         />
         <div className="photo__label">{label} · Easy Housing project</div>
       </div>
-      <div
-        className="photo eh-photo-fade"
-        style={{ borderRadius: 18, overflow: "hidden" }}
-      >
+      <div className="photo eh-photo-fade eh-photo-collage__thumb">
         <Image
           src={imgs[1]}
           alt=""
           fill
-          sizes="(min-width: 1024px) 25vw, 50vw"
+          sizes="(min-width: 1024px) 25vw, 100vw"
           quality={60}
           loading="lazy"
           style={{ objectFit: "cover" }}
         />
       </div>
-      <div
-        className="photo eh-photo-fade"
-        style={{ borderRadius: 18, overflow: "hidden" }}
-      >
+      <div className="photo eh-photo-fade eh-photo-collage__thumb">
         <Image
           src={imgs[2]}
           alt=""
           fill
-          sizes="(min-width: 1024px) 25vw, 50vw"
+          sizes="(min-width: 1024px) 25vw, 100vw"
           quality={60}
           loading="lazy"
           style={{ objectFit: "cover" }}

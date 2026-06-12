@@ -6,9 +6,10 @@ interface Props {
   title: string;
   subtitle?: string;
   onBack?: () => void;
-  /** Optional right-side content (e.g. the Plan / Example images
-   *  segmented control). Renders in place of the old reset-zoom slot;
-   *  double-tap on the canvas still resets the zoom. */
+  /** Optional secondary control (e.g. the Plan / Example images
+   *  segmented control). Renders BELOW the title pill in a stacked
+   *  column so both stay narrow and same-width-looking instead of
+   *  competing for horizontal room. */
   right?: ReactNode;
 }
 
@@ -32,11 +33,13 @@ export default function MobileTopBar({ title, subtitle, onBack, right }: Props) 
       >
         <ChevronLeft />
       </button>
-      <div className="eh-mobile-topbar__pill">
-        <div className="eh-mobile-topbar__title">{title}</div>
-        {subtitle && <div className="eh-mobile-topbar__sub">{subtitle}</div>}
+      <div className="eh-mobile-topbar__stack">
+        <div className="eh-mobile-topbar__pill">
+          <div className="eh-mobile-topbar__title">{title}</div>
+          {subtitle && <div className="eh-mobile-topbar__sub">{subtitle}</div>}
+        </div>
+        {right && <div className="eh-mobile-topbar__right">{right}</div>}
       </div>
-      {right ?? <div className="eh-mobile-topbar__btn eh-mobile-topbar__btn--ghost" aria-hidden />}
     </div>
   );
 }

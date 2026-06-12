@@ -134,6 +134,40 @@ body {
   to   { opacity: 1; }
 }
 
+/* Configurator example-images collage. Desktop uses the 2/1 grid the
+   layout was designed for; mobile falls back to a single vertical
+   stack so landscape architectural photos stop being cropped to a
+   thin vertical strip (they're ~3:2, not 2:3). */
+.eh-photo-collage {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 14px;
+  min-height: 0;
+}
+.eh-photo-collage__hero {
+  grid-row: 1 / span 2;
+  border-radius: 18px;
+  overflow: hidden;
+}
+.eh-photo-collage__thumb {
+  border-radius: 18px;
+  overflow: hidden;
+}
+@media (max-width: 1023px) {
+  .eh-photo-collage {
+    grid-template-columns: 1fr;
+    /* 16/9-ish strips keep the landscape framing intact at any width. */
+    grid-template-rows: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    overflow-y: auto;
+  }
+  .eh-photo-collage__hero {
+    grid-row: auto;
+  }
+}
+
 /* Step 3 — client info / Generate PDF page. Two columns on ≥1024px,
    stacks below. */
 .eh-final-grid {
@@ -399,7 +433,10 @@ body {
   right: 0;
   z-index: 25;
   display: flex;
-  align-items: center;
+  /* Back button sits on the top row; the stack (pill + toggle) grows
+     downward. Align to the top so the back button doesn't drift when
+     the stack is taller. */
+  align-items: flex-start;
   gap: 10px;
   padding: 14px 16px;
   padding-top: max(14px, env(safe-area-inset-top));
@@ -431,20 +468,34 @@ body {
   box-shadow: none;
   pointer-events: none;
 }
-.eh-mobile-topbar__pill {
+/* Stack: title pill on top, optional control (e.g. view toggle) below.
+   Both children are centred horizontally and sized to content so they
+   read as a matched pair instead of a wide pill next to a narrow chip. */
+.eh-mobile-topbar__stack {
   flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.eh-mobile-topbar__pill {
+  max-width: 100%;
   min-width: 0;
   background: rgba(255,255,255,0.78);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border: 1px solid rgba(0,59,43,0.06);
   border-radius: 999px;
-  padding: 8px 18px;
+  padding: 6px 16px;
   text-align: center;
   box-shadow: var(--eh-shadow-sm);
 }
+.eh-mobile-topbar__right {
+  max-width: 100%;
+}
 .eh-mobile-topbar__title {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--eh-text);
   letter-spacing: -0.01em;
@@ -454,10 +505,10 @@ body {
   text-overflow: ellipsis;
 }
 .eh-mobile-topbar__sub {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 400;
   color: var(--eh-text-muted);
-  margin-top: 2px;
+  margin-top: 1px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -674,7 +725,9 @@ body {
   }
   .eh-landing-mobile__main {
     flex: 1 1 auto;
-    padding: 20px 20px 140px;
+    /* No reserved bottom strip — the CTA bar lives in normal flow now
+       (was 140 px when the bar floated fixed at the bottom). */
+    padding: 20px 20px 24px;
     display: flex;
     flex-direction: column;
     gap: 28px;
@@ -725,19 +778,16 @@ body {
     justify-content: center;
   }
   .eh-landing-mobile__cta-bar {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 20;
+    /* Was position: fixed; that made the button float as the user
+       scrolled. Kim asked for it to sit at the natural end of the
+       page so it appears once the user reaches the bottom. The bar
+       still spans the full row (white surface, faint top stroke). */
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 14px;
     padding: 14px 20px max(14px, env(safe-area-inset-bottom)) 20px;
     background: rgba(255,255,255,0.96);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
     border-top: 1px solid var(--eh-stroke);
   }
   .eh-landing-mobile__cta-summary {
@@ -806,32 +856,34 @@ body {
     position: absolute;
     inset: 0;
     display: flex;
-    align-items: center;
+    /* Anchor the plan to the TOP of the canvas area, not the centre.
+       Otherwise reducing the top padding just makes the plan bigger
+       while keeping its centre at the canvas midpoint — and Kim saw
+       the plan stay in place even though the toggle had moved. */
+    align-items: flex-start;
     justify-content: center;
-    /* Top padding only needs to clear the top bar now that the Plan /
-       Example-images toggle lives INSIDE the top bar (right slot).
-       That frees ~60 px of room and lets the floor plan move up.
-       Bottom padding stays small — the bottom sheet's grab handle is
-       transparent, so the canvas only needs to clear the white card's
-       upper lip at the closed detent. */
-    padding-top: max(80px, calc(env(safe-area-inset-top) + 64px));
+    /* Reserve room for the stacked top bar: back-btn (44) sits next
+       to a column with the title pill (~32) + 6 px gap + segmented
+       toggle (~30) ≈ 68 px tall, plus the bar's 14 px top/bottom
+       padding (and safe-area on notched phones). */
+    padding-top: max(110px, calc(env(safe-area-inset-top) + 96px));
     padding-right: 14px;
     padding-bottom: 60px;
     padding-left: 14px;
   }
-  /* Plan / Example-images toggle inside the top bar. Compact form so
-     it sits next to the title pill without crowding it. */
+  /* Plan / Example-images toggle inside the top bar stack. Compact
+     form so it reads as a peer of the title pill above it. */
   .eh-mobile-topbar .seg {
     flex: 0 0 auto;
     background: rgba(255, 255, 255, 0.85);
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
     box-shadow: var(--eh-shadow-sm);
-    padding: 3px;
-    gap: 3px;
+    padding: 2px;
+    gap: 2px;
   }
   .eh-mobile-topbar .seg button {
-    padding: 8px 12px;
+    padding: 6px 14px;
     font-size: 12px;
   }
   .eh-configurator-mobile__notice {
