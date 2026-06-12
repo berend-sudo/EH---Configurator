@@ -30,7 +30,7 @@ import { useCountryGuard } from "@/lib/use-active-country";
 import { calculateBudget, countRooms, typologyInfoFor } from "@/lib/budget";
 import { fmtMoney } from "@/lib/countries";
 import { roomDisplayName } from "@/lib/rooms";
-import { useIsMobile, usePrefersReducedMotion } from "@/lib/use-media-query";
+import { useIsMobile, useMediaQuery, usePrefersReducedMotion } from "@/lib/use-media-query";
 import { FURNITURE_CAVEAT } from "@/lib/configurator-submit";
 import {
   depthLabel,
@@ -287,7 +287,7 @@ function ConfiguratorScreen() {
         style={{
           flex: 1,
           display: "grid",
-          gridTemplateColumns: "380px 1fr",
+          gridTemplateColumns: "minmax(300px, 380px) 1fr",
           minHeight: 0,
         }}
       >
@@ -687,6 +687,9 @@ function MobileConfigurator({
   const [sheetHeight, setSheetHeight] = useState(360);
   const pinchRef = useRef<PinchZoomHandle | null>(null);
   const reducedMotion = usePrefersReducedMotion();
+  // Below ~340px the two-up typology grid leaves chips too cramped to read,
+  // so drop to a single column on the narrowest (older) phones.
+  const isTiny = useMediaQuery("(max-width: 340px)");
 
   // Detent heights are viewport-relative — recompute on resize so the
   // half-open snap follows rotation, soft keyboard, dynamic toolbars.
@@ -840,7 +843,7 @@ function MobileConfigurator({
             budget={budget}
             plans={plans ?? undefined}
             compact
-            columns={2}
+            columns={isTiny ? 1 : 2}
           />
         </div>
 
@@ -892,7 +895,7 @@ function MobileConfigurator({
               <div className="eh-configurator-mobile__room-row" key={r.key}>
                 <span className="eh-configurator-mobile__room-name">
                   <span className="eh-configurator-mobile__room-dot" />
-                  {r.name}
+                  <span className="eh-configurator-mobile__room-label">{r.name}</span>
                 </span>
                 <span className="eh-configurator-mobile__room-area">
                   {r.area.toFixed(1)} m²
@@ -903,7 +906,7 @@ function MobileConfigurator({
               <div className="eh-configurator-mobile__room-row">
                 <span className="eh-configurator-mobile__room-name">
                   <span className="eh-configurator-mobile__room-dot" style={{ background: "var(--eh-green)" }} />
-                  Mezzanine
+                  <span className="eh-configurator-mobile__room-label">Mezzanine</span>
                 </span>
                 <span className="eh-configurator-mobile__room-area">
                   {roomsBreakdown.mezzanineAreaM2.toFixed(1)} m²

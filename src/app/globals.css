@@ -449,9 +449,11 @@ body {
   height: 44px;
   border-radius: 50%;
   border: 1px solid rgba(0,59,43,0.08);
-  background: rgba(255,255,255,0.78);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  /* Opaque-enough base so the button stays legible where backdrop-filter is
+     unsupported; blur trimmed to 8px to cut compositing cost on low-end GPUs. */
+  background: rgba(255,255,255,0.88);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   color: var(--eh-text);
   display: inline-flex;
   align-items: center;
@@ -477,8 +479,8 @@ body {
   min-width: 0;
   max-width: 100%;
   background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(8px);  /* trimmed from 14px for low-end GPU cost */
+  -webkit-backdrop-filter: blur(8px);
   border: 1px solid rgba(0,59,43,0.06);
   border-radius: 22px;
   box-shadow: var(--eh-shadow-sm);
@@ -554,6 +556,7 @@ body {
   .eh-country-mobile {
     display: flex;
     flex-direction: column;
+    min-height: 100vh;  /* fallback for browsers without dvh (Chrome <108) */
     min-height: 100dvh;
     position: relative;
     overflow: hidden;
@@ -702,6 +705,7 @@ body {
   .eh-landing-mobile {
     display: flex;
     flex-direction: column;
+    min-height: 100vh;  /* fallback for browsers without dvh (Chrome <108) */
     min-height: 100dvh;
     background: var(--eh-bg);
     color: var(--eh-text);
@@ -716,8 +720,8 @@ body {
     gap: 12px;
     padding: 14px 20px;
     background: rgba(255,255,255,0.94);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border-bottom: 1px solid var(--eh-stroke);
   }
   .eh-landing-mobile__brand {
@@ -905,8 +909,8 @@ body {
     transform: translateX(-50%);
     z-index: 22;
     background: rgba(255, 244, 224, 0.96);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border: 1px solid var(--eh-warning);
     color: var(--eh-text);
     padding: 8px 14px;
@@ -978,14 +982,27 @@ body {
     display: inline-flex;
     align-items: center;
     gap: 8px;
+    /* Long room names ellipsize rather than pushing the m² value off-screen. */
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .eh-configurator-mobile__room-label {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
   .eh-configurator-mobile__room-dot {
+    flex: 0 0 auto;
     width: 8px;
     height: 8px;
     border-radius: 50%;
     background: var(--eh-warning);
   }
   .eh-configurator-mobile__room-area {
+    flex: 0 0 auto;
+    padding-left: 12px;
     color: var(--eh-text-muted);
     font-variant-numeric: tabular-nums;
   }
@@ -1029,12 +1046,19 @@ body {
   .eh-configurator-mobile__notice { max-width: 540px; }
 }
 
+/* Narrow phones (≤360px, e.g. older Android / iPhone SE): trim the sheet's
+   horizontal padding to reclaim room for the controls and room schedule. */
+@media (max-width: 360px) {
+  .eh-mobile-sheet__content { padding: 4px 14px 20px; }
+}
+
 /* ------- Summary (mobile) ------------------------------------------------ */
 @media (max-width: 1023px) {
   .eh-summary-desktop { display: none; }
   .eh-summary-mobile {
     display: flex;
     flex-direction: column;
+    min-height: 100vh;  /* fallback for browsers without dvh (Chrome <108) */
     min-height: 100dvh;
     background: var(--eh-bg-alt);
     color: var(--eh-text);
@@ -1049,8 +1073,8 @@ body {
     gap: 12px;
     padding: 14px 18px;
     background: rgba(255,255,255,0.96);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border-bottom: 1px solid var(--eh-stroke);
   }
   .eh-summary-mobile__topbar-back {
@@ -1138,11 +1162,13 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
+    gap: 12px;
     padding: 14px 18px;
     border-top: 1px solid var(--eh-stroke);
     background: var(--eh-bg-alt);
   }
   .eh-summary-mobile__budget-label {
+    min-width: 0;
     font-size: 11px;
     letter-spacing: .1em;
     text-transform: uppercase;
@@ -1150,6 +1176,8 @@ body {
     color: var(--eh-text-muted);
   }
   .eh-summary-mobile__budget-value {
+    flex: 0 0 auto;  /* money value keeps its width; label wraps if cramped */
+    text-align: right;
     font-size: 17px;
     font-weight: 600;
     color: var(--eh-green-900);
@@ -1206,8 +1234,8 @@ body {
     z-index: 20;
     padding: 12px 16px max(12px, env(safe-area-inset-bottom)) 16px;
     background: rgba(255,255,255,0.96);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border-top: 1px solid var(--eh-stroke);
   }
   .eh-summary-mobile__cta {
