@@ -668,17 +668,20 @@ function MobileConfigurator({
   onBack,
   onContinue,
 }: MobileConfiguratorProps) {
-  // Sheet starts CLOSED (index 0). On mobile the user should land on the
-  // floor plan, not on a wall of controls — drag the handle up to reveal
-  // them. Two detents only:
-  //   0 — closed peek: handle + the read-only width/budget summary, no
-  //       buttons. The floor plan above is the dominant element.
-  //   1 — half-open: ~50 % of the viewport so the plan above stays
-  //       comfortably visible while the controls become reachable.
-  const [sheetIndex, setSheetIndex] = useState(0);
-  const [detents, setDetents] = useState<number[]>([120, 360]);
+  // Sheet starts HALF-OPEN (index 1). With the view toggle now in the
+  // top bar (next to the title), the slider/CTA menu is the only thing
+  // left for the sheet, and Kim asked for it to sit "somewhere half
+  // the screen" by default rather than being hidden behind a peek the
+  // user has to discover. Two detents:
+  //   0 — closed peek: just the grab handle (transparent bar) and a
+  //       sliver of the white content card; drag down to see the full
+  //       floor plan.
+  //   1 — half-open: ~50 % of the viewport so the slider / typology /
+  //       Continue button are all reachable with the plan still
+  //       visible above.
+  const [sheetIndex, setSheetIndex] = useState(1);
+  const [detents, setDetents] = useState<number[]>([96, 360]);
   const pinchRef = useRef<PinchZoomHandle | null>(null);
-  const [isZoomed, setIsZoomed] = useState(false);
   const reducedMotion = usePrefersReducedMotion();
 
   // Detent heights are viewport-relative — recompute on resize so the
@@ -686,21 +689,14 @@ function MobileConfigurator({
   useEffect(() => {
     const compute = () => {
       const h = window.innerHeight;
-      setDetents([120, Math.round(h * 0.5)]);
+      // Closed peek is just the handle + a thin lip of the white card
+      // (96 px) since the white background no longer sits behind the
+      // grab handle — the handle floats over the plan.
+      setDetents([96, Math.round(h * 0.5)]);
     };
     compute();
     window.addEventListener("resize", compute);
     return () => window.removeEventListener("resize", compute);
-  }, []);
-
-  // Poll zoom state from the imperative ref — keeps the top-bar reset button
-  // in sync without coupling parent state to the zoom hook.
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      const z = pinchRef.current?.isZoomed() ?? false;
-      setIsZoomed((prev) => (prev === z ? prev : z));
-    }, 120);
-    return () => window.clearInterval(id);
   }, []);
 
   const widthMm = plan ? plan.baseWidth + delta : 0;
@@ -729,16 +725,12 @@ function MobileConfigurator({
         title={modelLabel}
         subtitle={subtitle}
         onBack={onBack}
-        showResetZoom={isZoomed}
-        onResetZoom={() => pinchRef.current?.reset()}
+        // Plan / Example-images toggle now lives in the top bar's right
+        // slot, next to the title pill, instead of floating below.
+        // Double-tap on the canvas still resets pinch-zoom, so the
+        // dedicated reset-zoom button isn't needed here.
+        right={<ViewToggle value={view} onChange={setView} />}
       />
-
-      {/* View toggle floats over the top of the canvas so it's reachable
-          without expanding the sheet — that was buried at the bottom of
-          the sheet before. Same component as the desktop rail uses. */}
-      <div className="eh-configurator-mobile__view-toggle">
-        <ViewToggle value={view} onChange={setView} />
-      </div>
 
       <div className="eh-configurator-mobile__canvas">
         <PinchZoomCanvas ref={pinchRef} disabled={reducedMotion}>

@@ -1,11 +1,15 @@
 "use client";
 
+import type { ReactNode } from "react";
+
 interface Props {
   title: string;
   subtitle?: string;
   onBack?: () => void;
-  onResetZoom?: () => void;
-  showResetZoom?: boolean;
+  /** Optional right-side content (e.g. the Plan / Example images
+   *  segmented control). Renders in place of the old reset-zoom slot;
+   *  double-tap on the canvas still resets the zoom. */
+  right?: ReactNode;
 }
 
 const ChevronLeft = () => (
@@ -14,19 +18,10 @@ const ChevronLeft = () => (
   </svg>
 );
 
-const ResetZoomIcon = () => (
-  <svg viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 7V3h4" />
-    <path d="M21 7V3h-4" />
-    <path d="M3 17v4h4" />
-    <path d="M21 17v4h-4" />
-  </svg>
-);
-
 // Floating glass top bar used on the configurator over the full-bleed plan.
 // White surface at ~0.78 alpha + 14px backdrop blur — the one place
 // blur-over-photo is allowed by the brand rules.
-export default function MobileTopBar({ title, subtitle, onBack, onResetZoom, showResetZoom = false }: Props) {
+export default function MobileTopBar({ title, subtitle, onBack, right }: Props) {
   return (
     <div className="eh-mobile-topbar">
       <button
@@ -41,18 +36,7 @@ export default function MobileTopBar({ title, subtitle, onBack, onResetZoom, sho
         <div className="eh-mobile-topbar__title">{title}</div>
         {subtitle && <div className="eh-mobile-topbar__sub">{subtitle}</div>}
       </div>
-      {showResetZoom ? (
-        <button
-          type="button"
-          aria-label="Reset zoom"
-          onClick={onResetZoom}
-          className="eh-mobile-topbar__btn"
-        >
-          <ResetZoomIcon />
-        </button>
-      ) : (
-        <div className="eh-mobile-topbar__btn eh-mobile-topbar__btn--ghost" aria-hidden />
-      )}
+      {right ?? <div className="eh-mobile-topbar__btn eh-mobile-topbar__btn--ghost" aria-hidden />}
     </div>
   );
 }

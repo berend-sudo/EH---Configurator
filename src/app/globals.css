@@ -324,14 +324,17 @@ body {
   right: 0;
   bottom: 0;
   z-index: 30;
-  background: #fff;
-  border-radius: 26px 26px 0 0;
-  box-shadow: var(--eh-shadow-lg);
+  /* Container is transparent — only the content area carries the white
+     card so the grab handle area doesn't visually steal screen height
+     from the floor plan above. The shadow lives on the content too. */
+  background: transparent;
   display: flex;
   flex-direction: column;
-  min-height: 120px;
+  min-height: 84px;
   overscroll-behavior: contain;
+  pointer-events: none;
 }
+.eh-mobile-sheet > * { pointer-events: auto; }
 @media (min-width: 768px) and (max-width: 1023px) {
   .eh-mobile-sheet {
     left: 50%;
@@ -345,6 +348,7 @@ body {
   height: 36px;
   width: 100%;
   border: 0;
+  /* Transparent bar — the grab indicator is the only visible bit. */
   background: transparent;
   display: flex;
   align-items: center;
@@ -363,12 +367,14 @@ body {
   width: 48px;
   height: 5px;
   border-radius: 3px;
-  background: var(--eh-stroke-strong);
+  /* Tint with a hint of dark so the indicator stays legible whether it
+     floats over the floor plan or sits on the white content card. */
+  background: rgba(0, 59, 43, 0.32);
   transition: background var(--eh-duration-base) var(--eh-ease);
 }
 .eh-mobile-sheet__handle:hover .eh-mobile-sheet__grab,
 .eh-mobile-sheet__handle:focus-visible .eh-mobile-sheet__grab {
-  background: var(--eh-text-soft);
+  background: rgba(0, 59, 43, 0.5);
 }
 .eh-mobile-sheet__content {
   flex: 1 1 auto;
@@ -380,6 +386,9 @@ body {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  background: #fff;
+  border-radius: 26px 26px 0 0;
+  box-shadow: var(--eh-shadow-lg);
 }
 
 /* Floating top bar (glass) used over the full-bleed plan canvas. */
@@ -799,37 +808,31 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    /* Top padding clears BOTH the floating top bar (~64 px + safe-area)
-       AND the floating Plan / Example-images segmented control that
-       sits below it. Earlier the canvas only reserved 80 px and the
-       plan crept up behind the top bar on phones with a notch.
-       Bottom padding matches the closed-sheet detent (120 px) so the
-       plan fills the room above the peek instead of being crammed by
-       a sheet-sized reservation. When the user drags the sheet up to
-       its half-open detent it overlays the lower half of the plan
-       rather than reflowing the canvas — the standard iOS
-       bottom-sheet pattern. */
-    padding-top: max(140px, calc(env(safe-area-inset-top) + 124px));
+    /* Top padding only needs to clear the top bar now that the Plan /
+       Example-images toggle lives INSIDE the top bar (right slot).
+       That frees ~60 px of room and lets the floor plan move up.
+       Bottom padding stays small — the bottom sheet's grab handle is
+       transparent, so the canvas only needs to clear the white card's
+       upper lip at the closed detent. */
+    padding-top: max(80px, calc(env(safe-area-inset-top) + 64px));
     padding-right: 14px;
-    padding-bottom: 120px;
+    padding-bottom: 60px;
     padding-left: 14px;
   }
-  /* Plan / Example-images view toggle — floats above the canvas just
-     below the top bar so it's reachable without expanding the sheet.
-     Glass surface so it sits over the plan without obscuring it. */
-  .eh-configurator-mobile__view-toggle {
-    position: fixed;
-    top: max(76px, calc(env(safe-area-inset-top) + 64px));
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 24;
-    pointer-events: auto;
-  }
-  .eh-configurator-mobile__view-toggle .seg {
-    background: rgba(255, 255, 255, 0.92);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+  /* Plan / Example-images toggle inside the top bar. Compact form so
+     it sits next to the title pill without crowding it. */
+  .eh-mobile-topbar .seg {
+    flex: 0 0 auto;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
     box-shadow: var(--eh-shadow-sm);
+    padding: 3px;
+    gap: 3px;
+  }
+  .eh-mobile-topbar .seg button {
+    padding: 8px 12px;
+    font-size: 12px;
   }
   .eh-configurator-mobile__notice {
     position: fixed;
