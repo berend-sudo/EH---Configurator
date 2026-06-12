@@ -681,6 +681,10 @@ function MobileConfigurator({
   //       visible above.
   const [sheetIndex, setSheetIndex] = useState(1);
   const [detents, setDetents] = useState<number[]>([96, 360]);
+  // Live sheet height — the canvas pins its bottom to this so the plan
+  // fills exactly the band above the sheet (no dead gap, no overlap).
+  // Seeded with the half-open detent so first paint is already correct.
+  const [sheetHeight, setSheetHeight] = useState(360);
   const pinchRef = useRef<PinchZoomHandle | null>(null);
   const reducedMotion = usePrefersReducedMotion();
 
@@ -732,7 +736,13 @@ function MobileConfigurator({
         right={<ViewToggle value={view} onChange={setView} />}
       />
 
-      <div className="eh-configurator-mobile__canvas">
+      <div
+        className="eh-configurator-mobile__canvas"
+        // Pin the canvas bottom to the sheet's live top edge so the plan
+        // centres in the visible band rather than in the full screen
+        // height (which left a big empty gap above it). Tracks drags.
+        style={{ bottom: sheetHeight }}
+      >
         <PinchZoomCanvas ref={pinchRef} disabled={reducedMotion}>
           {view === "plan" ? (
             plan ? (
@@ -760,6 +770,7 @@ function MobileConfigurator({
         detents={detents}
         index={sheetIndex}
         onIndexChange={setSheetIndex}
+        onHeightChange={setSheetHeight}
         ariaLabel="Adjust configurator panel"
       >
         {/* PEEK — always visible */}

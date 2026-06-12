@@ -854,21 +854,22 @@ body {
   }
   .eh-configurator-mobile__canvas {
     position: absolute;
-    inset: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+    /* `bottom` is set inline from the sheet's live height, so the canvas
+       spans exactly the band between the top bar and the sheet top. The
+       plan then centres in the VISIBLE area — no dead gap above it, no
+       hiding behind the sheet. */
     display: flex;
-    /* Anchor the plan to the TOP of the canvas area, not the centre.
-       Otherwise reducing the top padding just makes the plan bigger
-       while keeping its centre at the canvas midpoint — and Kim saw
-       the plan stay in place even though the toggle had moved. */
-    align-items: flex-start;
+    align-items: center;
     justify-content: center;
-    /* Reserve room for the stacked top bar: back-btn (44) sits next
-       to a column with the title pill (~32) + 6 px gap + segmented
-       toggle (~30) ≈ 68 px tall, plus the bar's 14 px top/bottom
-       padding (and safe-area on notched phones). */
+    /* Clear the stacked top bar: back-btn (44) sits next to a column of
+       title pill (~30) + 6 px gap + segmented toggle (~30) ≈ 66 px tall,
+       plus the bar's top padding (and safe-area on notched phones). */
     padding-top: max(110px, calc(env(safe-area-inset-top) + 96px));
     padding-right: 14px;
-    padding-bottom: 60px;
+    padding-bottom: 12px;
     padding-left: 14px;
   }
   /* Plan / Example-images toggle inside the top bar stack. Compact

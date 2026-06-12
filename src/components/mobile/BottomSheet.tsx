@@ -19,6 +19,10 @@ interface Props {
   onIndexChange: (i: number) => void;
   children: ReactNode;
   ariaLabel?: string;
+  /** Reports the sheet's live height (px) on every change, including
+   *  mid-drag, so a sibling (e.g. the plan canvas) can size itself to
+   *  the space ABOVE the sheet instead of overlapping it. */
+  onHeightChange?: (px: number) => void;
 }
 
 export interface BottomSheetHandle {
@@ -29,7 +33,7 @@ export interface BottomSheetHandle {
 const FLICK_VELOCITY = 0.6; // px / ms
 
 const BottomSheet = forwardRef<BottomSheetHandle, Props>(function BottomSheet(
-  { detents, index, onIndexChange, children, ariaLabel = "Adjust panel height" },
+  { detents, index, onIndexChange, children, ariaLabel = "Adjust panel height", onHeightChange },
   ref,
 ) {
   const reducedMotion = usePrefersReducedMotion();
@@ -51,6 +55,12 @@ const BottomSheet = forwardRef<BottomSheetHandle, Props>(function BottomSheet(
     detents[0],
     Math.min(detents[detents.length - 1], baseHeight - dragDelta),
   );
+
+  // Report height up so the plan canvas can pin its bottom to the sheet
+  // top. Fires on settle and on every drag frame.
+  useEffect(() => {
+    onHeightChange?.(liveHeight);
+  }, [liveHeight, onHeightChange]);
 
   const onPointerDown = useCallback((e: ReactPointerEvent<HTMLButtonElement>) => {
     if (e.button !== undefined && e.button !== 0) return;
