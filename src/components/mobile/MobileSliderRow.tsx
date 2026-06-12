@@ -160,12 +160,13 @@ export default function MobileSliderRow({
       )}
 
       {/* Pointer-event hit area. The visible rail + knob sit at the
-          row's vertical centre; the box is 104 px tall (double the
-          previous 52 px) so a finger has slack above and below the
-          6 px rail, but we counter with -26 px top/bottom margins so
-          the box behaves as 52 px in the surrounding flow — the rail
-          and following content stay at exactly the same Y. Horizontal
-          18 px padding keeps the knob inside the row at min/max. */}
+          row's vertical centre; the box is 132 px tall so a finger has
+          generous slack above and below the 6 px rail, but we counter
+          with -40 px top/bottom margins so the box behaves as 52 px in
+          the surrounding flow — the rail and following content stay at
+          exactly the same Y. Horizontal 18 px padding keeps the knob
+          inside the row at min/max. Keep this box identical to
+          MobileBudgetSlider so every mobile slider shares one target. */}
       <div
         ref={trackRef}
         role="slider"
@@ -182,12 +183,12 @@ export default function MobileSliderRow({
         onKeyDown={onKeyDown}
         style={{
           position: "relative",
-          // Sit above the label / min-max rows so the full 104 px hit box
+          // Sit above the label / min-max rows so the full 132 px hit box
           // wins the touch — those rows set pointer-events:none, but the
           // raised z-index keeps the stacking unambiguous on iOS.
           zIndex: 1,
-          height: 104,
-          margin: "-26px -4px",
+          height: 132,
+          margin: "-40px -4px",
           padding: "0 18px",
           display: "flex",
           alignItems: "center",

@@ -7,6 +7,7 @@ import { useCountryGuard } from "@/lib/use-active-country";
 import { useIsMobile } from "@/lib/use-media-query";
 import EHNavBar from "@/components/EHNavBar";
 import BudgetSlider from "./BudgetSlider";
+import MobileBudgetSlider from "@/components/mobile/MobileBudgetSlider";
 import BedroomsCounter from "./BedroomsCounter";
 import TypologyPicker from "./TypologyPicker";
 import {
@@ -300,7 +301,10 @@ function MobileLandingScreen({
             <span className="eh-landing-mobile__step-num">1</span>
             Your budget
           </div>
-          <BudgetSlider value={budget} onChange={setBudget} />
+          {/* Phone uses the pointer-driven MobileBudgetSlider (same fat touch
+              box as the configurator) — the desktop BudgetSlider's native
+              <input type=range> is small and flaky on iOS touch. */}
+          <MobileBudgetSlider value={budget} onChange={setBudget} />
         </section>
 
         <section className="eh-landing-mobile__section" ref={bedroomsRef}>

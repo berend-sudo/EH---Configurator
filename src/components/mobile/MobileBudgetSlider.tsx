@@ -119,17 +119,18 @@ export default function MobileBudgetSlider({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
-        // Same fat-finger pattern as MobileSliderRow: 104 px tall box
-        // with -26 top/bottom margins so the surrounding flow renders
+        // Same fat-finger pattern as MobileSliderRow: 132 px tall box
+        // with -40 top/bottom margins so the surrounding flow renders
         // as if the box were still 52 px. The rail and knob stay at
-        // exactly the same Y; only the touch surface grows.
+        // exactly the same Y; only the touch surface grows. Keep these
+        // numbers in lock-step with MobileSliderRow.
         style={{
           position: "relative",
           // Raised above the label / min-max rows (which are pointer-events:
-          // none) so the full 104 px hit box reliably claims the touch.
+          // none) so the full 132 px hit box reliably claims the touch.
           zIndex: 1,
-          height: 104,
-          margin: "-26px -4px",
+          height: 132,
+          margin: "-40px -4px",
           padding: "0 18px",
           display: "flex",
           alignItems: "center",
