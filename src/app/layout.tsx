@@ -4,11 +4,14 @@ import "./globals.css";
 
 const poppins = localFont({
   src: [
-    { path: "../../public/fonts/Poppins-Light.ttf",    weight: "300", style: "normal" },
-    { path: "../../public/fonts/Poppins-Regular.ttf",  weight: "400", style: "normal" },
-    { path: "../../public/fonts/Poppins-Medium.ttf",   weight: "500", style: "normal" },
-    { path: "../../public/fonts/Poppins-SemiBold.ttf", weight: "600", style: "normal" },
-    { path: "../../public/fonts/Poppins-Bold.ttf",     weight: "700", style: "normal" },
+    // WOFF2 for the browser (~3× smaller than TTF). The server PDF
+    // (src/lib/server/design-pdf.tsx) still uses the .ttf files, which
+    // react-pdf's fontkit prefers — keep both in public/fonts.
+    { path: "../../public/fonts/Poppins-Light.woff2",    weight: "300", style: "normal" },
+    { path: "../../public/fonts/Poppins-Regular.woff2",  weight: "400", style: "normal" },
+    { path: "../../public/fonts/Poppins-Medium.woff2",   weight: "500", style: "normal" },
+    { path: "../../public/fonts/Poppins-SemiBold.woff2", weight: "600", style: "normal" },
+    { path: "../../public/fonts/Poppins-Bold.woff2",     weight: "700", style: "normal" },
   ],
   variable: "--font-poppins",
   display: "swap",

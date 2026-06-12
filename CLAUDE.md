@@ -42,7 +42,9 @@ change.
   CSS variables (`var(--eh-*)`) and module CSS. Match what you see in
   the file you're editing — do not introduce a new styling system.
 - **Fonts** — self-hosted Poppins (300/400/500/600/700) loaded via
-  `next/font/local` in `src/app/layout.tsx`.
+  `next/font/local` in `src/app/layout.tsx`. The browser gets the
+  `.woff2` files (~3× smaller than TTF); the server PDF keeps the `.ttf`
+  files (react-pdf's fontkit prefers TTF) — both live in `public/fonts/`.
 - **PDF** — `@react-pdf/renderer` (server-side), template in
   `src/lib/server/design-pdf.tsx`.
 - **Email** — Resend, via `src/lib/server/email.ts`.
@@ -71,7 +73,7 @@ Node 18+.
 | `/`                           | Landing — budget slider, bedrooms counter, typology picker.      |
 | `/configurator`               | Width slider, plan canvas, in-rail bedrooms/typology switcher.   |
 | `/summary`                    | Client info, design summary, "Generate PDF".                     |
-| `/api/parse-dxf`              | One DXF → typed `FloorplanJSON`. Validates filename safety.      |
+| `/api/parse-dxf`              | One DXF → typed `FloorplanJSON`. Validates filename safety. In-process cache keyed by filename + mtime. |
 | `/api/floor-plans`            | Server scan of `public/floorplans/` → `FloorPlanEntry[]`.        |
 | `/api/configurator/reference` | Mints the server-authoritative `EH-YYYY-XXXXXX` reference.       |
 | `/api/configurator/submit`    | Renders PDF, emails, archives to Drive, logs to Sheet + Form.    |
@@ -150,9 +152,12 @@ DXF on disk ──▶ scanFloorPlans() ──▶ FloorPlanEntry[] ──▶ pick
   `parseDxfFilename()`, and yields `FloorPlanEntry`s. Off-scheme files
   are silently skipped, so the directory is safe to drop random files
   into.
-- **`/api/floor-plans`** exposes that scan to the client; the landing
-  page pre-scans server-side in `app/page.tsx` so the picker has full
-  availability on first paint with no fetch flash.
+- **`/api/floor-plans`** exposes that scan to the client. The landing,
+  configurator and summary routes each pre-scan server-side in their
+  `page.tsx` and pass the registry into their client component as
+  `initialPlans`, so the picker has full availability on first paint with
+  no fetch flash. `useFloorPlans(initialPlans)` skips the `/api/floor-plans`
+  fetch when seeded and only falls back to fetching when called bare.
 - **`pickPlan(plans, selection, bedrooms)`** in `src/lib/floor-plans.ts`
   is the tiered "closest available plan" fallback:
   - Tier 0: exact typology + subtype.
@@ -287,10 +292,14 @@ src/
     layout.tsx                Root layout, Poppins, metadata.
     page.tsx                  Landing route (server) — pre-scans plans.
     country/page.tsx          Country gate.
-    configurator/page.tsx     Configurator route (client).
-    summary/page.tsx          Step 3 — contact form + Generate PDF.
+    configurator/
+      page.tsx                Configurator route (server) — pre-scans plans.
+      ConfiguratorClient.tsx  Configurator UI (client).
+    summary/
+      page.tsx                Step 3 route (server) — pre-scans plans.
+      SummaryClient.tsx       Contact form + Generate PDF (client).
     api/
-      parse-dxf/route.ts          One DXF → FloorplanJSON.
+      parse-dxf/route.ts          One DXF → FloorplanJSON (in-process cache).
       floor-plans/route.ts        Directory scan → FloorPlanEntry[].
       configurator/
         reference/route.ts        Mints EH-YYYY-XXXXXX.

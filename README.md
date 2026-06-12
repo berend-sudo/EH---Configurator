@@ -374,7 +374,8 @@ mirrored into `src/app/eh-tokens.css`. Headline values:
 - `--eh-sand: #F1E9D9`, `--eh-clay: #C58A5B`,
   `--eh-timber: #8C5E36`, `--eh-sky: #BBD8E2`.
 
-**Typography** — Poppins, self-hosted from `public/fonts/`.
+**Typography** — Poppins, self-hosted from `public/fonts/` (WOFF2 in the
+browser, TTF for the server-side PDF).
 Weights in use: 300 / 400 / 500 / 600 / 700. Display sizes 88 / 64 /
 48 / 32 / 24 / 20. Body 18 / 16 / 14 / 12. Tracking `-0.02em` on
 headings, `0` on body, `0.04–0.12em` on uppercase eyebrows.
