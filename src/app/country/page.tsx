@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
-  BASE_COUNTRY,
   COUNTRIES,
   fmtMoney,
   setActiveCountry,
@@ -354,7 +353,6 @@ function ConfirmOverlay({
   onContinue: () => void;
   onChange: () => void;
 }) {
-  const showsFx = country.ugxPerUnit !== 1;
   return (
     <div
       className="eh-country-scrim"
@@ -434,20 +432,7 @@ function ConfirmOverlay({
               marginTop: 8,
             }}
           >
-            {showsFx ? (
-              <span
-                style={{
-                  fontSize: 13,
-                  color: "var(--eh-text-soft)",
-                  textDecoration: "line-through",
-                  fontVariantNumeric: "tabular-nums",
-                }}
-              >
-                {fmtMoney(SAMPLE_UGX, BASE_COUNTRY)}
-              </span>
-            ) : (
-              <span />
-            )}
+            <span />
             <span
               style={{
                 fontSize: 21,
@@ -460,9 +445,7 @@ function ConfirmOverlay({
             </span>
           </div>
           <div style={{ fontSize: 11, color: "var(--eh-text-soft)", marginTop: 6 }}>
-            {showsFx
-              ? `Converted at a fixed rate of 1 ${country.currency.code} ≈ ${country.ugxPerUnit} UGX.`
-              : "Indicative base price, before bedrooms."}
+            Indicative base price, before bedrooms.
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 24 }}>
