@@ -16,11 +16,26 @@ import { stitchSegments } from "@/lib/dxf/stitch-segments";
 interface Pair { code: number; value: string }
 
 function parsePairs(content: string): Pair[] {
-  const lines = content.split(/\r?\n/);
+  // DXF is line-pair encoded: an integer group code, then its value, repeating.
+  // Scan the buffer directly instead of `content.split(/\r?\n/)` — on a 10 MB
+  // export that split alone allocates ~1.3M intermediate strings and dominates
+  // both CPU and GC. parseInt() skips leading whitespace and stops at the first
+  // non-digit, so a raw code line (incl. a trailing \r) parses without a trim;
+  // values still get trimmed to strip CR and surrounding space.
   const out: Pair[] = [];
-  for (let i = 0; i + 1 < lines.length; i += 2) {
-    const code = parseInt(lines[i].trim(), 10);
-    if (!isNaN(code)) out.push({ code, value: lines[i + 1].trim() });
+  const len = content.length;
+  let pos = 0;
+  while (pos < len) {
+    let nl = content.indexOf("\n", pos);
+    if (nl === -1) nl = len;
+    const code = parseInt(content.slice(pos, nl), 10);
+    pos = nl + 1;
+    if (pos > len) break; // code line was the last line — no value to pair it with
+    nl = content.indexOf("\n", pos);
+    if (nl === -1) nl = len;
+    const value = content.slice(pos, nl).trim();
+    pos = nl + 1;
+    if (!isNaN(code)) out.push({ code, value });
   }
   return out;
 }
