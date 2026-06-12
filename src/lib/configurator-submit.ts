@@ -18,6 +18,13 @@ export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // surface (email body, PDF cover, confirmation screen). Edit here once.
 export const DESIGN_OPENER = "Congratulations — you've designed your dream home!";
 
+// Furniture/fixtures-not-to-scale caveat shown next to every floor plan
+// the client sees (configurator canvas, summary mini plan, PDF plan
+// page). One string so the wording can't drift between surfaces.
+// TODO(X4): remove once furniture is redrawn to true scale.
+export const FURNITURE_CAVEAT =
+  "Furniture and fixtures might not be to scale and serve for general visual representation only.";
+
 // ── Placeholder mirror fields ──────────────────────────────────────────────
 // These three fields stand in for the existing "request price list" Google
 // Form's questions until Wolf supplies the real list (see Phase 6 of

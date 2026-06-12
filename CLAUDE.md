@@ -349,6 +349,9 @@ design_handoff_eh_configurator/
   design-refs/                HTML artboards + prototype JSX.
 scripts/
   gen-legal-pdfs.mjs          Generates the placeholder legal PDFs.
+  compress-brand-images.py    Resamples public/brand/*.jpg to a web
+                              ceiling (2000 px, q82). Run after dropping
+                              new brand photos.
 archive/                      Old experiments — do not import from here.
 ```
 

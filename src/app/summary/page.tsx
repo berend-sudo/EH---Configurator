@@ -22,6 +22,7 @@ import { useCountryGuard } from "@/lib/use-active-country";
 import { useIsMobile } from "@/lib/use-media-query";
 import {
   EMAIL_RE,
+  FURNITURE_CAVEAT,
   HEAR_ABOUT_OPTIONS,
   HEAR_ABOUT_OTHER,
   LAND_FUNDS_OPTIONS,
@@ -412,7 +413,7 @@ function FinalScreen() {
               fontWeight: 300,
             }}
           >
-            Furniture and fixtures are indicative and not shown to exact scale.
+            {FURNITURE_CAVEAT}
           </p>
 
           {/* 4-stat strip */}
@@ -987,9 +988,10 @@ function MobileSummary(props: MobileSummaryProps) {
           </div>
         </section>
 
-        <h2 className="eh-summary-mobile__section-h">Where should we send your brief?</h2>
+        <h2 className="eh-summary-mobile__section-h">Where should we send your design?</h2>
         <p className="eh-summary-mobile__section-lead">
-          We&apos;ll email a PDF of this design and a member of our team will follow up.
+          We&apos;ll email a PDF of this design to you. A member of our team will follow up with
+          you soon.
         </p>
 
         <div className="eh-summary-mobile__form">

@@ -565,6 +565,10 @@ body {
   .eh-country-mobile__name {
     flex: 1 1 auto;
     min-width: 0;
+    /* The name + currency line are separate inline spans; stack them so
+       they don't run together as "UgandaPrices in UGX". */
+    display: flex;
+    flex-direction: column;
   }
   .eh-country-mobile__name-row {
     font-size: 16px;
