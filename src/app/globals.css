@@ -416,13 +416,16 @@ body {
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  padding: 4px 20px 24px;
+  padding: 16px 20px 24px;
   display: flex;
   flex-direction: column;
   gap: 14px;
   background: #fff;
   border-radius: 26px 26px 0 0;
-  box-shadow: var(--eh-shadow-lg);
+  /* Crisp 1 px top edge (hugs the rounded corners) so the white menu card
+     reads as separate from the off-white plan above it, then the soft lift
+     shadow. The bumped top padding gives the peek summary room off that edge. */
+  box-shadow: 0 -1px 0 0 var(--eh-stroke-strong), var(--eh-shadow-lg);
 }
 
 /* Floating top bar (glass) used over the full-bleed plan canvas. */
@@ -1049,7 +1052,7 @@ body {
 /* Narrow phones (≤360px, e.g. older Android / iPhone SE): trim the sheet's
    horizontal padding to reclaim room for the controls and room schedule. */
 @media (max-width: 360px) {
-  .eh-mobile-sheet__content { padding: 4px 14px 20px; }
+  .eh-mobile-sheet__content { padding: 16px 14px 20px; }
 }
 
 /* ------- Summary (mobile) ------------------------------------------------ */

@@ -81,6 +81,7 @@ export default function MobileBudgetSlider({
           justifyContent: "space-between",
           alignItems: "baseline",
           marginBottom: 10,
+          pointerEvents: "none",
         }}
       >
         <span
@@ -124,6 +125,9 @@ export default function MobileBudgetSlider({
         // exactly the same Y; only the touch surface grows.
         style={{
           position: "relative",
+          // Raised above the label / min-max rows (which are pointer-events:
+          // none) so the full 104 px hit box reliably claims the touch.
+          zIndex: 1,
           height: 104,
           margin: "-26px -4px",
           padding: "0 18px",
@@ -185,6 +189,7 @@ export default function MobileBudgetSlider({
           color: "var(--eh-text-soft)",
           fontVariantNumeric: "tabular-nums",
           padding: "0 18px",
+          pointerEvents: "none",
         }}
       >
         <span>{fmtMoney(min)}</span>

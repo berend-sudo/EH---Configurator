@@ -136,6 +136,7 @@ export default function MobileSliderRow({
             alignItems: "baseline",
             justifyContent: "space-between",
             marginBottom: 10,
+            pointerEvents: "none",
           }}
         >
           <span style={{ fontSize: 14, fontWeight: 500, color: "var(--eh-text)" }}>{label}</span>
@@ -181,6 +182,10 @@ export default function MobileSliderRow({
         onKeyDown={onKeyDown}
         style={{
           position: "relative",
+          // Sit above the label / min-max rows so the full 104 px hit box
+          // wins the touch — those rows set pointer-events:none, but the
+          // raised z-index keeps the stacking unambiguous on iOS.
+          zIndex: 1,
           height: 104,
           margin: "-26px -4px",
           padding: "0 18px",
@@ -243,6 +248,9 @@ export default function MobileSliderRow({
             color: "var(--eh-text-soft)",
             fontVariantNumeric: "tabular-nums",
             padding: "0 18px",
+            // Non-interactive: let touches in the slider's overlapping hit
+            // box fall through to the track instead of dying here.
+            pointerEvents: "none",
           }}
         >
           <span>{(minMm / 1000).toFixed(1)} m</span>
@@ -257,6 +265,7 @@ export default function MobileSliderRow({
             color: "var(--eh-text-soft)",
             textAlign: "center",
             marginTop: 6,
+            pointerEvents: "none",
           }}
         >
           {helper}

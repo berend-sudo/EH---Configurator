@@ -712,11 +712,17 @@ function MobileConfigurator({
   const steps = plan ? Math.round((delta - plan.minDelta) / 610) : 0;
   const stepsMax = plan ? Math.round((plan.maxDelta - plan.minDelta) / 610) : 0;
   const depth = depthLabel(selection) || "";
-  const bedroomOptions = plans
-    ? Array.from(new Set(availableBedrooms(plans, selection).concat([bedrooms]))).sort(
-        (a, b) => a - b,
-      )
-    : [bedrooms];
+  // Bedroom options = what's on disk for this selection, capped by what the
+  // current budget affords — mirrors the landing so the counter's "max N for
+  // this budget" hint and the greyed-out + button track the budget slider
+  // live. Falls back to the full available set if nothing is affordable yet.
+  const bedroomOptions = (() => {
+    if (!plans) return [bedrooms];
+    const availBR = availableBedrooms(plans, selection);
+    const affordableMax = maxBedroomsFor(budget, selection);
+    const affordableBR = availBR.filter((b) => b <= affordableMax);
+    return affordableBR.length > 0 ? affordableBR : availBR;
+  })();
 
   const subtitle =
     `${bedrooms === 0 ? "Studio" : `${bedrooms} bed`}${depth ? ` · ${depth} deep` : ""}`;
@@ -756,7 +762,10 @@ function MobileConfigurator({
               </div>
             )
           ) : (
-            <div style={{ width: "100%", height: "100%" }}>
+            <div style={{ width: "100%", height: "100%", display: "flex" }}>
+              {/* display:flex gives PhotoCollage's `flex:1` a flex parent so
+                  the grid resolves a real height — without it the collage
+                  collapses to 0 and the fill images never show. */}
               <PhotoCollage typology={selection.typology} subtype={selection.subtype} />
             </div>
           )}
