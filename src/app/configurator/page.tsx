@@ -773,21 +773,17 @@ function MobileConfigurator({
         onHeightChange={setSheetHeight}
         ariaLabel="Adjust configurator panel"
       >
-        {/* PEEK — always visible */}
+        {/* PEEK — always visible. Single inline summary instead of two
+            floating uppercase eyebrow labels, so the menu top doesn't
+            read as a separate "headings" section above the slider. */}
         <div className="eh-configurator-mobile__peek-row">
-          <div className="eh-configurator-mobile__peek-block">
-            <span className="eh-configurator-mobile__peek-label">Width</span>
-            <span className="eh-configurator-mobile__peek-value">
-              {plan ? (widthMm / 1000).toFixed(2) : "—"}
-              <span className="eh-configurator-mobile__peek-unit">m</span>
-            </span>
-          </div>
-          <div className="eh-configurator-mobile__peek-block" style={{ textAlign: "right" }}>
-            <span className="eh-configurator-mobile__peek-label">Indicative budget</span>
-            <span className="eh-configurator-mobile__peek-budget">
-              {fmtMoney(Math.round(budgetUgx))}
-            </span>
-          </div>
+          <span className="eh-configurator-mobile__peek-stat">
+            <strong>{plan ? (widthMm / 1000).toFixed(2) : "—"} m</strong> wide
+          </span>
+          <span className="eh-configurator-mobile__peek-divider" aria-hidden>·</span>
+          <span className="eh-configurator-mobile__peek-stat">
+            <strong>{fmtMoney(Math.round(budgetUgx))}</strong> indicative
+          </span>
         </div>
 
         {plan ? (

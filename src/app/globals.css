@@ -468,31 +468,56 @@ body {
   box-shadow: none;
   pointer-events: none;
 }
-/* Stack: title pill on top, optional control (e.g. view toggle) below.
-   Both children are centred horizontally and sized to content so they
-   read as a matched pair instead of a wide pill next to a narrow chip. */
-.eh-mobile-topbar__stack {
+/* Combined card: title row + hairline divider + control row, all in
+   one rounded glass surface. Both rows share the card's width by
+   construction, so they always read as the same shape — no
+   width-matching CSS gymnastics. */
+.eh-mobile-topbar__card {
   flex: 1 1 auto;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-}
-.eh-mobile-topbar__pill {
   max-width: 100%;
-  min-width: 0;
-  background: rgba(255,255,255,0.78);
+  background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border: 1px solid rgba(0,59,43,0.06);
-  border-radius: 999px;
-  padding: 6px 16px;
-  text-align: center;
+  border-radius: 22px;
   box-shadow: var(--eh-shadow-sm);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-self: flex-start;
 }
-.eh-mobile-topbar__right {
-  max-width: 100%;
+.eh-mobile-topbar__card-title {
+  padding: 7px 16px;
+  text-align: center;
+}
+.eh-mobile-topbar__card-divider {
+  height: 1px;
+  background: rgba(0,59,43,0.10);
+}
+.eh-mobile-topbar__card-right {
+  padding: 4px;
+  display: flex;
+  justify-content: center;
+}
+/* Naked the seg inside the card — the card already provides the
+   rounded glass surface, so the inner seg drops its own border /
+   background / shadow to avoid a double-frame look. Active tab
+   keeps its rounded green-deep fill. */
+.eh-mobile-topbar__card-right .seg {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  gap: 0;
+  width: 100%;
+}
+.eh-mobile-topbar__card-right .seg button {
+  flex: 1 1 0;
+  padding: 6px 12px;
+  font-size: 12px;
 }
 .eh-mobile-topbar__title {
   font-size: 13px;
@@ -864,28 +889,14 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    /* Clear the stacked top bar: back-btn (44) sits next to a column of
-       title pill (~30) + 6 px gap + segmented toggle (~30) ≈ 66 px tall,
-       plus the bar's top padding (and safe-area on notched phones). */
-    padding-top: max(110px, calc(env(safe-area-inset-top) + 96px));
+    /* Clear the combined top-bar card: back-btn (44) sits next to the
+       card with title row (~36) + 1 px divider + control row (~36) ≈
+       73 px tall, plus the bar's top padding (and safe-area on notched
+       phones). */
+    padding-top: max(118px, calc(env(safe-area-inset-top) + 104px));
     padding-right: 14px;
     padding-bottom: 12px;
     padding-left: 14px;
-  }
-  /* Plan / Example-images toggle inside the top bar stack. Compact
-     form so it reads as a peer of the title pill above it. */
-  .eh-mobile-topbar .seg {
-    flex: 0 0 auto;
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    box-shadow: var(--eh-shadow-sm);
-    padding: 2px;
-    gap: 2px;
-  }
-  .eh-mobile-topbar .seg button {
-    padding: 6px 14px;
-    font-size: 12px;
   }
   .eh-configurator-mobile__notice {
     position: fixed;
@@ -908,42 +919,28 @@ body {
     text-overflow: ellipsis;
     box-shadow: var(--eh-shadow-sm);
   }
+  /* One-line inline summary at the top of the sheet content. Replaces
+     the old two-block peek (uppercase eyebrow labels + big numeric
+     values) which floated above the slider as if it were a heading
+     section. Lighter visual mass, values still tabular for stability. */
   .eh-configurator-mobile__peek-row {
     display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
-  }
-  .eh-configurator-mobile__peek-block {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  .eh-configurator-mobile__peek-label {
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: .1em;
-    text-transform: uppercase;
-    color: var(--eh-text-muted);
-  }
-  .eh-configurator-mobile__peek-value {
-    font-size: 20px;
-    font-weight: 600;
-    color: var(--eh-text);
-    font-variant-numeric: tabular-nums;
-    line-height: 1.1;
-  }
-  .eh-configurator-mobile__peek-unit {
+    align-items: baseline;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 4px 10px;
     font-size: 13px;
     font-weight: 400;
     color: var(--eh-text-muted);
-    margin-left: 2px;
+    line-height: 1.3;
   }
-  .eh-configurator-mobile__peek-budget {
-    font-size: 18px;
+  .eh-configurator-mobile__peek-stat strong {
     font-weight: 600;
-    color: var(--eh-green-900);
-    text-align: right;
+    color: var(--eh-text);
+    font-variant-numeric: tabular-nums;
+  }
+  .eh-configurator-mobile__peek-divider {
+    color: var(--eh-text-soft);
   }
   .eh-configurator-mobile__rooms {
     display: flex;

@@ -7,9 +7,9 @@ interface Props {
   subtitle?: string;
   onBack?: () => void;
   /** Optional secondary control (e.g. the Plan / Example images
-   *  segmented control). Renders BELOW the title pill in a stacked
-   *  column so both stay narrow and same-width-looking instead of
-   *  competing for horizontal room. */
+   *  segmented control). Rendered BELOW the title row, separated by
+   *  a hairline divider, inside the same rounded card so both rows
+   *  share the same width by construction. */
   right?: ReactNode;
 }
 
@@ -33,12 +33,17 @@ export default function MobileTopBar({ title, subtitle, onBack, right }: Props) 
       >
         <ChevronLeft />
       </button>
-      <div className="eh-mobile-topbar__stack">
-        <div className="eh-mobile-topbar__pill">
+      <div className="eh-mobile-topbar__card">
+        <div className="eh-mobile-topbar__card-title">
           <div className="eh-mobile-topbar__title">{title}</div>
           {subtitle && <div className="eh-mobile-topbar__sub">{subtitle}</div>}
         </div>
-        {right && <div className="eh-mobile-topbar__right">{right}</div>}
+        {right && (
+          <>
+            <div className="eh-mobile-topbar__card-divider" aria-hidden />
+            <div className="eh-mobile-topbar__card-right">{right}</div>
+          </>
+        )}
       </div>
     </div>
   );
