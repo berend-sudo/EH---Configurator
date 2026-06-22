@@ -238,6 +238,7 @@ export async function POST(req: NextRequest) {
     pdfDriveLink,
     payload.source ?? "",
     mapsUrl,
+    country.name,
   ];
   // "How did you hear about us?" carries a free-text answer when the user
   // picked "Other" — its value is then NOT one of the enumerated options.
