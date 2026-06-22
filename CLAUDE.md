@@ -499,7 +499,8 @@ mirrored to `src/app/eh-tokens.css`.
 
 - **Add a typology or subtype** → edit `TYPOLOGIES` in
   `src/lib/typologies.ts`; transcribe dimensions from the xlsx;
-  pick a unique 3-letter code; add an `iconPath`. Drop matching DXFs in
+  pick a unique 3-letter code; add an `iconImage` (3D line-art PNG in
+  `public/brand/`). Drop matching DXFs in
   `public/floorplans/`. Nothing else should be needed.
 - **Re-enable a hidden subtype** → drop a correctly-named DXF in
   `public/floorplans/`. Do not touch the picker code.

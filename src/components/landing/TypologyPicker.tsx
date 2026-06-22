@@ -49,8 +49,8 @@ export default function TypologyPicker({
   const metaH = compact ? 14 : 16;
   const chipLabelSize = compact ? 12 : 13;
   const eyebrowSize = compact ? 9 : 11;
-  const iconW = compact ? 44 : 56;
-  const iconH = compact ? 26 : 32;
+  const iconW = compact ? 46 : 58;
+  const iconH = compact ? 30 : 38;
 
   // Typologies / subtypes to render. If `plans` is provided, hide anything
   // with no available DXF; otherwise show the full TYPOLOGIES set.
@@ -173,21 +173,21 @@ export default function TypologyPicker({
                 font: "inherit",
               }}
             >
-              <svg
-                viewBox="0 0 56 32"
+              <img
+                src={typ.iconImage}
+                alt=""
+                aria-hidden="true"
                 width={iconW}
                 height={iconH}
-                style={{ display: "block", margin: "0 auto 6px" }}
-                aria-hidden="true"
-              >
-                <path
-                  d={typ.iconPath}
-                  fill="none"
-                  stroke={active ? "var(--eh-green)" : "var(--eh-green-700)"}
-                  strokeWidth="2"
-                  strokeLinejoin="round"
-                />
-              </svg>
+                style={{
+                  display: "block",
+                  margin: "0 auto 6px",
+                  objectFit: "contain",
+                  // Icons are drawn in deep green; on the active (dark) tile
+                  // brighten them to white so they read against the background.
+                  filter: active ? "brightness(0) invert(1)" : undefined,
+                }}
+              />
               <div style={{ fontSize: tileLabelSize, fontWeight: 500 }}>{typ.label}</div>
               {/* Fixed-height meta slot — keeps tile heights constant. */}
               <div
