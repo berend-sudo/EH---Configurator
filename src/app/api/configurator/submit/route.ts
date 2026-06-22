@@ -13,6 +13,7 @@ import { pdfFilename, validateReference } from "@/lib/design-id";
 import {
   HEAR_ABOUT_OPTIONS,
   isClientInfoValid,
+  normalizeMapsUrl,
   type SubmitPayload,
 } from "@/lib/configurator-submit";
 import { roomColorKey, roomDisplayName, type RoomColorKey } from "@/lib/rooms";
@@ -50,6 +51,11 @@ export async function POST(req: NextRequest) {
   // base currency (Uganda / UGX) if the payload arrives without it or with an
   // unknown code — pricing math stays in UGX either way.
   const country = getCountryByCode(payload.country ?? null) ?? BASE_COUNTRY;
+
+  // Re-validate the optional Maps link server-side — never trust the client's
+  // normalisation. null collapses to "" for the sheet/form/email so a junk or
+  // hostile value (e.g. a non-http scheme) never reaches those sinks.
+  const mapsUrl = normalizeMapsUrl(client.mapsUrl) ?? "";
 
   // Re-derive { selection, bedrooms, version } from the file name so a crafted
   // payload can't claim e.g. a 4BR Gable using a Monopitch 0BR DXF.
@@ -152,6 +158,7 @@ export async function POST(req: NextRequest) {
       reference,
       generatedDate,
       client: { name: client.name, email: client.email },
+      mapsUrl,
       dimensions: { widthM, lengthM, footprintM2 },
       indicativeBudgetUgx: budget.coreTotal,
       rooms: roomBreakdown,
@@ -171,6 +178,7 @@ export async function POST(req: NextRequest) {
       label,
       bedrooms: actualBedrooms,
       reference,
+      mapsUrl,
       pdf,
       pdfFilename: pdfName,
     });
@@ -229,6 +237,7 @@ export async function POST(req: NextRequest) {
     pdfName,
     pdfDriveLink,
     payload.source ?? "",
+    mapsUrl,
   ];
   // "How did you hear about us?" carries a free-text answer when the user
   // picked "Other" — its value is then NOT one of the enumerated options.
@@ -267,6 +276,7 @@ export async function POST(req: NextRequest) {
     pdfFilename: pdfName,
     pdfDriveLink,
     source: payload.source ?? "",
+    mapsUrl,
   };
 
   const [sheetRes, formRes] = await Promise.allSettled([

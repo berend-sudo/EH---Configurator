@@ -15,6 +15,10 @@ export interface SendDesignEmailInput {
    *  without parsing the label string. */
   bedrooms: number;
   reference: string;
+  /** Optional, already-normalised Google Maps share link. Rendered as a
+   *  clickable line in the body so the sales team can open the client's
+   *  pinned plot directly; omitted when empty. */
+  mapsUrl?: string;
   pdf: Buffer;
   pdfFilename: string;
 }
@@ -60,6 +64,7 @@ function bodyText(i: SendDesignEmailInput): string {
     "",
     "Our sales team will be in touch shortly to walk you through the next steps. We can't wait to help bring it to life.",
     "",
+    ...(i.mapsUrl ? [`Pinned project location: ${i.mapsUrl}`, ""] : []),
     `Reference: ${i.reference}`,
     "",
     "A home for everyone,",
@@ -120,6 +125,11 @@ export function bodyHtml(i: SendDesignEmailInput, hasLogo: boolean): string {
                 Our sales team will be in touch shortly to walk you through the next steps.
                 We can't wait to help bring it to life.
               </p>
+              ${
+                i.mapsUrl
+                  ? `<p style="${para}">Pinned project location: <a href="${escapeHtml(i.mapsUrl)}" style="color:${GREEN};font-weight:600;">View on Google Maps</a></p>`
+                  : ""
+              }
               <p style="${ref}">Reference: ${escapeHtml(i.reference)}</p>
             </td>
           </tr>

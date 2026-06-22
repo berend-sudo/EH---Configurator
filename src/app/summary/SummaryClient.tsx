@@ -26,9 +26,11 @@ import {
   HEAR_ABOUT_OPTIONS,
   HEAR_ABOUT_OTHER,
   LAND_FUNDS_OPTIONS,
+  MAPS_URL_HELP,
   PROJECT_TYPE_OPTIONS,
   TIMELINE_OPTIONS,
   isClientInfoValid,
+  normalizeMapsUrl,
   type SubmitPayload,
 } from "@/lib/configurator-submit";
 import { checkPhone } from "@/lib/contact-checks";
@@ -163,6 +165,7 @@ function FinalScreen({ initialPlans }: { initialPlans: FloorPlanEntry[] }) {
   const [phone, setPhone] = useState("");
   const [timeline, setTimeline] = useState("");
   const [country, setCountry] = useState("");
+  const [mapsUrl, setMapsUrl] = useState("");
   const [projectType, setProjectType] = useState("");
   const [hearAbout, setHearAbout] = useState("");
   // Free-text shown when "Other" is picked; the submitted hearAbout value
@@ -179,6 +182,15 @@ function FinalScreen({ initialPlans }: { initialPlans: FloorPlanEntry[] }) {
   // warnings appear as the user finishes typing — relying on blur alone is
   // fragile (autofill / submit-without-tab-out skip it).
   const phoneCheck = useMemo(() => checkPhone(phone), [phone]);
+  // Optional Maps link — warn (never block) when a non-empty value doesn't
+  // look like a Google Maps URL. The submit stays allowed either way.
+  const mapsUrlWarning = useMemo(
+    () =>
+      mapsUrl.trim() !== "" && normalizeMapsUrl(mapsUrl) === null
+        ? "That doesn't look like a Google Maps link — paste one from google.com/maps or the Maps app's Share button."
+        : null,
+    [mapsUrl],
+  );
   const [emailWarning, setEmailWarning] = useState<string | null>(null);
   const [emailChecking, setEmailChecking] = useState(false);
 
@@ -244,6 +256,9 @@ function FinalScreen({ initialPlans }: { initialPlans: FloorPlanEntry[] }) {
       hearAbout: effectiveHearAbout,
       landFunds,
       newsletter,
+      // Pasted Google Maps link, normalised; "" when empty/invalid so the
+      // server stores nothing rather than a junk string. Never gates submit.
+      mapsUrl: normalizeMapsUrl(mapsUrl) ?? "",
       agreed,
     };
     if (!isClientInfoValid(client)) return;
@@ -316,6 +331,7 @@ function FinalScreen({ initialPlans }: { initialPlans: FloorPlanEntry[] }) {
         phone={phone} setPhone={setPhone}
         timeline={timeline} setTimeline={setTimeline}
         country={country} setCountry={setCountry}
+        mapsUrl={mapsUrl} setMapsUrl={setMapsUrl}
         projectType={projectType} setProjectType={setProjectType}
         hearAbout={hearAbout} setHearAbout={setHearAbout}
         hearAboutOther={hearAboutOther} setHearAboutOther={setHearAboutOther}
@@ -323,6 +339,7 @@ function FinalScreen({ initialPlans }: { initialPlans: FloorPlanEntry[] }) {
         newsletter={newsletter} setNewsletter={setNewsletter}
         agreed={agreed} setAgreed={setAgreed}
         phoneWarning={phone.trim().length >= 6 ? phoneCheck.warning : null}
+        mapsUrlWarning={mapsUrlWarning}
         emailWarning={emailWarning}
         emailChecking={emailChecking}
         canGenerate={canGenerate}
@@ -603,6 +620,27 @@ function FinalScreen({ initialPlans }: { initialPlans: FloorPlanEntry[] }) {
                   onChange={(e) => setCountry(e.target.value)}
                 />
               </div>
+              <div className="field" style={{ gridColumn: "1 / -1" }}>
+                <label htmlFor="eh-maps">Google Maps location (optional)</label>
+                <input
+                  id="eh-maps"
+                  type="url"
+                  inputMode="url"
+                  autoComplete="off"
+                  placeholder="Paste a Google Maps link…"
+                  value={mapsUrl}
+                  onChange={(e) => setMapsUrl(e.target.value)}
+                />
+                {mapsUrlWarning ? (
+                  <p style={{ fontSize: 12, color: "var(--eh-warning)", margin: "2px 0 0" }}>
+                    {mapsUrlWarning}
+                  </p>
+                ) : (
+                  <p style={{ fontSize: 12, color: "var(--eh-text-soft)", margin: "2px 0 0" }}>
+                    {MAPS_URL_HELP}
+                  </p>
+                )}
+              </div>
               <div className="field">
                 {/* Option list confirmed with the team: own home / second
                     home / rent out / tourism / other. Edit the canonical
@@ -878,6 +916,7 @@ interface MobileSummaryProps {
   phone: string; setPhone: (s: string) => void;
   timeline: string; setTimeline: (s: string) => void;
   country: string; setCountry: (s: string) => void;
+  mapsUrl: string; setMapsUrl: (s: string) => void;
   projectType: string; setProjectType: (s: string) => void;
   hearAbout: string; setHearAbout: (s: string) => void;
   hearAboutOther: string; setHearAboutOther: (s: string) => void;
@@ -885,6 +924,7 @@ interface MobileSummaryProps {
   newsletter: boolean; setNewsletter: (b: boolean) => void;
   agreed: boolean; setAgreed: (b: boolean) => void;
   phoneWarning: string | null;
+  mapsUrlWarning: string | null;
   emailWarning: string | null;
   emailChecking: boolean;
   canGenerate: boolean;
@@ -898,10 +938,10 @@ function MobileSummary(props: MobileSummaryProps) {
     label, bedrooms, widthMm, lengthMm, plan, budgetUgx,
     footprintM2, selection, reference, name, setName, email, setEmail,
     phone, setPhone, timeline, setTimeline, country, setCountry,
-    projectType, setProjectType, hearAbout, setHearAbout,
+    mapsUrl, setMapsUrl, projectType, setProjectType, hearAbout, setHearAbout,
     hearAboutOther, setHearAboutOther, landFunds, setLandFunds,
     newsletter, setNewsletter, agreed, setAgreed, phoneWarning,
-    emailWarning, emailChecking, canGenerate, submit, onSubmit, onBack,
+    mapsUrlWarning, emailWarning, emailChecking, canGenerate, submit, onSubmit, onBack,
   } = props;
   const router = useRouter();
 
@@ -1038,6 +1078,21 @@ function MobileSummary(props: MobileSummaryProps) {
             <input id="m-loc" type="text" autoComplete="country-name"
               placeholder="e.g. Kampala, Uganda" value={country}
               onChange={(e) => setCountry(e.target.value)} />
+          </div>
+          <div className="field">
+            <label htmlFor="m-maps">Google Maps location (optional)</label>
+            <input id="m-maps" type="url" inputMode="url" autoComplete="off"
+              placeholder="Paste a Google Maps link…" value={mapsUrl}
+              onChange={(e) => setMapsUrl(e.target.value)} />
+            {mapsUrlWarning ? (
+              <p style={{ fontSize: 12, color: "var(--eh-warning)", margin: "2px 0 0" }}>
+                {mapsUrlWarning}
+              </p>
+            ) : (
+              <p style={{ fontSize: 12, color: "var(--eh-text-soft)", margin: "2px 0 0" }}>
+                {MAPS_URL_HELP}
+              </p>
+            )}
           </div>
           <div className="field">
             {/* Mirrors the desktop form; options come from the canonical

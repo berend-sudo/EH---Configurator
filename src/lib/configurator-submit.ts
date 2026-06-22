@@ -14,6 +14,48 @@ export type Timeline = (typeof TIMELINE_OPTIONS)[number];
 
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// Help copy shown under the optional Google Maps field — telling people *how*
+// to get the link is what makes the field actually get used.
+export const MAPS_URL_HELP =
+  "Optional. Open Google Maps, find your plot, tap Share → Copy link, and paste it here.";
+
+// Accepts the many shapes a Google Maps link can take (long
+// /maps/place/…@lat,lng URLs, maps.google.* hosts, and the short share links
+// goo.gl/maps, maps.app.goo.gl, g.co) and returns a cleaned absolute URL, or
+// null when the value isn't a plausible Maps link. Loose by design: we link
+// the URL straight through to the PDF, email and leads sheet and never parse
+// coordinates out of it, so an opaque short link is as good as a long one.
+// Two guarantees matter downstream:
+//   - only http(s) schemes pass, so a pasted `javascript:` payload can't reach
+//     the email HTML; and
+//   - a normalised value always starts with a protocol, so it can never be
+//     read as a formula when written to a Google Sheets cell.
+export function normalizeMapsUrl(raw: string | null | undefined): string | null {
+  const trimmed = (raw ?? "").trim();
+  if (trimmed === "") return null;
+  const tryUrl = (s: string): URL | null => {
+    try {
+      return new URL(s);
+    } catch {
+      return null;
+    }
+  };
+  // People paste "maps.google.com/…" without a scheme — retry with https://
+  // when the value doesn't already carry one.
+  let url = tryUrl(trimmed);
+  if (!url && !/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)) url = tryUrl(`https://${trimmed}`);
+  if (!url) return null;
+  if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+  const host = url.hostname.toLowerCase();
+  const isGoogleHost =
+    /(^|\.)google\.[a-z.]+$/.test(host) || // google.com, www.google.com, maps.google.co.uk …
+    host === "goo.gl" ||
+    host === "maps.app.goo.gl" ||
+    host === "g.co";
+  if (!isGoogleHost) return null;
+  return url.toString();
+}
+
 // Single source of truth for the opener line on every "design ready"
 // surface (email body, PDF cover, confirmation screen). Edit here once.
 export const DESIGN_OPENER = "Congratulations — you've designed your dream home!";
@@ -76,6 +118,13 @@ export interface ClientInfo {
   hearAbout: string;
   landFunds: string;
   newsletter: boolean;
+  /**
+   * Optional Google Maps share link the client pasted for their plot /
+   * project location. Validated loosely via `normalizeMapsUrl` and linked
+   * through to the PDF, email and leads sheet. Optional — it never gates
+   * submission, so it's intentionally absent from `isClientInfoValid`.
+   */
+  mapsUrl?: string;
 }
 
 export interface DesignPayloadSelection {

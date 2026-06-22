@@ -13,6 +13,7 @@ import {
   Rect,
   Circle,
   Image,
+  Link,
   Font,
   StyleSheet,
   renderToBuffer,
@@ -78,6 +79,10 @@ export interface DesignPdfData {
   reference: string;
   generatedDate: string;
   client: { name: string; email: string };
+  /** Optional, already-normalised Google Maps share link the client pasted
+   *  for their plot. Rendered as a clickable link on the cover; omitted
+   *  entirely when empty. */
+  mapsUrl?: string;
   dimensions: { widthM: number; lengthM: number; footprintM2: number };
   /**
    * Single source-of-truth indicative budget in UGX — the same figure the
@@ -677,6 +682,18 @@ function CoverPage(d: DesignPdfData) {
             <Text style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>Generated {d.generatedDate}</Text>
           </View>
         </View>
+
+        {d.mapsUrl ? (
+          <View style={{ marginTop: 16 }} wrap={false}>
+            <Text style={styles.eyebrow}>PROJECT LOCATION</Text>
+            <Link
+              src={d.mapsUrl}
+              style={{ fontSize: 11, fontWeight: 600, color: C.green700, marginTop: 4, textDecoration: "none" }}
+            >
+              View pinned location on Google Maps →
+            </Link>
+          </View>
+        ) : null}
       </View>
 
       <PageFooter left="A home for everyone, Easy Housing" right="1 / 3" />
