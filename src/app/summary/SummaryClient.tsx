@@ -464,7 +464,7 @@ function FinalScreen({ initialPlans }: { initialPlans: FloorPlanEntry[] }) {
               }}
             >
               We&apos;ll generate a PDF overview and send it to you. Bring it along when you meet our
-              architects.
+              sales team.
             </p>
 
             {/* Deep-green summary card */}
@@ -836,7 +836,7 @@ function ThankYouPanel() {
           margin: 0,
         }}
       >
-        We&apos;ve emailed your design to you, and an architect will be in touch
+        We&apos;ve emailed your design to you, and our sales team will be in touch
         within a couple of working days.
       </p>
       <p

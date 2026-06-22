@@ -168,7 +168,7 @@ export default function LandingScreen({ plans }: Props) {
                 marginInline: "auto",
               }}
             >
-              Three quick choices — we&apos;ll generate a floor plan and a transparent budget you can share with our architects.
+              Three quick choices — we&apos;ll generate a floor plan and a transparent budget you can share with our sales team.
             </p>
           </div>
 

@@ -56,9 +56,9 @@ function bodyText(i: SendDesignEmailInput): string {
   return [
     greetingOf(i.name),
     "",
-    `${DESIGN_OPENER} We loved helping you design your ${i.label}, attached here as a PDF. Bring it to your meeting with our architects — it's the perfect starting point for the conversation.`,
+    `${DESIGN_OPENER} We loved helping you design your ${i.label}, attached here as a PDF. Bring it to your meeting with our sales team — it's the perfect starting point for the conversation.`,
     "",
-    "One of our architects will be in touch shortly to walk you through the next steps. We can't wait to help bring it to life.",
+    "Our sales team will be in touch shortly to walk you through the next steps. We can't wait to help bring it to life.",
     "",
     `Reference: ${i.reference}`,
     "",
@@ -114,10 +114,10 @@ export function bodyHtml(i: SendDesignEmailInput, hasLogo: boolean): string {
               <p style="${para}">
                 ${escapeHtml(DESIGN_OPENER)} We loved helping you design your
                 <span style="${name}">${escapeHtml(i.label)}</span>, attached here as a PDF.
-                Bring it to your meeting with our architects — it's the perfect starting point for the conversation.
+                Bring it to your meeting with our sales team — it's the perfect starting point for the conversation.
               </p>
               <p style="${para}">
-                One of our architects will be in touch shortly to walk you through the next steps.
+                Our sales team will be in touch shortly to walk you through the next steps.
                 We can't wait to help bring it to life.
               </p>
               <p style="${ref}">Reference: ${escapeHtml(i.reference)}</p>
