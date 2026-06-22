@@ -14,23 +14,39 @@ import type { TypologyId } from "./typologies";
 const BRAND_BASE = "/brand/";
 
 export const BRAND_IMAGES = {
+  // Full per-typology photo pools (random samplers draw from these). The
+  // monopitch/gable shots are named by the model they depict
+  // (<subtype>-<bedrooms>-<n>); the curated TYPOLOGY_PHOTO_SETS below pick the
+  // closest match per selection. Drop a new shot in public/brand/, add it
+  // here (and to a set below) — this is the only edit point.
   typology: {
     monopitch: [
-      "monopitch1.jpg",
-      "monopitch2.jpg",
-      "monopitch3.jpg",
-      "monopitch4.jpg",
-      "monopitch5.jpg",
-      "monopitch6.jpg",
+      "monopitch-studio-1.jpg",
+      "monopitch-studio-2.jpg",
+      "monopitch-studio-3.jpg",
+      "monopitch-1br-1.jpg",
+      "monopitch-1br-2.jpg",
+      "monopitch-1br-3.jpg",
+      "monopitch-2br-1.jpg",
+      "monopitch-2br-2.jpg",
+      "monopitch-2br-3.jpg",
+      "monopitch-3br-1.jpg",
+      "monopitch-3br-2.jpg",
+      "monopitch-3br-3.jpg",
     ],
     gable: [
-      "gable1.jpg",
-      "gable2.jpg",
-      "gable3.jpg",
-      "gable4.jpg",
-      "gable5.jpg",
-      "gable6.jpg",
-      "gable7.jpg",
+      "gable-compact-1.jpg",
+      "gable-compact-2.jpg",
+      "gable-compact-3.jpg",
+      "gable-standard-1br-1.jpg",
+      "gable-standard-1br-2.jpg",
+      "gable-standard-1br-3.jpg",
+      "gable-standard-3br-1.jpg",
+      "gable-standard-3br-2.jpg",
+      "gable-standard-3br-3.jpg",
+      "gable-large-3br-1.jpg",
+      "gable-large-3br-2.jpg",
+      "gable-large-3br-3.jpg",
     ],
     aframe: [
       "aframe1.jpg",
@@ -63,44 +79,84 @@ export const BRAND_IMAGES = {
 
 const webSrc = (file: string) => BRAND_BASE + file;
 
-// ── Curated typology photo set (P1/P2) ─────────────────────────────────────
-// Exactly three full-home photos per typology, shown 1:1 with the selected
-// model rather than rotating from the broader pool. The configurator's
-// PhotoCollage reads from here so a selected model always shows photos of
-// THAT model — no random fallback, no detail crops.
-//
-// TODO(curation): the three filenames below are placeholders pulled from
-// the existing pool. The marketing team needs to confirm which three
-// uncropped, full-home shots best represent each model (and ideally a
-// per-subtype override for Gable / A-frame / Clerestory) before launch.
-// Subtype-level curation lives in `bySubtype` once provided; until then
-// every subtype of a typology shares the typology's three shots.
-export const TYPOLOGY_PHOTOS: Record<
-  TypologyId,
-  { photos: readonly [string, string, string]; bySubtype?: Record<string, readonly [string, string, string]> }
-> = {
-  monopitch: {
-    photos: ["monopitch1.jpg", "monopitch2.jpg", "monopitch3.jpg"],
-  },
-  gable: {
-    photos: ["gable1.jpg", "gable2.jpg", "gable3.jpg"],
-  },
-  aframe: {
-    photos: ["aframe1.jpg", "aframe2.jpg", "aframe3.jpg"],
-  },
-  clerestory: {
-    photos: ["clerestory1.jpg", "clerestory2.jpg", "clerestory3.jpg"],
-  },
+// ── Curated typology photo sets (P1/P2) ────────────────────────────────────
+// Three full-home photos shown 1:1 with the selected model rather than
+// rotating from the broader pool, so a selection always shows photos of THAT
+// model — no detail crops. Sets are tagged with the model they depict
+// (subtype + bedroom count); `pickPhotoSet` resolves a selection to the
+// closest set with a pickPlan-style fallback:
+//   exact subtype + nearest bedrooms → any set in the typology.
+// A `subtype`/`bedrooms` left undefined means "represents any" (e.g.
+// A-frame and Clerestory, whose new photos aren't model-split yet).
+export interface TypologyPhotoSet {
+  /** Subtype id this set depicts; omit when it stands in for any subtype. */
+  subtype?: string;
+  /** Bedroom count this set depicts; omit when it stands in for any count. */
+  bedrooms?: number;
+  photos: readonly [string, string, string];
+}
+
+export const TYPOLOGY_PHOTO_SETS: Record<TypologyId, readonly TypologyPhotoSet[]> = {
+  monopitch: [
+    { bedrooms: 0, photos: ["monopitch-studio-1.jpg", "monopitch-studio-2.jpg", "monopitch-studio-3.jpg"] },
+    { bedrooms: 1, photos: ["monopitch-1br-1.jpg", "monopitch-1br-2.jpg", "monopitch-1br-3.jpg"] },
+    { bedrooms: 2, photos: ["monopitch-2br-1.jpg", "monopitch-2br-2.jpg", "monopitch-2br-3.jpg"] },
+    { bedrooms: 3, photos: ["monopitch-3br-1.jpg", "monopitch-3br-2.jpg", "monopitch-3br-3.jpg"] },
+  ],
+  gable: [
+    { subtype: "compact", photos: ["gable-compact-1.jpg", "gable-compact-2.jpg", "gable-compact-3.jpg"] },
+    { subtype: "standard", bedrooms: 1, photos: ["gable-standard-1br-1.jpg", "gable-standard-1br-2.jpg", "gable-standard-1br-3.jpg"] },
+    { subtype: "standard", bedrooms: 3, photos: ["gable-standard-3br-1.jpg", "gable-standard-3br-2.jpg", "gable-standard-3br-3.jpg"] },
+    { subtype: "large", bedrooms: 3, photos: ["gable-large-3br-1.jpg", "gable-large-3br-2.jpg", "gable-large-3br-3.jpg"] },
+  ],
+  // A-frame / Clerestory: no model-split photos yet — one set stands in for
+  // every subtype/bedroom count until per-model shots arrive.
+  aframe: [
+    { photos: ["aframe1.jpg", "aframe2.jpg", "aframe3.jpg"] },
+  ],
+  clerestory: [
+    { photos: ["clerestory1.jpg", "clerestory2.jpg", "clerestory3.jpg"] },
+  ],
 };
 
 /**
- * Three curated photos as web srcs for a given selection. Subtype override
- * wins when present; otherwise the typology's three shots are returned.
+ * Resolve a selection to its closest curated photo set. Mirrors pickPlan's
+ * tiering: a set whose subtype matches (or is unscoped) wins over a mismatch,
+ * then the nearest bedroom count breaks the tie.
  */
-export function typologyPhotosFor(typology: TypologyId, subtype?: string | null): string[] {
-  const entry = TYPOLOGY_PHOTOS[typology];
-  const set = (subtype && entry.bySubtype?.[subtype]) || entry.photos;
-  return set.map(webSrc);
+export function pickPhotoSet(
+  typology: TypologyId,
+  subtype?: string | null,
+  bedrooms?: number | null,
+): readonly [string, string, string] {
+  const sets = TYPOLOGY_PHOTO_SETS[typology];
+  let best = sets[0];
+  let bestScore = Infinity;
+  for (const set of sets) {
+    // Subtype tier: exact match or unscoped set beats a different subtype.
+    const subTier = set.subtype == null || set.subtype === subtype ? 0 : 1;
+    // Bedroom distance within the tier (unknown on either side = neutral).
+    const brDist =
+      set.bedrooms == null || bedrooms == null ? 0.5 : Math.abs(set.bedrooms - bedrooms);
+    const score = subTier * 1000 + brDist;
+    if (score < bestScore) {
+      bestScore = score;
+      best = set;
+    }
+  }
+  return best.photos;
+}
+
+/**
+ * Three curated photos as web srcs for a given selection, matched to the
+ * model's subtype and bedroom count where model-specific shots exist.
+ */
+export function typologyPhotosFor(
+  typology: TypologyId,
+  subtype?: string | null,
+  bedrooms?: number | null,
+): string[] {
+  return pickPhotoSet(typology, subtype, bedrooms).map(webSrc);
 }
 
 export const typologyPhoto = (typology: TypologyId, i = 0): string => {

@@ -8,15 +8,17 @@ interface Props {
   typology: TypologyId;
   /** Subtype id, used to pick a subtype-specific photo set when curated. */
   subtype?: string | null;
+  /** Bedroom count, used to pick the closest model-specific photo set. */
+  bedrooms?: number | null;
 }
 
-export default function PhotoCollage({ typology, subtype }: Props) {
+export default function PhotoCollage({ typology, subtype, bedrooms }: Props) {
   const label = TYPOLOGIES[typology].label;
 
   // Fixed 1:1 set of three curated photos for the selected model (P1/P2).
   // No rotation, no random fallback — the photos always represent the
-  // model the user picked.
-  const imgs = typologyPhotosFor(typology, subtype);
+  // model the user picked (subtype + bedroom count).
+  const imgs = typologyPhotosFor(typology, subtype, bedrooms);
 
   return (
     <div key={typology} className="eh-photo-collage">

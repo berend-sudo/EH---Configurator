@@ -332,9 +332,11 @@ src/
     design-id.ts              Reference helpers shared client+server.
     rooms.ts                  Room-counting helpers used by UI.
     brand-images.ts           Brand photo metadata + the curated
-                              TYPOLOGY_PHOTOS map (typology / subtype →
-                              exactly 3 full-home photos) that drives
-                              the configurator collage and the PDF.
+                              TYPOLOGY_PHOTO_SETS (model-tagged trios of
+                              full-home photos). pickPhotoSet resolves a
+                              selection to the closest set (subtype +
+                              nearest bedroom count, pickPlan-style); drives
+                              the configurator collage, summary recap, PDF.
     server/
       design-pdf.tsx          react-pdf 3-page template.
       email.ts                Resend wrapper.
@@ -362,8 +364,9 @@ design_handoff_eh_configurator/
 scripts/
   gen-legal-pdfs.mjs          Generates the placeholder legal PDFs.
   compress-brand-images.py    Resamples public/brand/*.jpg to a web
-                              ceiling (2000 px, q82). Run after dropping
-                              new brand photos.
+                              ceiling (2000 px, q82), baking in EXIF
+                              orientation. Run after dropping new brand
+                              photos; pass filenames to compress only those.
 archive/                      Old experiments — do not import from here.
 ```
 

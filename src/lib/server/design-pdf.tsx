@@ -626,7 +626,7 @@ function CoverPage(d: DesignPdfData) {
   // Cover uses the curated set's first frame (the canonical "hero" shot
   // for this model), same source the spec ribbon below draws from, so
   // the imagery story is consistent across the brief.
-  const coverPhoto = typologyPhotoFilesFor(d.typology, d.subtype)[0];
+  const coverPhoto = typologyPhotoFilesFor(d.typology, d.subtype, d.bedrooms)[0];
   return (
     <Page size="A4" style={{ ...styles.page, paddingBottom: FOOTER_HEIGHT }} wrap={false}>
       <View style={{ backgroundColor: C.green900, paddingVertical: 24, paddingHorizontal: 36, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
@@ -758,7 +758,7 @@ function SpecPage(d: DesignPdfData) {
   // a random furniture/interior pool which could surface unappealing detail
   // crops (e.g. a toilet close-up) as the closing image; the ribbon now
   // shows finished-home shots that match the typology the client picked.
-  const ribbon = typologyPhotoFilesFor(d.typology, d.subtype);
+  const ribbon = typologyPhotoFilesFor(d.typology, d.subtype, d.bedrooms);
   return (
     <Page size="A4" style={{ ...styles.page, paddingTop: 28, paddingHorizontal: 36, paddingBottom: FOOTER_HEIGHT }} wrap={false}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }} wrap={false}>

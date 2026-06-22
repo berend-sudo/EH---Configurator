@@ -971,7 +971,7 @@ function MobileSummary(props: MobileSummaryProps) {
   // Curated hero shot (P1/P2) — same set the configurator collage and
   // the PDF cover read from, so the model the user picked is the model
   // shown back to them here.
-  const recapPhoto = typologyPhotosFor(selection.typology, selection.subtype)[0];
+  const recapPhoto = typologyPhotosFor(selection.typology, selection.subtype, bedrooms)[0];
   const typologyLabel = TYPOLOGIES[selection.typology].label;
 
   return (
