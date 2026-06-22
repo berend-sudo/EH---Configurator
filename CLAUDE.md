@@ -240,7 +240,10 @@ On Generate PDF the page POSTs the entire design. The server:
 4. **Archives to Drive** (`src/lib/server/drive.ts`) — best-effort,
    multipart upload, scope `drive.file`.
 5. **Logs to the leads Sheet** (`src/lib/server/sheets.ts`,
-   Sheets v4).
+   Sheets v4). `LEADS_HEADER` is the locked column order — the row builder
+   in the submit route must stay in sync, and new columns are **appended**
+   (the sheet self-heals its header on the next write; inserting mid-row
+   would misalign historical rows).
 6. **Submits to the existing price-list Google Form**
    (`src/lib/server/forms.ts`, urlencoded POST to `formResponse`) so
    configurator leads land in the same workflow the team already
@@ -457,8 +460,13 @@ mirrored to `src/app/eh-tokens.css`.
 - `view: "plan" | "images"`, `showMezzanine` — local to the
   configurator.
 - `clientInfo: { name, email, phone, timeline, country, projectType,
-  hearAbout, consent }` — local to `/summary`; posted to
-  `/api/configurator/submit` on Generate PDF.
+  hearAbout, landFunds, newsletter, mapsUrl?, consent }` — local to
+  `/summary`; posted to `/api/configurator/submit` on Generate PDF.
+  `mapsUrl` is an **optional** pasted Google Maps share link, validated
+  loosely via `normalizeMapsUrl` (any `google.*` / `goo.gl` /
+  `maps.app.goo.gl` / `g.co` http(s) URL, short share links included) and
+  linked through to the PDF cover, the email, the leads Sheet and the
+  Form. It never gates submission.
 - Country selection — persisted in `localStorage`
   (`eh_country`/`eh_currency`/`eh_fx_ugx_per_unit`). `useCountryGuard()`
   redirects to `/country` if missing.
