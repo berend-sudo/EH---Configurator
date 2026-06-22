@@ -59,8 +59,8 @@ export interface Typology {
   label: string;
   /** 3-letter DXF code, e.g. "GBL". */
   code: string;
-  /** SVG path (viewBox 0 0 56 32) for the picker tile icon. */
-  iconPath: string;
+  /** 3D line-art icon (PNG under public/brand/) for the picker tile. */
+  iconImage: string;
   /** Minimum bedrooms this typology supports. Only Monopitch allows 0. */
   minBedrooms: number;
   /**
@@ -89,7 +89,7 @@ export const TYPOLOGIES: Record<TypologyId, Typology> = {
   monopitch: {
     label: "Monopitch",
     code: "MNP",
-    iconPath: "M 6 28 L 6 14 L 50 6 L 50 28 Z",
+    iconImage: "/brand/typology-3d-line-monopitch.png",
     minBedrooms: 0, // supports a 0-bedroom (studio) layout (so does A-frame)
     basePrice: 26_000_000, // PLACEHOLDER
     dims: {
@@ -109,7 +109,7 @@ export const TYPOLOGIES: Record<TypologyId, Typology> = {
   gable: {
     label: "Gable",
     code: "GBL",
-    iconPath: "M 6 28 L 6 16 L 28 6 L 50 16 L 50 28 Z",
+    iconImage: "/brand/typology-3d-line-gable.png",
     minBedrooms: 1,
     basePrice: 0,
     dims: null,
@@ -176,8 +176,8 @@ export const TYPOLOGIES: Record<TypologyId, Typology> = {
   aframe: {
     label: "A-frame",
     code: "AFR",
-    // No front/back eaves; steep 60° sides. Simple peaked triangle.
-    iconPath: "M 6 28 L 28 6 L 50 28 Z",
+    // No front/back eaves; steep 60° sides.
+    iconImage: "/brand/typology-3d-line-aframe.png",
     // A-frame also supports a 0-bedroom (studio) layout — confirmed by the
     // EH_AFR-SML_0BR plan. So Monopitch is no longer the *only* studio.
     // Typology floor = min across subtypes (0, from Small). Normal/Large
@@ -237,7 +237,7 @@ export const TYPOLOGIES: Record<TypologyId, Typology> = {
   clerestory: {
     label: "Clerestory",
     code: "CLR",
-    iconPath: "M 6 28 L 6 9 L 24 6 L 24 14 L 50 19 L 50 28 Z",
+    iconImage: "/brand/typology-3d-line-clerestory.png",
     minBedrooms: 1,
     basePrice: 0,
     dims: null,
