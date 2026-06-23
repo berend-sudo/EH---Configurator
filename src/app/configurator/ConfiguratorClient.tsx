@@ -98,11 +98,13 @@ function ConfiguratorScreen({
   const bounds = budgetBounds(priceIndex, currency);
   const sliderMin = Math.floor(bounds.min / budgetStep) * budgetStep;
   const sliderMax = Math.ceil(bounds.max / budgetStep) * budgetStep;
+  // Mid-range default (matches the landing) when no ?budget= is present.
+  const sliderDefault = Math.round((sliderMin + sliderMax) / 2 / budgetStep) * budgetStep;
   const [budget, setBudget] = useState<number | null>(() => {
     const n = budgetParam != null ? Number(budgetParam) : NaN;
     return Number.isFinite(n) && n > 0 ? n : null;
   });
-  const budgetValue = budget ?? sliderMax;
+  const budgetValue = budget ?? sliderDefault;
 
   useEffect(() => {
     if (!planFile) return;

@@ -54,8 +54,11 @@ export default function LandingScreen({ plans, priceIndex }: Props) {
   const bounds = budgetBounds(priceIndex, currency);
   const sliderMin = Math.floor(bounds.min / budgetStep) * budgetStep;
   const sliderMax = Math.ceil(bounds.max / budgetStep) * budgetStep;
+  // Open mid-range until the user drags, so the slider starts at a realistic
+  // budget (some of the catalog reachable, some not) rather than the extreme.
+  const sliderDefault = Math.round((sliderMin + sliderMax) / 2 / budgetStep) * budgetStep;
   const [budget, setBudget] = useState<number | null>(null);
-  const budgetValue = budget ?? sliderMax;
+  const budgetValue = budget ?? sliderDefault;
   const [bedrooms, setBedrooms] = useState(2);
   const initialSelection = useMemo<Selection>(
     () => resolveAvailableSelection(plans, { typology: "monopitch", subtype: null })
