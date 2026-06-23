@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { FloorplanJSON } from "@/types/floorplan";
 import FloorplanSVG from "@/components/FloorplanSVG";
 import EHNavBar from "@/components/EHNavBar";
+import BudgetDisclosure from "@/components/BudgetDisclosure";
 import { pickPlan, type FloorPlanEntry } from "@/lib/floor-plans";
 import { useFloorPlans } from "@/lib/useFloorPlans";
 import { calculateBudget, countRooms } from "@/lib/budget";
@@ -530,6 +531,11 @@ function FinalScreen({ initialPlans }: { initialPlans: FloorPlanEntry[] }) {
               </div>
             </div>
 
+            {/* What the indicative budget includes, and what's quoted separately. */}
+            <div style={{ marginBottom: 32 }}>
+              <BudgetDisclosure terms />
+            </div>
+
             {/* Form fields */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
               <div className="field" style={{ gridColumn: "1 / -1" }}>
@@ -1015,6 +1021,9 @@ function MobileSummary(props: MobileSummaryProps) {
           <div className="eh-summary-mobile__budget-row">
             <span className="eh-summary-mobile__budget-label">Indicative budget</span>
             <span className="eh-summary-mobile__budget-value">{fmtLocal(Math.round(budgetLocal))}</span>
+          </div>
+          <div style={{ padding: "12px 18px 16px" }}>
+            <BudgetDisclosure terms />
           </div>
         </section>
 

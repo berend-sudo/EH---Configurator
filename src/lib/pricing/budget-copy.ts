@@ -9,15 +9,17 @@ import type { QuotationItem } from "./engine";
 /** Short paragraph for the configurator card and the /summary screen. */
 export const BUDGET_BLURB_SHORT =
   "This is an indicative budget for your complete Easy Home, covering the " +
-  "structure, paintwork, and the electrical and plumbing installations, " +
-  "together with architecture and engineering. It is calculated live from " +
-  "your chosen typology, floor area, and layout.";
+  "structure, interior partitions, doors and windows, paintwork, any terrace " +
+  "in your plan, and the electrical and plumbing installations, together with " +
+  "architecture and engineering. It is calculated live from your chosen " +
+  "typology, floor area, and layout.";
 
 /** Opening sentence for the PDF (currency interpolated by the caller). */
 export function budgetBlurbPdfIntro(currencyCode: string): string {
   return (
     `This figure is an indicative budget for your complete Easy Home, in ${currencyCode}. ` +
-    "It covers the basic structure, paintwork, and the electrical and plumbing " +
+    "It covers the basic structure, interior partitions, doors and windows, " +
+    "paintwork, any terrace in your plan, and the electrical and plumbing " +
     "installations, together with the architecture and engineering for your " +
     "chosen typology, floor area, and layout."
   );
@@ -33,9 +35,9 @@ export function excludedBullets(items: QuotationItem[]): string[] {
 }
 
 export const BUDGET_TERMS =
-  "Optional extras such as terraces, railings, pergolas, and ramps are also " +
-  "quoted on request. All prices include VAT and are valid for one month. No " +
-  "rights can be derived from this indicative budget; your final price is " +
-  "confirmed in our written quotation.";
+  "Optional extras such as railings, pergolas, and ramps are quoted on " +
+  "request. All prices include VAT and are valid for one month. No rights can " +
+  "be derived from this indicative budget; your final price is confirmed in " +
+  "our written quotation.";
 
 export const BUDGET_SIGNOFF = "A home for everyone, Easy Housing.";

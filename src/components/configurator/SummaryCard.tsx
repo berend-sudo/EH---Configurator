@@ -1,5 +1,5 @@
 import { fmtLocal } from "@/lib/countries";
-import { BUDGET_BLURB_SHORT } from "@/lib/pricing/budget-copy";
+import BudgetDisclosure from "@/components/BudgetDisclosure";
 
 interface Props {
   footprintM2: number;
@@ -72,9 +72,7 @@ export default function SummaryCard({ footprintM2, livingM2, terraceM2, mezzanin
           {fmtLocal(budgetLocal)}
         </div>
       </div>
-      <p style={{ fontSize: 11, lineHeight: 1.5, color: "var(--eh-text-soft)", margin: "10px 0 0" }}>
-        {BUDGET_BLURB_SHORT}
-      </p>
+      <BudgetDisclosure />
     </div>
   );
 }
