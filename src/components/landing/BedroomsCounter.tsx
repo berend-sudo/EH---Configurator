@@ -22,6 +22,9 @@ export default function BedroomsCounter({ value, options, onChange }: Props) {
   const atMin = idx <= 0;
   const atMax = idx >= opts.length - 1;
   const showMaxHint = max < 4;
+  // A 0-bedroom cap means the only buildable home is a studio — "max 0" reads
+  // as broken, so name it directly.
+  const maxHint = max === 0 ? "studio for this budget" : `max ${max} for this budget`;
 
   return (
     <div>
@@ -39,7 +42,7 @@ export default function BedroomsCounter({ value, options, onChange }: Props) {
         </span>
         {showMaxHint && (
           <span style={{ fontSize: 11, color: "var(--eh-text-soft)", fontWeight: 500 }}>
-            max {max} for this budget
+            {maxHint}
           </span>
         )}
       </div>
