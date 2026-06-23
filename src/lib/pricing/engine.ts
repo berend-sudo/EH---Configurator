@@ -26,6 +26,17 @@ import type { CountryRate, TypologyRate } from "./price-book-types";
 
 export type PricingCurrency = "UGX" | "KES";
 
+// The published catalogue (Catalogue Prices 2026, cells P/Q) lists the Full
+// Easy Home Price with a 3% standard-model discount applied — verified against
+// the workbook: catalogue P (Uganda) = list price × 0.97 and Q (Kenya) =
+// list price × 0.97 for every catalogued model. The "Price Calc" sheet this
+// engine ports does NOT include the discount (it's applied downstream in the
+// Catalogue tab), so we apply it here so the indicative budget matches the
+// price list the team actually quotes from. It flows through every surface
+// that reads `total`: the configurator card, the summary, the PDF, AND the
+// affordability budget-slider bounds (via server/price-index.ts).
+export const CATALOGUE_DISCOUNT = 0.03;
+
 export interface BudgetLine {
   label: string;
   amount: number;
@@ -191,7 +202,13 @@ export function computeBudget(input: BudgetInput): BudgetResult {
     { label: "Engineering", amount: engineering },
   ];
 
-  const total = lines.reduce((sum, l) => sum + l.amount, 0);
+  // Apply the catalogue's 3% standard-model discount to the Full Easy Home
+  // Price. Shown as an explicit line so the breakdown still sums to `total`.
+  const subtotal = lines.reduce((sum, l) => sum + l.amount, 0);
+  const discount = -subtotal * CATALOGUE_DISCOUNT;
+  lines.push({ label: "Catalogue discount (3%)", amount: discount });
+
+  const total = subtotal + discount;
 
   return {
     currency,
