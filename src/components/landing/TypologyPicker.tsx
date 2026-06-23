@@ -20,6 +20,29 @@ import {
   type FloorPlanEntry,
 } from "@/lib/floor-plans";
 
+// Lucide `lock` glyph, inlined (no runtime dep) — the single "over budget"
+// affordance shared by tiles and chips. Inherits `currentColor` so it tints to
+// whatever the surrounding text uses.
+function LockIcon({ size = 12 }: { size?: number }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
+  );
+}
+
 type Props = {
   selection: Selection;
   onChange: (sel: Selection) => void;
@@ -153,11 +176,10 @@ export default function TypologyPicker({
           const active = id === selection.typology;
           const affordable = typAvail[id];
           const disabled = !affordable && !active;
-          // Depth on the tile only for typologies without subtypes (Monopitch).
+          // Depth on the tile only for typologies without subtypes (Monopitch);
+          // over-budget tiles show a lock glyph (see the meta slot) instead.
           const meta = !typ.subtypes
             ? depthLabel({ typology: id, subtype: null })
-            : disabled
-            ? "Needs more budget"
             : "";
           return (
             <button
@@ -199,7 +221,8 @@ export default function TypologyPicker({
                 }}
               />
               <div style={{ fontSize: tileLabelSize, fontWeight: 500 }}>{typ.label}</div>
-              {/* Fixed-height meta slot — keeps tile heights constant. */}
+              {/* Fixed-height meta slot — keeps tile heights constant. Shows the
+                  depth label (Monopitch) or a lock glyph when over budget. */}
               <div
                 style={{
                   height: metaH,
@@ -210,9 +233,12 @@ export default function TypologyPicker({
                   color: active ? "var(--eh-green-200)" : "var(--eh-text-soft)",
                   lineHeight: `${metaH}px`,
                   overflow: "hidden",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}
               >
-                {meta}
+                {disabled ? <LockIcon /> : meta}
               </div>
             </button>
           );
@@ -286,11 +312,15 @@ export default function TypologyPicker({
                   font: "inherit",
                 }}
               >
+                {disabled && (
+                  <span style={{ alignSelf: "center", display: "inline-flex" }}>
+                    <LockIcon size={11} />
+                  </span>
+                )}
                 <span
                   style={{
                     fontSize: chipLabelSize,
                     fontWeight: active ? 600 : 500,
-                    textDecoration: disabled ? "line-through" : "none",
                   }}
                 >
                   {sub.label}

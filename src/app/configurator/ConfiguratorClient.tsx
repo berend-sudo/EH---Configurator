@@ -18,6 +18,7 @@ import MobileTopBar from "@/components/mobile/MobileTopBar";
 import MobileSliderRow from "@/components/mobile/MobileSliderRow";
 import MobileBudgetSlider from "@/components/mobile/MobileBudgetSlider";
 import TypologyPicker from "@/components/landing/TypologyPicker";
+import BudgetReach from "@/components/BudgetReach";
 import {
   pickPlan,
   availableBedrooms,
@@ -390,6 +391,12 @@ function ConfiguratorScreen({
             min={sliderMin}
             max={sliderMax}
             step={budgetStep}
+          />
+          <BudgetReach
+            priceIndex={priceIndex}
+            currency={currency}
+            budget={budgetValue}
+            selection={selection}
           />
 
           {/* Dimensions */}
@@ -888,6 +895,12 @@ function MobileConfigurator({
           min={budgetMin}
           max={budgetMax}
           step={budgetStep}
+        />
+        <BudgetReach
+          priceIndex={priceIndex}
+          currency={currency}
+          budget={budget}
+          selection={selection}
         />
 
         <div className="eh-configurator-mobile__typology-wrap">

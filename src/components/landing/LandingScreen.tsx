@@ -10,6 +10,7 @@ import BudgetSlider from "./BudgetSlider";
 import MobileBudgetSlider from "@/components/mobile/MobileBudgetSlider";
 import BedroomsCounter from "./BedroomsCounter";
 import TypologyPicker from "./TypologyPicker";
+import BudgetReach from "@/components/BudgetReach";
 import {
   selectionLabel,
   selectionToParams,
@@ -196,13 +197,21 @@ export default function LandingScreen({ plans, priceIndex }: Props) {
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 36, marginBottom: 32 }}>
-            <BudgetSlider
-              value={budgetValue}
-              onChange={setBudget}
-              min={sliderMin}
-              max={sliderMax}
-              step={budgetStep}
-            />
+            <div>
+              <BudgetSlider
+                value={budgetValue}
+                onChange={setBudget}
+                min={sliderMin}
+                max={sliderMax}
+                step={budgetStep}
+              />
+              <BudgetReach
+                priceIndex={priceIndex}
+                currency={currency}
+                budget={budgetValue}
+                selection={selection}
+              />
+            </div>
             <BedroomsCounter value={bedrooms} onChange={setBedrooms} options={bedroomOptions} />
           </div>
           <TypologyPicker
@@ -349,6 +358,12 @@ function MobileLandingScreen({
             min={budgetMin}
             max={budgetMax}
             step={budgetStep}
+          />
+          <BudgetReach
+            priceIndex={priceIndex}
+            currency={currency}
+            budget={budget}
+            selection={selection}
           />
         </section>
 
