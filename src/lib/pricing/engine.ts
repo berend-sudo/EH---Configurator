@@ -10,6 +10,7 @@
 // The result is the workbook's "Full Easy Home Price" (Price Calc E82/G82):
 //   basic structure (GFA × per-m² rate)
 //   + structure add-ons (interior doors, partitions, ext. doors/windows, stairs)
+//   + additional options (terrace)
 //   + services & overheads (electricity, plumbing, architecture, engineering)
 //   + distance charge (only > 100 km)
 //
@@ -61,6 +62,8 @@ export interface BudgetInput {
   partitionsM?: number;
   interiorDoors?: number;
   extDoorWindowM2?: number;
+  /** Terrace area (m²) — priced as the workbook's "Terrace" additional option. */
+  terraceM2?: number;
   extraStairs?: number;
   distanceKm?: number;
 }
@@ -142,6 +145,7 @@ export function computeBudget(input: BudgetInput): BudgetResult {
   const partitionsM = input.partitionsM ?? 0;
   const interiorDoors = input.interiorDoors ?? 0;
   const extDoorWindowM2 = input.extDoorWindowM2 ?? 0;
+  const terraceM2 = input.terraceM2 ?? 0;
   const extraStairs = input.extraStairs ?? 0;
   const distanceKm = input.distanceKm ?? 0;
 
@@ -149,6 +153,7 @@ export function computeBudget(input: BudgetInput): BudgetResult {
   const interiorDoorsAmt = interiorDoors * pick(PRICE_BOOK.addons.interiorDoor, currency);
   const partitionsAmt = partitionsM * pick(PRICE_BOOK.addons.partition, currency);
   const extDoorWindowAmt = extDoorWindowM2 * pick(PRICE_BOOK.addons.extDoorWindow, currency);
+  const terraceAmt = terraceM2 * pick(PRICE_BOOK.options.terrace, currency);
   const extraStairsAmt = extraStairs * pick(PRICE_BOOK.addons.extraStair, currency);
 
   const electricity = ugxC
@@ -177,6 +182,7 @@ export function computeBudget(input: BudgetInput): BudgetResult {
     { label: "Interior doors", amount: interiorDoorsAmt },
     { label: "Partition walls", amount: partitionsAmt },
     { label: "Exterior doors & windows", amount: extDoorWindowAmt },
+    ...(terraceAmt > 0 ? [{ label: "Terrace", amount: terraceAmt }] : []),
     ...(extraStairsAmt > 0 ? [{ label: "Extra staircase", amount: extraStairsAmt }] : []),
     ...(distanceCharge > 0 ? [{ label: "Distance charge", amount: distanceCharge }] : []),
     { label: "Electrical installation", amount: electricity },

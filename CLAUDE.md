@@ -157,9 +157,14 @@ The sync script is a *gate*: it refuses to regenerate if the Price Calc
 labels sit in their expected rows, and re-checks that the extracted
 rates reproduce the workbook's own cached Full Easy Home Price. **Never
 hand-edit `price-book.generated.ts` or paste a cost constant into the
-UI.** Structure add-on quantities the 3-step flow doesn't capture
-(partitions, interior doors, exterior doors/windows) default to the
-workbook's quick-estimate rules in `engine.ts::estimateAddons`.
+UI.** Most structure quantities are now **measured from the DXF** in
+`budget.ts::countRooms`: interior doors (count of `Doors`-layer entities),
+exterior doors & windows (glazed openings on the `Windows` layer — an
+opening fronting a `Rooms$Terrace` polygon is a door at 2.4 m, otherwise a
+window at 1.4 m), and the terrace area (priced as the workbook's "Terrace"
+option). **Partition length stays a quick estimate** (`0.3 × GFA`,
+`engine.ts::estimateAddons`) — walls are filled polygons with no centerline,
+so partition meterage can't be read off the drawing reliably.
 
 `MEZZANINE_COST` and `BEDROOM_COST` (in `typologies.ts`) remain explicit
 placeholders for the **landing** affordability model only. **Do not
