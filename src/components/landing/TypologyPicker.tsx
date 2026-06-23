@@ -176,11 +176,11 @@ export default function TypologyPicker({
           const active = id === selection.typology;
           const affordable = typAvail[id];
           const disabled = !affordable && !active;
-          // Depth on the tile only for typologies without subtypes (Monopitch);
-          // over-budget tiles show a lock glyph (see the meta slot) instead.
-          const meta = !typ.subtypes
-            ? depthLabel({ typology: id, subtype: null })
-            : "";
+          // The depth is already shown in the docked subtype strip below (every
+          // typology, incl. Monopitch's "Standard" pseudo-subtype), so the tile
+          // itself carries no depth label — the meta slot only surfaces a lock
+          // glyph when the tile is over budget.
+          const meta = "";
           return (
             <button
               key={id}
@@ -221,8 +221,8 @@ export default function TypologyPicker({
                 }}
               />
               <div style={{ fontSize: tileLabelSize, fontWeight: 500 }}>{typ.label}</div>
-              {/* Fixed-height meta slot — keeps tile heights constant. Shows the
-                  depth label (Monopitch) or a lock glyph when over budget. */}
+              {/* Fixed-height meta slot — keeps tile heights constant. Shows a
+                  lock glyph when the tile is over budget. */}
               <div
                 style={{
                   height: metaH,
