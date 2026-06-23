@@ -1,4 +1,5 @@
-import { fmtMoney } from "@/lib/countries";
+import { fmtLocal } from "@/lib/countries";
+import { BUDGET_BLURB_SHORT } from "@/lib/pricing/budget-copy";
 
 interface Props {
   footprintM2: number;
@@ -6,7 +7,8 @@ interface Props {
   terraceM2: number;
   /** Mezzanine area (m²) when the plan has one. Renders nothing when 0. */
   mezzanineM2: number;
-  budgetUgx: number;
+  /** Indicative budget, already in the active country's currency. */
+  budgetLocal: number;
 }
 
 function Row({ label, value, sub }: { label: string; value: string; sub?: string }) {
@@ -35,7 +37,7 @@ function Row({ label, value, sub }: { label: string; value: string; sub?: string
 
 const fmtArea = (n: number) => `${n.toFixed(2)} m²`;
 
-export default function SummaryCard({ footprintM2, livingM2, terraceM2, mezzanineM2, budgetUgx }: Props) {
+export default function SummaryCard({ footprintM2, livingM2, terraceM2, mezzanineM2, budgetLocal }: Props) {
   return (
     <div
       style={{
@@ -67,9 +69,12 @@ export default function SummaryCard({ footprintM2, livingM2, terraceM2, mezzanin
             fontVariantNumeric: "tabular-nums",
           }}
         >
-          {fmtMoney(budgetUgx)}
+          {fmtLocal(budgetLocal)}
         </div>
       </div>
+      <p style={{ fontSize: 11, lineHeight: 1.5, color: "var(--eh-text-soft)", margin: "10px 0 0" }}>
+        {BUDGET_BLURB_SHORT}
+      </p>
     </div>
   );
 }

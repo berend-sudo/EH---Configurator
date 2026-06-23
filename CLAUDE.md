@@ -128,16 +128,42 @@ There are **two** budget surfaces with different roles:
 1. **Landing affordability** uses the **placeholder** `basePrice +
    BEDROOM_COST` model in `typologies.ts`. These figures are flagged
    `PLACEHOLDER` and exist only so the affordability UI can grey out
-   unreachable tiles. **Do not treat them as authoritative.**
-2. **Configurator indicative budget** is computed live from the loaded
-   DXF in `src/lib/budget.ts`: `countRooms()` → `calculateBudget()`,
-   using per-m² rates from the "Price Calc" sheet (rows 87–92). This is
-   the number shown in the configurator's summary card and on the PDF.
+   unreachable tiles. **Do not treat them as authoritative.** The
+   landing budget slider still displays the user's budget in local
+   currency via `fmtMoney` (UGX → FX), since it's the user's own budget,
+   not our quote.
+2. **Configurator indicative budget** is the team's real sales price.
+   The logic lives in `src/lib/pricing/engine.ts` — a faithful port of
+   the **"Price Calc"** sheet in the *Easy Housing Calculation Template*
+   (Full Easy Home Price: basic structure + structure add-ons + services
+   + distance). All **numbers** come from
+   `src/lib/pricing/price-book.generated.ts`, regenerated from the
+   workbook by `npm run sync-pricing -- docs/<workbook>.xlsx`.
+   `budget.ts` is now a thin adapter: `countRooms()` (DXF geometry) →
+   `calculateBudget(rooms, selection, country)` → engine. This is the
+   number shown in the configurator card, the `/summary` page and the
+   PDF.
 
-`MEZZANINE_COST` and `BEDROOM_COST` are explicit TODO placeholders. **Do
-not invent values for them** and **do not paste any cost constant into
-the UI** — always read the helpers in `typologies.ts` (Landing) or
-compute live via `budget.ts` (configurator/PDF).
+**Pricing is per-country NATIVE.** Uganda reads the UGX column, Kenya
+the KES column — Kenya is **never** UGX ÷ FX. Engine output is already
+in the active currency: format it with **`fmtLocal`** (not `fmtMoney`,
+which converts UGX → local). The only FX use is the documented fallback
+for a KES cell the workbook leaves blank (engine `pickRate`).
+
+**Updating prices = upload a new workbook + `npm run sync-pricing`.**
+The sync script is a *gate*: it refuses to regenerate if the Price Calc
+*formulas* changed (formula-snapshot tripwire) until you review
+`engine.ts` and pass `--accept-formula-changes`, validates that typology
+labels sit in their expected rows, and re-checks that the extracted
+rates reproduce the workbook's own cached Full Easy Home Price. **Never
+hand-edit `price-book.generated.ts` or paste a cost constant into the
+UI.** Structure add-on quantities the 3-step flow doesn't capture
+(partitions, interior doors, exterior doors/windows) default to the
+workbook's quick-estimate rules in `engine.ts::estimateAddons`.
+
+`MEZZANINE_COST` and `BEDROOM_COST` (in `typologies.ts`) remain explicit
+placeholders for the **landing** affordability model only. **Do not
+invent values for them.**
 
 ---
 
@@ -212,11 +238,14 @@ is present, so prices never flash in the wrong currency.
 
 - `src/lib/countries.ts` is the registry. Adding a country = one entry
   in `COUNTRIES` plus a flag image; everything else flows from there.
-- **All pricing math stays in UGX everywhere.** `fmtMoney(ugxAmount)`
-  is the only place a UGX figure is converted into a localised
-  `CODE 1,234,567` string. Conversion uses a fixed `ugxPerUnit` per
-  country, rounded to the currency's `displayRound` step to avoid
-  false-precision tails.
+- **Two money paths.** (1) The **indicative budget** is computed
+  per-country NATIVE by the pricing engine (UGX or KES, from the
+  workbook) and displayed with **`fmtLocal`** — no FX. (2) Everything
+  else that's genuinely UGX-based (the landing budget slider, the gate's
+  FX example) stays in UGX and is converted for display by
+  **`fmtMoney(ugxAmount)`** using a fixed `ugxPerUnit`, rounded to the
+  currency's `displayRound`. Don't run engine output through `fmtMoney`
+  (double conversion) or UGX figures through `fmtLocal`.
 - `BASE_COUNTRY` is Uganda (`ugxPerUnit = 1`).
 - Country selection is **one-way** in the UX (the gate says "you can't
   change this later"). If you find yourself building a "change country
@@ -320,8 +349,14 @@ src/
     floor-plan-scan.ts        Server-only scan of public/floorplans/.
     dxf-parser.ts             DXF → typed JSON.
     dxf/stitch-segments.ts    LINE/SPLINE → closed polylines.
-    budget.ts                 Geometry-based indicative budget.
-    countries.ts              Country/currency registry + fmtMoney.
+    budget.ts                 DXF room/area counting + adapter to the engine.
+    pricing/
+      engine.ts               Indicative-budget engine — port of Price Calc.
+      price-book.generated.ts GENERATED rates (npm run sync-pricing).
+      price-book-types.ts     Shape of the generated price book.
+      formula-snapshot.json   Price Calc formula fingerprint (drift gate).
+      budget-copy.ts          Qualitative budget description (summary + PDF).
+    countries.ts              Country/currency registry + fmtMoney / fmtLocal.
     use-active-country.ts     useCountryGuard / useActiveCountry.
     useFloorPlans.ts          Client hook for /api/floor-plans.
     configurator-submit.ts    Shared submit payload + EMAIL_RE.
@@ -383,9 +418,10 @@ The DXF must follow the layer convention in `src/lib/dxf-parser.ts`
 
 ## Hard rules (do not violate without asking)
 
-- **Currency math is in UGX everywhere.** Display goes through
-  `fmtMoney()` in `src/lib/countries.ts`. Never hardcode `UGX `,
-  `KES `, `€`, `$`, etc.
+- **Money goes through `fmtLocal` (native engine budget) or `fmtMoney`
+  (UGX-based figures) in `src/lib/countries.ts`** — never hardcode
+  `UGX `, `KES `, `€`, `$`, etc. The indicative budget is native
+  per-country (Kenya = native KES, never UGX ÷ FX).
 - **Text color is `var(--eh-text)` (`#003B2B`), never `#000`.**
 - **One CTA per screen** in `var(--eh-green)`. Secondary actions use
   the ghost variant.
@@ -497,12 +533,19 @@ mirrored to `src/app/eh-tokens.css`.
   `public/floorplans/`. Do not touch the picker code.
 - **Tweak dimensions** → edit `src/lib/typologies.ts` only. Never
   copy a number into a component.
-- **Tweak pricing rates** → `src/lib/budget.ts` (live budget) and / or
-  the placeholder constants in `src/lib/typologies.ts` (landing
-  affordability). Flag any change to placeholders in the PR.
+- **Tweak pricing rates / use a new price list** → edit the rate cells
+  in the *Calculation Template* workbook, drop the new `.xlsx` in
+  `docs/`, and run `npm run sync-pricing -- docs/<workbook>.xlsx`. Commit
+  the regenerated `price-book.generated.ts`. Never hand-edit the
+  generated file. If the script reports a *formula* change, review
+  `src/lib/pricing/engine.ts` against it before re-running with
+  `--accept-formula-changes`. (Landing affordability placeholders still
+  live in `src/lib/typologies.ts` — flag any change to those in the PR.)
 - **Add a country** → append to `COUNTRIES` in
   `src/lib/countries.ts`; add a flag image under `public/brand/`;
-  extend the gate's `FLAG_SOURCES` map.
+  extend the gate's `FLAG_SOURCES` map. For native pricing it also needs
+  its own column in the workbook + `engine.ts`; absent that, it falls
+  back to the FX-converted UGX figure.
 - **Change visuals** → read
   `design_handoff_eh_configurator/CLAUDE.md` first; obey the brand
   rules; if the spec in `README.md` conflicts with the artboard in

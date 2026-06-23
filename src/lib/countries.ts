@@ -107,15 +107,13 @@ export function setActiveCountry(country: Country): void {
 /**
  * Convert a UGX amount to the local currency, rounded for display.
  *
- * TODO(X1 — Kenya pricing basis): every non-UGX budget shown to a client
- * is derived from this UGX → local conversion using the fixed
- * `ugxPerUnit` rate above. Kim flagged that Kenyan budgets may not
- * reflect real on-the-ground Kenyan build costs (materials, labour,
- * logistics differ). Confirm with the team whether KE should:
- *   (a) keep this UGX-derived figure, or
- *   (b) carry its own per-m² pricing basis (would need its own track
- *       in src/lib/budget.ts and per-country rates).
- * Pricing logic is unchanged here pending that decision.
+ * X1 — Kenya pricing basis (resolved): the configurator's *indicative budget*
+ * no longer derives KES from UGX. It reads native per-country rates from the
+ * team's Calculation Template (see src/lib/pricing) and is already in the
+ * active currency — format it with `fmtLocal`, not this helper. `ugxToLocal` /
+ * `fmtMoney` remain for UGX-based figures that are genuinely converted for
+ * display (e.g. the landing budget slider, which is the user's own budget in
+ * the base currency, and the gate's FX example).
  */
 export function ugxToLocal(ugx: number, country: Country = getActiveCountry()): number {
   const raw = ugx / country.ugxPerUnit;
@@ -124,11 +122,25 @@ export function ugxToLocal(ugx: number, country: Country = getActiveCountry()): 
 }
 
 /**
- * Format a UGX amount as a localised "CODE 1,234,567" string. All callers
- * pass amounts in UGX — the base currency the configurator prices in — and
- * the active country is resolved from localStorage. Pass `country` to
- * override (server code, the gate's FX example).
+ * Format a UGX amount as a localised "CODE 1,234,567" string (UGX → local via
+ * the fixed FX rate). For amounts already in the country's currency (the
+ * indicative budget from the pricing engine), use `fmtLocal` instead.
  */
 export function fmtMoney(ugx: number, country: Country = getActiveCountry()): string {
   return country.currency.code + " " + ugxToLocal(ugx, country).toLocaleString("en-US");
+}
+
+/** Round an amount already in the country's currency to its display step. */
+export function roundLocal(amount: number, country: Country = getActiveCountry()): number {
+  const step = country.currency.displayRound || 1;
+  return Math.round(amount / step) * step;
+}
+
+/**
+ * Format an amount that is ALREADY in the country's currency (e.g. the native
+ * indicative budget from the pricing engine) as "CODE 1,234,567". No FX
+ * conversion — this is the formatter for engine output.
+ */
+export function fmtLocal(amount: number, country: Country = getActiveCountry()): string {
+  return country.currency.code + " " + roundLocal(amount, country).toLocaleString("en-US");
 }

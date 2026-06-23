@@ -6,9 +6,8 @@ import {
   calculateBudget,
   countRooms,
   polygonAreaM2,
-  typologyInfoFor,
 } from "@/lib/budget";
-import { dxfFilename, parseDxfFilename } from "@/lib/typologies";
+import { dxfFilename, parseDxfFilename, selectionLabel } from "@/lib/typologies";
 import { pdfFilename, validateReference } from "@/lib/design-id";
 import {
   HEAR_ABOUT_OPTIONS,
@@ -19,7 +18,7 @@ import { roomColorKey, roomDisplayName, type RoomColorKey } from "@/lib/rooms";
 import { renderDesignPdf } from "@/lib/server/design-pdf";
 import { sendDesignEmail } from "@/lib/server/email";
 import { appendLead } from "@/lib/server/sheets";
-import { BASE_COUNTRY, getCountryByCode, ugxToLocal } from "@/lib/countries";
+import { BASE_COUNTRY, getCountryByCode, roundLocal } from "@/lib/countries";
 import { uploadPdfToBacklog } from "@/lib/server/drive";
 import { GOOGLE_FORM_OTHER, submitToLeadsForm } from "@/lib/server/forms";
 import { makeReference } from "@/lib/server/reference";
@@ -71,8 +70,13 @@ export async function POST(req: NextRequest) {
 
   const delta = Math.min(Math.max(Number(selection.delta) || plan.minDelta, plan.minDelta), plan.maxDelta);
   const rooms = countRooms(plan, delta);
-  const typology = typologyInfoFor(parsedSel);
-  const budget = calculateBudget(rooms, typology);
+  // Budget is computed twice: a canonical UGX figure (for the leads sheet's UGX
+  // column) and the native figure in the client's currency (PDF + local column).
+  // For Uganda the two are identical. Both come from the same engine — Kenya is
+  // native KES, never UGX ÷ FX.
+  const budgetUgx = calculateBudget(rooms, parsedSel, BASE_COUNTRY).total;
+  const budgetLocal = calculateBudget(rooms, parsedSel, country).total;
+  const typologyName = selectionLabel(parsedSel);
 
   const widthM = (plan.baseWidth + delta) / 1000;
   const lengthM = plan.baseDepth / 1000;
@@ -84,7 +88,7 @@ export async function POST(req: NextRequest) {
 
   const dxfName = dxfFilename(parsedSel, parsedBedrooms, parsedVersion);
   const pdfName = pdfFilename(parsedSel, parsedBedrooms, parsedVersion);
-  const label = selection.label || typology.name;
+  const label = selection.label || typologyName;
   const subject = `Your Easy Housing design — ${label}`;
   const generatedDate = new Date().toLocaleDateString("en-GB", {
     day: "numeric",
@@ -153,7 +157,7 @@ export async function POST(req: NextRequest) {
       generatedDate,
       client: { name: client.name, email: client.email },
       dimensions: { widthM, lengthM, footprintM2 },
-      indicativeBudgetUgx: budget.coreTotal,
+      indicativeBudgetLocal: budgetLocal,
       rooms: roomBreakdown,
       country,
     });
@@ -200,9 +204,10 @@ export async function POST(req: NextRequest) {
 
   // ── 3. Sheet + form submission run in parallel — both best-effort ─────────
   // UGX is the canonical figure architects price in; `Indicative budget
-  // (local)` is what the client saw on screen and is rounded to the
-  // currency's display step. Order must match LEADS_HEADER.
-  const indicativeLocal = ugxToLocal(budget.coreTotal, country);
+  // (local)` is what the client saw on screen, already in the country's native
+  // currency (Kenya = native KES, not UGX ÷ FX) and rounded to the display step.
+  // Order must match LEADS_HEADER.
+  const indicativeLocal = roundLocal(budgetLocal, country);
   const newsletterYesNo = client.newsletter ? "Yes" : "No";
   const sheetRow = [
     reference,
@@ -216,13 +221,13 @@ export async function POST(req: NextRequest) {
     client.hearAbout,
     newsletterYesNo,
     client.timeline,
-    typology.name,
+    typologyName,
     parsedSel.subtype ?? "",
     parsedBedrooms,
     widthM.toFixed(2),
     lengthM.toFixed(2),
     footprintM2.toFixed(2),
-    Math.round(budget.coreTotal),
+    Math.round(budgetUgx),
     country.currency.code,
     indicativeLocal,
     dxfName,
@@ -257,7 +262,7 @@ export async function POST(req: NextRequest) {
     widthM: widthM.toFixed(2),
     lengthM: lengthM.toFixed(2),
     footprintM2: footprintM2.toFixed(2),
-    indicativeBudgetUgx: String(Math.round(budget.coreTotal)),
+    indicativeBudgetUgx: String(Math.round(budgetUgx)),
     // Gate country + the local-currency mirror; Wolf maps these logical keys
     // to entry ids when the form questions are wired up.
     countryCode: country.code,

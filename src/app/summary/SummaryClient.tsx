@@ -8,7 +8,7 @@ import FloorplanSVG from "@/components/FloorplanSVG";
 import EHNavBar from "@/components/EHNavBar";
 import { pickPlan, type FloorPlanEntry } from "@/lib/floor-plans";
 import { useFloorPlans } from "@/lib/useFloorPlans";
-import { calculateBudget, countRooms, typologyInfoFor } from "@/lib/budget";
+import { calculateBudget, countRooms } from "@/lib/budget";
 import { typologyPhotosFor } from "@/lib/brand-images";
 import {
   dxfFilename,
@@ -17,7 +17,7 @@ import {
   TYPOLOGIES,
   type Selection,
 } from "@/lib/typologies";
-import { fmtMoney, STORAGE_KEYS } from "@/lib/countries";
+import { fmtLocal, STORAGE_KEYS } from "@/lib/countries";
 import { useCountryGuard } from "@/lib/use-active-country";
 import { useIsMobile } from "@/lib/use-media-query";
 import {
@@ -137,14 +137,13 @@ function FinalScreen({ initialPlans }: { initialPlans: FloorPlanEntry[] }) {
   }, [plan, deltaParam]);
 
   const derived = useMemo(() => {
-    if (!plan) return { footprintM2: 0, budgetUgx: 0 };
+    if (!plan || !activeCountry) return { footprintM2: 0, budgetLocal: 0 };
     const rooms = countRooms(plan, delta);
-    const typology = typologyInfoFor(selection);
     return {
       footprintM2: rooms.gfa + rooms.terraceArea,
-      budgetUgx: calculateBudget(rooms, typology).coreTotal,
+      budgetLocal: calculateBudget(rooms, selection, activeCountry).total,
     };
-  }, [plan, delta, selection]);
+  }, [plan, delta, selection, activeCountry]);
 
   // `entry` is null while the directory scan is in flight; render placeholders
   // until both the registry and the parsed plan are loaded.
@@ -252,7 +251,7 @@ function FinalScreen({ initialPlans }: { initialPlans: FloorPlanEntry[] }) {
     const payload: SubmitPayload = {
       selection: { selection: entry.selection, file: entry.file, delta, version, label },
       bedrooms,
-      budget: derived.budgetUgx,
+      budget: derived.budgetLocal,
       dimensions: {
         widthM: widthMm / 1000,
         lengthM: lengthMm / 1000,
@@ -305,7 +304,7 @@ function FinalScreen({ initialPlans }: { initialPlans: FloorPlanEntry[] }) {
         widthMm={widthMm}
         lengthMm={lengthMm}
         plan={plan}
-        budgetUgx={derived.budgetUgx}
+        budgetLocal={derived.budgetLocal}
         footprintM2={derived.footprintM2}
         selection={selection}
         reference={reference}
@@ -497,7 +496,7 @@ function FinalScreen({ initialPlans }: { initialPlans: FloorPlanEntry[] }) {
                     whiteSpace: "nowrap",
                   }}
                 >
-                  {fmtMoney(Math.round(derived.budgetUgx))}
+                  {fmtLocal(Math.round(derived.budgetLocal))}
                 </div>
               </div>
               <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
@@ -868,7 +867,7 @@ interface MobileSummaryProps {
   widthMm: number;
   lengthMm: number;
   plan: FloorplanJSON | null;
-  budgetUgx: number;
+  budgetLocal: number;
   footprintM2: number;
   selection: Selection;
   reference: string | null;
@@ -895,7 +894,7 @@ interface MobileSummaryProps {
 
 function MobileSummary(props: MobileSummaryProps) {
   const {
-    label, bedrooms, widthMm, lengthMm, plan, budgetUgx,
+    label, bedrooms, widthMm, lengthMm, plan, budgetLocal,
     footprintM2, selection, reference, name, setName, email, setEmail,
     phone, setPhone, timeline, setTimeline, country, setCountry,
     projectType, setProjectType, hearAbout, setHearAbout,
@@ -982,7 +981,7 @@ function MobileSummary(props: MobileSummaryProps) {
           </div>
           <div className="eh-summary-mobile__budget-row">
             <span className="eh-summary-mobile__budget-label">Indicative budget</span>
-            <span className="eh-summary-mobile__budget-value">{fmtMoney(Math.round(budgetUgx))}</span>
+            <span className="eh-summary-mobile__budget-value">{fmtLocal(Math.round(budgetLocal))}</span>
           </div>
         </section>
 

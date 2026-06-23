@@ -26,10 +26,17 @@ import type {
   Vertex,
 } from "@/types/floorplan";
 import type { RoomColorKey } from "@/lib/rooms";
-import { BASE_COUNTRY, fmtMoney, type Country } from "@/lib/countries";
+import { fmtLocal, type Country } from "@/lib/countries";
 import { TYPOLOGIES, type TypologyId } from "@/lib/typologies";
 import { FURNITURE_CAVEAT } from "@/lib/configurator-submit";
 import { typologyPhotoFilesFor } from "@/lib/server/brand-images";
+import { PRICE_BOOK } from "@/lib/pricing/price-book.generated";
+import {
+  budgetBlurbPdfIntro,
+  BUDGET_EXCLUDED_INTRO,
+  excludedBullets,
+  BUDGET_TERMS,
+} from "@/lib/pricing/budget-copy";
 
 // ── Brand tokens (mirrors eh-tokens.css) ───────────────────────────────────
 const C = {
@@ -80,17 +87,17 @@ export interface DesignPdfData {
   client: { name: string; email: string };
   dimensions: { widthM: number; lengthM: number; footprintM2: number };
   /**
-   * Single source-of-truth indicative budget in UGX — the same figure the
-   * user saw in the configurator (calculateBudget(...).coreTotal). Printed
+   * Single source-of-truth indicative budget, ALREADY in the active country's
+   * native currency — the same figure the user saw in the configurator
+   * (calculateBudget(...).total). Kenya is native KES, not UGX ÷ FX. Printed
    * once on the cover and once on the spec page; no derived totals.
    */
-  indicativeBudgetUgx: number;
+  indicativeBudgetLocal: number;
   rooms: { name: string; areaM2: number; colorKey: RoomColorKey }[];
   /**
-   * Country picked at the gate. Drives the primary money column on the spec
-   * sheet + the headline budget on the cover. The UGX equivalent is still
-   * shown in small print on the cover so architects can cross-check against
-   * the source-of-truth figure.
+   * Country picked at the gate. Drives the money column on the spec sheet and
+   * the headline budget on the cover; the budget figure is already in this
+   * country's currency.
    */
   country: Country;
 }
@@ -652,16 +659,8 @@ function CoverPage(d: DesignPdfData) {
         </Text>
         <Text style={{ ...styles.h1, marginTop: 6 }}>{d.label}</Text>
         <Text style={{ fontSize: 12, color: C.muted, marginTop: 6 }}>
-          {bedroomDescriptor(d.bedrooms)} · Footprint {d.dimensions.footprintM2.toFixed(2)} m² · Indicative budget {fmtMoney(d.indicativeBudgetUgx, d.country)}
+          {bedroomDescriptor(d.bedrooms)} · Footprint {d.dimensions.footprintM2.toFixed(2)} m² · Indicative budget {fmtLocal(d.indicativeBudgetLocal, d.country)}
         </Text>
-        {d.country.code !== BASE_COUNTRY.code && (
-          // UGX equivalent in small print — architects price in UGX, the
-          // client saw the local figure on screen. Both belong on the
-          // build file.
-          <Text style={{ fontSize: 9, color: C.muted, marginTop: 4 }}>
-            ≈ {fmtMoney(d.indicativeBudgetUgx, BASE_COUNTRY)} at 1 {d.country.currency.code} ≈ {d.country.ugxPerUnit} UGX
-          </Text>
-        )}
 
         <View style={{ height: 1, backgroundColor: C.stroke, marginVertical: 18 }} />
 
@@ -780,13 +779,33 @@ function SpecPage(d: DesignPdfData) {
           <Text style={styles.eyebrow}>INDICATIVE BUDGET</Text>
           {d.dimensions.footprintM2 > 0 && (
             <Text style={{ fontSize: 9, color: C.muted, marginTop: 4 }}>
-              ≈ {fmtMoney(Math.round(d.indicativeBudgetUgx / d.dimensions.footprintM2), d.country)} / m² ·
+              ≈ {fmtLocal(Math.round(d.indicativeBudgetLocal / d.dimensions.footprintM2), d.country)} / m² ·
               {" "}{d.dimensions.footprintM2.toFixed(1)} m² footprint
             </Text>
           )}
         </View>
         <Text style={{ fontSize: 22, fontWeight: 600, color: C.green900, fontFamily: FONT_BOLD }}>
-          {fmtMoney(d.indicativeBudgetUgx, d.country)}
+          {fmtLocal(d.indicativeBudgetLocal, d.country)}
+        </Text>
+      </View>
+
+      {/* About this budget — what's included, and what's priced separately.
+          The excluded list is generated from the workbook's quotation items. */}
+      <View wrap={false} style={{ marginTop: 14 }}>
+        <Text style={styles.eyebrow}>ABOUT THIS BUDGET</Text>
+        <Text style={{ fontSize: 9, color: C.muted, marginTop: 5, lineHeight: 1.45 }}>
+          {budgetBlurbPdfIntro(d.country.currency.code)}
+        </Text>
+        <Text style={{ fontSize: 9, color: C.muted, marginTop: 6, lineHeight: 1.45 }}>
+          {BUDGET_EXCLUDED_INTRO}
+        </Text>
+        {excludedBullets(PRICE_BOOK.quotationItems).map((b, i) => (
+          <Text key={i} style={{ fontSize: 9, color: C.muted, marginTop: 2, lineHeight: 1.4 }}>
+            •  {b}
+          </Text>
+        ))}
+        <Text style={{ fontSize: 9, color: C.muted, marginTop: 6, lineHeight: 1.45 }}>
+          {BUDGET_TERMS}
         </Text>
       </View>
 

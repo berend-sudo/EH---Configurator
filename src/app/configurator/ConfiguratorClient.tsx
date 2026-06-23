@@ -27,8 +27,8 @@ import {
 } from "@/lib/floor-plans";
 import { useFloorPlans } from "@/lib/useFloorPlans";
 import { useCountryGuard } from "@/lib/use-active-country";
-import { calculateBudget, countRooms, typologyInfoFor } from "@/lib/budget";
-import { fmtMoney } from "@/lib/countries";
+import { calculateBudget, countRooms } from "@/lib/budget";
+import { fmtLocal } from "@/lib/countries";
 import { roomDisplayName } from "@/lib/rooms";
 import { useIsMobile, useMediaQuery, usePrefersReducedMotion } from "@/lib/use-media-query";
 import { FURNITURE_CAVEAT } from "@/lib/configurator-submit";
@@ -117,14 +117,13 @@ function ConfiguratorScreen({ initialPlans }: { initialPlans: FloorPlanEntry[] }
   }, [planFile]);
 
   const derived = useMemo(() => {
-    if (!plan) {
-      return { rooms: null, budgetUgx: 0 };
+    if (!plan || !country) {
+      return { rooms: null, budgetLocal: 0 };
     }
     const rooms = countRooms(plan, delta);
-    const typology = typologyInfoFor(selection);
-    const budgetUgx = calculateBudget(rooms, typology).coreTotal;
-    return { rooms, budgetUgx };
-  }, [plan, delta, selection]);
+    const budgetLocal = calculateBudget(rooms, selection, country).total;
+    return { rooms, budgetLocal };
+  }, [plan, delta, selection, country]);
 
   const widthMm = plan ? plan.baseWidth + delta : 0;
   const footprintM2 = derived.rooms ? derived.rooms.gfa + derived.rooms.terraceArea : 0;
@@ -251,7 +250,7 @@ function ConfiguratorScreen({ initialPlans }: { initialPlans: FloorPlanEntry[] }
         showFallbackNotice={showFallbackNotice}
         servedLabel={servedLabel}
         roomsBreakdown={derived.rooms}
-        budgetUgx={derived.budgetUgx}
+        budgetLocal={derived.budgetLocal}
         plans={plans}
         onChangeBedrooms={(n) => updateParams({ bedrooms: n })}
         onChangeSelection={(s) => updateParams({ selection: s })}
@@ -398,7 +397,7 @@ function ConfiguratorScreen({ initialPlans }: { initialPlans: FloorPlanEntry[] }
             livingM2={livingM2}
             terraceM2={terraceM2}
             mezzanineM2={mezzanineM2}
-            budgetUgx={derived.budgetUgx}
+            budgetLocal={derived.budgetLocal}
           />
 
           {/* CTAs */}
@@ -609,7 +608,7 @@ interface MobileConfiguratorProps {
   showFallbackNotice: boolean;
   servedLabel: string | null;
   roomsBreakdown: ReturnType<typeof countRooms> | null;
-  budgetUgx: number;
+  budgetLocal: number;
   plans: FloorPlanEntry[] | null;
   onChangeBedrooms: (n: number) => void;
   onChangeSelection: (s: Selection) => void;
@@ -660,7 +659,7 @@ function MobileConfigurator({
   showFallbackNotice,
   servedLabel,
   roomsBreakdown,
-  budgetUgx,
+  budgetLocal,
   plans,
   onChangeBedrooms,
   onChangeSelection,
@@ -794,7 +793,7 @@ function MobileConfigurator({
           </span>
           <span className="eh-configurator-mobile__peek-divider" aria-hidden>·</span>
           <span className="eh-configurator-mobile__peek-stat">
-            <strong>{fmtMoney(Math.round(budgetUgx))}</strong> indicative
+            <strong>{fmtLocal(Math.round(budgetLocal))}</strong> indicative
           </span>
         </div>
 

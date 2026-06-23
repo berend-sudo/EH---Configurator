@@ -1,23 +1,23 @@
 import type { FloorplanJSON, Vertex } from "@/types/floorplan";
-import { selectionLabel, type Selection, type TypologyId } from "@/lib/typologies";
+import type { Selection } from "@/lib/typologies";
+import type { Country } from "@/lib/countries";
+import {
+  computeBudget,
+  estimateAddons,
+  type BudgetResult,
+  type PricingCurrency,
+} from "@/lib/pricing/engine";
 
-// Rates from the "Price Calc" sheet (Typology Calculator, rows 87-92).
-// Gables price ~9% cheaper per m² than Mono Pitch / Clerestory.
-// A Frame has no published rate in the Excel — falls back to Mono Pitch.
-const RATE_MONO_PITCH  = 1_228_500;
-const RATE_GABLE       = 1_123_500;
-const RATE_CLERESTORY  = 1_228_500;
-const RATE_A_FRAME     = 1_228_500; // placeholder, no Excel rate
+export type { BudgetResult, BudgetLine } from "@/lib/pricing/engine";
 
-const ELEC_BASE        = 1_500_000;
-const ELEC_PER_SQM     =    50_000;
-const PLUMB_BASE       =   500_000;
-const PLUMB_PER_BATH   = 1_000_000;
-const PLUMB_PER_SQM    =    20_000;
-const TILE_PER_BATH    =   960_000; // 80,000 × 12
-const SANITARY_PER_BATH = 2_300_000;
-const KITCHEN_BASE     = 2_000_000;
-const KITCHEN_PER_UNIT =   500_000;
+// ----------------------------------------------------------------------------
+// Geometry → indicative budget.
+//
+// The pricing logic + rates now live in src/lib/pricing (a faithful port of the
+// team's Calculation Template, with numbers synced from the workbook). This
+// module keeps the DXF-side helpers — room/area counting from the parsed plan —
+// and adapts them into the engine's inputs.
+// ----------------------------------------------------------------------------
 
 // Mirrors FloorplanSVG.tsx — duplicated to avoid importing from a component file.
 export function polygonAreaM2(verts: Vertex[], delta: number): number {
@@ -29,30 +29,6 @@ export function polygonAreaM2(verts: Vertex[], delta: number): number {
     a += xi * verts[j].y - xj * verts[i].y;
   }
   return Math.abs(a) / 2 / 1_000_000;
-}
-
-export interface TypologyInfo {
-  name: string;
-  sqmRate: number;
-  detected: boolean; // reserved: always true now that typology comes from the Selection
-}
-
-// Per-typology m² rate, keyed by the new typology ids. The geometry-based
-// indicative budget reads its rate from the user's Selection (the plan
-// filenames no longer encode the typology).
-export const RATE_BY_TYPOLOGY: Record<TypologyId, number> = {
-  monopitch: RATE_MONO_PITCH,
-  gable: RATE_GABLE,
-  aframe: RATE_A_FRAME,
-  clerestory: RATE_CLERESTORY,
-};
-
-export function typologyInfoFor(sel: Selection): TypologyInfo {
-  return {
-    name: selectionLabel(sel),
-    sqmRate: RATE_BY_TYPOLOGY[sel.typology],
-    detected: true,
-  };
 }
 
 export interface CountRoomsResult {
@@ -90,53 +66,36 @@ export function countRooms(plan: FloorplanJSON, delta: number): CountRoomsResult
   return { gfa, terraceArea, bedrooms, bathrooms, kitchens, mezzanineAreaM2 };
 }
 
-// Mezzanine pricing hook — the single place a mezzanine surcharge could be
-// applied. Defaults to 0 (no-op) until the team gives a number; never invent
-// one. If a mezzanine is "already in the base plan price", leave at 0.
-// TODO(pricing): replace with the confirmed mezzanine surcharge.
-export const MEZZANINE_COST = 0;
-export function mezzanineSurcharge(plan: FloorplanJSON): number {
-  return plan.mezzanine ? MEZZANINE_COST : 0;
+/** Map the active country to the pricing engine's native currency. */
+export function pricingCurrencyFor(country: Country): PricingCurrency {
+  return country.code === "KE" ? "KES" : "UGX";
 }
 
-export interface BudgetLineItem { label: string; amount: number; }
-
-export interface BudgetResult {
-  typology: TypologyInfo;
-  lines: { core: BudgetLineItem[]; optional: BudgetLineItem[]; };
-  coreTotal: number;
-  grandTotal: number;
-}
-
-export function calculateBudget(rooms: CountRoomsResult, typology: TypologyInfo): BudgetResult {
-  const { gfa, bathrooms, kitchens } = rooms;
-  const sqmRate        = typology.sqmRate;
-  const basicStructure = gfa * sqmRate;
-  const electricals    = ELEC_BASE   + ELEC_PER_SQM  * gfa;
-  const plumbing       = PLUMB_BASE  + PLUMB_PER_BATH * bathrooms + PLUMB_PER_SQM * gfa;
-  const coreTotal      = basicStructure + electricals + plumbing;
-
-  const tiling         = TILE_PER_BATH     * bathrooms;
-  const sanitaryWares  = SANITARY_PER_BATH * bathrooms;
-  const kitchenBlock   = kitchens > 0 ? KITCHEN_BASE + KITCHEN_PER_UNIT * kitchens : 0;
-
-  const optional: BudgetLineItem[] = [
-    { label: "Tiling (bathrooms)", amount: tiling },
-    { label: "Sanitary wares",     amount: sanitaryWares },
-    ...(kitchens > 0 ? [{ label: "Kitchen block", amount: kitchenBlock }] : []),
-  ];
-
-  return {
-    typology,
-    lines: {
-      core: [
-        { label: "Basic structure", amount: basicStructure },
-        { label: "Electricals",     amount: electricals    },
-        { label: "Plumbing",        amount: plumbing       },
-      ],
-      optional,
-    },
-    coreTotal,
-    grandTotal: coreTotal + tiling + sanitaryWares + kitchenBlock,
-  };
+/**
+ * Indicative budget for a parsed plan, in the active country's native currency.
+ * Structure add-on quantities (partitions, interior doors, exterior
+ * doors/windows) default to the workbook's quick-estimate rules derived from
+ * GFA + room counts, so the figure isn't understated.
+ */
+export function calculateBudget(
+  rooms: CountRoomsResult,
+  selection: Selection,
+  country: Country,
+): BudgetResult {
+  const currency = pricingCurrencyFor(country);
+  const est = estimateAddons({
+    gfa: rooms.gfa,
+    bedrooms: rooms.bedrooms,
+    bathrooms: rooms.bathrooms,
+  });
+  return computeBudget({
+    selection,
+    currency,
+    gfa: rooms.gfa,
+    bathrooms: rooms.bathrooms,
+    kitchens: rooms.kitchens,
+    partitionsM: est.partitionsM,
+    interiorDoors: est.interiorDoors,
+    extDoorWindowM2: est.extDoorWindowM2,
+  });
 }
