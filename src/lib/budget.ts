@@ -102,7 +102,7 @@ export interface CountRoomsResult {
 
 export function countRooms(plan: FloorplanJSON, delta: number): CountRoomsResult {
   let gfa = 0, terraceArea = 0, bedrooms = 0, bathrooms = 0, kitchens = 0;
-  let mezzanineAreaM2 = 0;
+  let livingRooms = 0, mezzanineAreaM2 = 0;
   const terraceBoxes: BBox[] = [];
 
   for (const layer of plan.layers) {
@@ -124,9 +124,16 @@ export function countRooms(plan: FloorplanJSON, delta: number): CountRoomsResult
       }
       if (layer.name.includes("Bath"))    bathrooms++;
       if (layer.name.includes("Kitchen")) kitchens++;
+      if (layer.name.includes("Living"))  livingRooms++;
       if (layer.name.includes("Bed"))     bedrooms++; // "Bed Room" or "Bedroom"
     }
   }
+
+  // No DXF tags a kitchen — it's drawn open-plan inside the living room — so
+  // assume one kitchen area per habitable home for the plumbing line, as the
+  // workbook's "Kitchen areas" input intends. Stays data-driven if a future
+  // plan ever carries an explicit Rooms$Kitchen layer.
+  if (kitchens === 0 && (livingRooms > 0 || bedrooms > 0)) kitchens = 1;
 
   // Interior doors: one open polyline per door on the `Doors` layer.
   const doorsLayer = plan.layers.find((l) => l.name === "Doors");
