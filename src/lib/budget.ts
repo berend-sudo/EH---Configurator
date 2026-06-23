@@ -175,11 +175,24 @@ export function pricingCurrencyFor(country: Country): PricingCurrency {
 /**
  * Indicative budget for a parsed plan, in the active country's native currency.
  *
- * Interior doors, exterior doors/windows and the terrace are now MEASURED from
- * the DXF geometry by `countRooms` (door/window count + glazed area + terrace
- * area). Partition-wall length still uses the workbook's `0.3 × GFA`
- * quick-estimate — walls are drawn as filled polygons with no centerline, so a
- * reliable partition meterage can't be extracted from the drawing.
+ * Interior doors and exterior doors/windows are MEASURED from the DXF geometry
+ * by `countRooms` (door/window count + glazed area). Partition-wall length
+ * still uses the workbook's `0.3 × GFA` quick-estimate — walls are drawn as
+ * filled polygons with no centerline, so a reliable partition meterage can't be
+ * extracted from the drawing.
+ *
+ * Veranda vs. additional terrace. The standard veranda (the `Rooms$Terrace`
+ * polygons of a standard design) is FLOOR AREA in the workbook's sense: the
+ * Price Calc sheet folds it into the GFA and prices it at the basic-structure
+ * rate, charging nothing under the "Terrace" additional option — that option is
+ * reserved for *additional* terraces sitting outside the GFA. We mirror that:
+ * structure and the GFA-scaled services (electricity, architecture,
+ * engineering) are priced over GFA + veranda, and `terraceM2` is 0 so no
+ * separate terrace add-on is charged. (Verified against the workbook: e.g. the
+ * Large Gable's Full Easy Home Price reproduces catalogue cell L156 with the
+ * veranda inside GFA and the terrace option at 0.) Interior partitions stay
+ * keyed to the enclosed area only — a veranda has none. The displayed
+ * living/terrace/footprint split is unaffected; it reads `countRooms` directly.
  */
 export function calculateBudget(
   rooms: CountRoomsResult,
@@ -187,20 +200,21 @@ export function calculateBudget(
   country: Country,
 ): BudgetResult {
   const currency = pricingCurrencyFor(country);
+  const pricedGfa = rooms.gfa + rooms.terraceArea; // standard veranda counts as GFA
   const est = estimateAddons({
-    gfa: rooms.gfa,
+    gfa: rooms.gfa, // partitions: enclosed area only — a veranda has none
     bedrooms: rooms.bedrooms,
     bathrooms: rooms.bathrooms,
   });
   return computeBudget({
     selection,
     currency,
-    gfa: rooms.gfa,
+    gfa: pricedGfa, // structure + GFA-scaled services include the veranda
     bathrooms: rooms.bathrooms,
     kitchens: rooms.kitchens,
     partitionsM: est.partitionsM, // estimate — not measurable from the DXF
     interiorDoors: rooms.interiorDoors, // measured: Doors-layer entity count
     extDoorWindowM2: rooms.extDoorWindowM2, // measured: glazed openings on Windows layer
-    terraceM2: rooms.terraceArea, // measured: Rooms$Terrace polygons
+    terraceM2: 0, // veranda priced via GFA; the terrace option is for ADDITIONAL terraces only
   });
 }
