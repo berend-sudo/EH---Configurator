@@ -52,8 +52,12 @@ export default function LandingScreen({ plans, priceIndex }: Props) {
   const currency = (country?.currency.code ?? "UGX") as Currency;
   const budgetStep = country?.currency.displayRound ?? 100_000;
   const bounds = budgetBounds(priceIndex, currency);
-  const sliderMin = Math.floor(bounds.min / budgetStep) * budgetStep;
-  const sliderMax = Math.ceil(bounds.max / budgetStep) * budgetStep;
+  // One step of headroom past the rounded catalog range so the endpoints
+  // aren't degenerate: at the minimum the cheapest plan is affordable (a
+  // floored min landed just below it → nothing available), and the maximum
+  // sits just above the priciest.
+  const sliderMin = Math.floor(bounds.min / budgetStep) * budgetStep + budgetStep;
+  const sliderMax = Math.ceil(bounds.max / budgetStep) * budgetStep + budgetStep;
   // Open mid-range until the user drags, so the slider starts at a realistic
   // budget (some of the catalog reachable, some not) rather than the extreme.
   const sliderDefault = Math.round((sliderMin + sliderMax) / 2 / budgetStep) * budgetStep;

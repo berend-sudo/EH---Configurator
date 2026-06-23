@@ -96,8 +96,10 @@ function ConfiguratorScreen({
   const currency = (country?.currency.code ?? "UGX") as Currency;
   const budgetStep = country?.currency.displayRound ?? 100_000;
   const bounds = budgetBounds(priceIndex, currency);
-  const sliderMin = Math.floor(bounds.min / budgetStep) * budgetStep;
-  const sliderMax = Math.ceil(bounds.max / budgetStep) * budgetStep;
+  // One step of headroom past the rounded catalog range (matches the landing)
+  // so the minimum still affords the cheapest plan and the max clears the priciest.
+  const sliderMin = Math.floor(bounds.min / budgetStep) * budgetStep + budgetStep;
+  const sliderMax = Math.ceil(bounds.max / budgetStep) * budgetStep + budgetStep;
   // Mid-range default (matches the landing) when no ?budget= is present.
   const sliderDefault = Math.round((sliderMin + sliderMax) / 2 / budgetStep) * budgetStep;
   const [budget, setBudget] = useState<number | null>(() => {
