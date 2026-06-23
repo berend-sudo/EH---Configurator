@@ -274,7 +274,10 @@ On Generate PDF the page POSTs the entire design. The server:
 4. **Archives to Drive** (`src/lib/server/drive.ts`) — best-effort,
    multipart upload, scope `drive.file`.
 5. **Logs to the leads Sheet** (`src/lib/server/sheets.ts`,
-   Sheets v4).
+   Sheets v4). `LEADS_HEADER` is the locked column order — the row builder
+   in the submit route must stay in sync, and new columns are **appended**
+   (the sheet self-heals its header on the next write; inserting mid-row
+   would misalign historical rows).
 6. **Submits to the existing price-list Google Form**
    (`src/lib/server/forms.ts`, urlencoded POST to `formResponse`) so
    configurator leads land in the same workflow the team already
@@ -369,9 +372,11 @@ src/
     design-id.ts              Reference helpers shared client+server.
     rooms.ts                  Room-counting helpers used by UI.
     brand-images.ts           Brand photo metadata + the curated
-                              TYPOLOGY_PHOTOS map (typology / subtype →
-                              exactly 3 full-home photos) that drives
-                              the configurator collage and the PDF.
+                              TYPOLOGY_PHOTO_SETS (model-tagged trios of
+                              full-home photos). pickPhotoSet resolves a
+                              selection to the closest set (subtype +
+                              nearest bedroom count, pickPlan-style); drives
+                              the configurator collage, summary recap, PDF.
     server/
       design-pdf.tsx          react-pdf 3-page template.
       email.ts                Resend wrapper.
@@ -399,8 +404,9 @@ design_handoff_eh_configurator/
 scripts/
   gen-legal-pdfs.mjs          Generates the placeholder legal PDFs.
   compress-brand-images.py    Resamples public/brand/*.jpg to a web
-                              ceiling (2000 px, q82). Run after dropping
-                              new brand photos.
+                              ceiling (2000 px, q82), baking in EXIF
+                              orientation. Run after dropping new brand
+                              photos; pass filenames to compress only those.
 archive/                      Old experiments — do not import from here.
 ```
 
@@ -498,8 +504,13 @@ mirrored to `src/app/eh-tokens.css`.
 - `view: "plan" | "images"`, `showMezzanine` — local to the
   configurator.
 - `clientInfo: { name, email, phone, timeline, country, projectType,
-  hearAbout, consent }` — local to `/summary`; posted to
-  `/api/configurator/submit` on Generate PDF.
+  hearAbout, landFunds, newsletter, mapsUrl?, consent }` — local to
+  `/summary`; posted to `/api/configurator/submit` on Generate PDF.
+  `mapsUrl` is an **optional** pasted Google Maps share link, validated
+  loosely via `normalizeMapsUrl` (any `google.*` / `goo.gl` /
+  `maps.app.goo.gl` / `g.co` http(s) URL, short share links included) and
+  linked through to the PDF cover, the email, the leads Sheet and the
+  Form. It never gates submission.
 - Country selection — persisted in `localStorage`
   (`eh_country`/`eh_currency`/`eh_fx_ugx_per_unit`). `useCountryGuard()`
   redirects to `/country` if missing.
@@ -532,7 +543,8 @@ mirrored to `src/app/eh-tokens.css`.
 
 - **Add a typology or subtype** → edit `TYPOLOGIES` in
   `src/lib/typologies.ts`; transcribe dimensions from the xlsx;
-  pick a unique 3-letter code; add an `iconPath`. Drop matching DXFs in
+  pick a unique 3-letter code; add an `iconImage` (3D line-art PNG in
+  `public/brand/`). Drop matching DXFs in
   `public/floorplans/`. Nothing else should be needed.
 - **Re-enable a hidden subtype** → drop a correctly-named DXF in
   `public/floorplans/`. Do not touch the picker code.

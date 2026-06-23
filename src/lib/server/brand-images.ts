@@ -5,7 +5,7 @@
 import path from "path";
 import {
   BRAND_IMAGES,
-  TYPOLOGY_PHOTOS,
+  pickPhotoSet,
   sampleFurnitureFiles,
   sampleHeroFiles,
   sampleTypologyFiles,
@@ -17,12 +17,15 @@ const brandFile = (file: string) =>
 
 /**
  * Curated typology photos as absolute filesystem paths for @react-pdf
- * (P1/P2). Subtype override wins when present.
+ * (P1/P2), matched to the model's subtype and bedroom count where
+ * model-specific shots exist.
  */
-export function typologyPhotoFilesFor(typology: TypologyId, subtype?: string | null): string[] {
-  const entry = TYPOLOGY_PHOTOS[typology];
-  const set = (subtype && entry.bySubtype?.[subtype]) || entry.photos;
-  return set.map(brandFile);
+export function typologyPhotoFilesFor(
+  typology: TypologyId,
+  subtype?: string | null,
+  bedrooms?: number | null,
+): string[] {
+  return pickPhotoSet(typology, subtype, bedrooms).map(brandFile);
 }
 
 export const typologyPhotoFile = (typology: TypologyId, i = 0): string => {

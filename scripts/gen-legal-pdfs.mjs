@@ -33,12 +33,12 @@ function doc(title, sections) {
 const terms = doc("Terms & Conditions", [
   { heading: "1. Scope", body: "These terms govern your use of the Easy Housing configurator and the design brief it generates. The indicative budget is an estimate and is not a binding quotation." },
   { heading: "2. Your design", body: "The design and pricing depend on the floor plan you select and the dimensions you choose. Final pricing depends on site conditions and local sourcing." },
-  { heading: "3. Contact", body: "By submitting the form you ask us to prepare and email your design PDF and to have an architect contact you about it." },
+  { heading: "3. Contact", body: "By submitting the form you ask us to prepare and email your design PDF and to have our sales team contact you about it." },
 ]);
 
 const privacy = doc("Privacy Policy", [
   { heading: "1. What we collect", body: "Your name, email address, phone number, intended timeline, and the design you configured." },
-  { heading: "2. How we use it", body: "To email you your design PDF and to have an Easy Housing architect contact you about it. We will not share or sell your details to any third party." },
+  { heading: "2. How we use it", body: "To email you your design PDF and to have our Easy Housing sales team contact you about it. We will not share or sell your details to any third party." },
   { heading: "3. Your rights", body: "You can ask us to access, correct or delete your details at any time by contacting hello@easyhousing.org." },
 ]);
 

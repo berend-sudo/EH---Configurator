@@ -33,6 +33,8 @@ export const LEADS_HEADER = [
   "PDF filename",
   "PDF link (Drive)",
   "Source (configurator URL)",
+  "Google Maps location",
+  "Country",
 ] as const;
 
 const SCOPE = "https://www.googleapis.com/auth/spreadsheets";

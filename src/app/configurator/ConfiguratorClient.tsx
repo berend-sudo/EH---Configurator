@@ -555,7 +555,7 @@ function ConfiguratorScreen({ initialPlans }: { initialPlans: FloorPlanEntry[] }
                   </div>
                 )
               ) : (
-                <PhotoCollage typology={selection.typology} subtype={selection.subtype} />
+                <PhotoCollage typology={selection.typology} subtype={selection.subtype} bedrooms={bedrooms} />
               )}
             </div>
           </div>
@@ -765,7 +765,7 @@ function MobileConfigurator({
               {/* display:flex gives PhotoCollage's `flex:1` a flex parent so
                   the grid resolves a real height — without it the collage
                   collapses to 0 and the fill images never show. */}
-              <PhotoCollage typology={selection.typology} subtype={selection.subtype} />
+              <PhotoCollage typology={selection.typology} subtype={selection.subtype} bedrooms={bedrooms} />
             </div>
           )}
         </PinchZoomCanvas>

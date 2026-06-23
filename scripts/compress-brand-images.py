@@ -18,25 +18,40 @@ It rewrites the files in place; git tracks the change and the full-res
 originals remain in history if they're ever needed again. Idempotent —
 re-running on already-compressed files is a no-op-ish (they're already
 under the ceiling, so only a light re-encode).
+
+Pass one or more filenames to compress only those (handy after dropping a
+single new batch in, so the rest of the catalog isn't needlessly
+re-encoded). Names resolve against public/brand/ unless an explicit path
+is given:
+
+    python3 scripts/compress-brand-images.py monopitch-2br-1.jpg aframe1.jpg
 """
 import os
 import sys
-from PIL import Image
+from PIL import Image, ImageOps
 
 BRAND_DIR = os.path.join(os.path.dirname(__file__), "..", "public", "brand")
 MAX_EDGE = 2000   # px on the longest side — well above any on-screen size
 QUALITY = 82      # visually lossless for photography at this scale
 
+def _targets(argv):
+    """Files to process: the given args (resolved against BRAND_DIR when bare),
+    or every JPG in BRAND_DIR when none are passed."""
+    if argv:
+        return [a if os.path.dirname(a) else os.path.join(BRAND_DIR, a) for a in argv]
+    return [os.path.join(BRAND_DIR, n) for n in sorted(os.listdir(BRAND_DIR))]
+
 def main() -> int:
     total_before = total_after = 0
-    for name in sorted(os.listdir(BRAND_DIR)):
+    for path in _targets(sys.argv[1:]):
+        name = os.path.basename(path)
         if not name.lower().endswith((".jpg", ".jpeg")):
             continue
-        path = os.path.join(BRAND_DIR, name)
         before = os.path.getsize(path)
         im = Image.open(path)
-        # Drop EXIF/orientation by applying it, then strip metadata.
-        im = im.convert("RGB")
+        # Bake in any EXIF orientation so phone photos aren't sideways once
+        # metadata is stripped, then flatten to RGB.
+        im = ImageOps.exif_transpose(im).convert("RGB")
         w, h = im.size
         scale = min(1.0, MAX_EDGE / max(w, h))
         if scale < 1.0:
