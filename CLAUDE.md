@@ -125,13 +125,20 @@ change.
 
 There are **two** budget surfaces with different roles:
 
-1. **Landing affordability** uses the **placeholder** `basePrice +
-   BEDROOM_COST` model in `typologies.ts`. These figures are flagged
-   `PLACEHOLDER` and exist only so the affordability UI can grey out
-   unreachable tiles. **Do not treat them as authoritative.** The
-   landing budget slider still displays the user's budget in local
-   currency via `fmtMoney` (UGX → FX), since it's the user's own budget,
-   not our quote.
+1. **Landing/configurator affordability** (the budget slider + tile
+   grey-out) is now driven by the **real engine**, not a placeholder.
+   `src/lib/server/price-index.ts` parses every catalog DXF and prices it
+   through the engine at its **min and max width** in both currencies
+   (cached per-process). The serialisable `PriceIndex` is passed to the
+   client, where `src/lib/affordability.ts` reads it: the budget slider's
+   endpoints are the **catalog's cheapest plan @ min width ‥ priciest @
+   max width** (native per country, displayed with `fmtLocal`), and a
+   `{typology, subtype, bedrooms}` greys out when no matching plan's
+   min-width price is within budget. The slider's value is therefore in
+   **native currency** (not UGX), and the `?budget=` URL param carries
+   that native number. The old `basePrice + BEDROOM_COST` placeholder
+   helpers are gone; those data fields linger in `typologies.ts` only as
+   spec placeholders and are no longer consulted.
 2. **Configurator indicative budget** is the team's real sales price.
    The logic lives in `src/lib/pricing/engine.ts` — a faithful port of
    the **"Price Calc"** sheet in the *Easy Housing Calculation Template*
@@ -166,9 +173,10 @@ option). **Partition length stays a quick estimate** (`0.3 × GFA`,
 `engine.ts::estimateAddons`) — walls are filled polygons with no centerline,
 so partition meterage can't be read off the drawing reliably.
 
-`MEZZANINE_COST` and `BEDROOM_COST` (in `typologies.ts`) remain explicit
-placeholders for the **landing** affordability model only. **Do not
-invent values for them.**
+`MEZZANINE_COST` and `BEDROOM_COST` (in `typologies.ts`) are leftover
+placeholder constants. The landing affordability model that used to read
+them now goes through the real engine (see surface 1 above), so they're
+**no longer consulted at runtime** — don't wire them back into pricing.
 
 ---
 
@@ -243,14 +251,15 @@ is present, so prices never flash in the wrong currency.
 
 - `src/lib/countries.ts` is the registry. Adding a country = one entry
   in `COUNTRIES` plus a flag image; everything else flows from there.
-- **Two money paths.** (1) The **indicative budget** is computed
-  per-country NATIVE by the pricing engine (UGX or KES, from the
-  workbook) and displayed with **`fmtLocal`** — no FX. (2) Everything
-  else that's genuinely UGX-based (the landing budget slider, the gate's
-  FX example) stays in UGX and is converted for display by
-  **`fmtMoney(ugxAmount)`** using a fixed `ugxPerUnit`, rounded to the
-  currency's `displayRound`. Don't run engine output through `fmtMoney`
-  (double conversion) or UGX figures through `fmtLocal`.
+- **Two money paths.** (1) Engine-native amounts — the **indicative
+  budget** AND the **budget slider** (whose endpoints now come from the
+  real price index, see Pricing) — are per-country NATIVE (UGX or KES)
+  and displayed with **`fmtLocal`** — no FX. (2) Genuinely UGX-based
+  figures (today just the gate's FX example) stay in UGX and convert for
+  display via **`fmtMoney(ugxAmount)`** using a fixed `ugxPerUnit`,
+  rounded to the currency's `displayRound`. Don't run engine output
+  through `fmtMoney` (double conversion) or UGX figures through
+  `fmtLocal`.
 - `BASE_COUNTRY` is Uganda (`ugxPerUnit = 1`).
 - Country selection is **one-way** in the UX (the gate says "you can't
   change this later"). If you find yourself building a "change country
@@ -358,6 +367,8 @@ src/
     dxf-parser.ts             DXF → typed JSON.
     dxf/stitch-segments.ts    LINE/SPLINE → closed polylines.
     budget.ts                 DXF room/area counting + adapter to the engine.
+    affordability.ts          Client-safe affordability over the PriceIndex —
+                              budget-slider bounds + tile grey-out (real engine).
     pricing/
       engine.ts               Indicative-budget engine — port of Price Calc.
       price-book.generated.ts GENERATED rates (npm run sync-pricing).
@@ -378,6 +389,8 @@ src/
                               nearest bedroom count, pickPlan-style); drives
                               the configurator collage, summary recap, PDF.
     server/
+      price-index.ts          Server-only: prices every DXF at min/max width
+                              (both currencies), cached → PriceIndex.
       design-pdf.tsx          react-pdf 3-page template.
       email.ts                Resend wrapper.
       drive.ts                Drive v3 multipart upload.

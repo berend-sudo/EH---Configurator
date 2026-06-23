@@ -3,13 +3,17 @@
 import {
   TYPOLOGIES,
   TYPOLOGY_ORDER,
-  typologyAvailability,
-  subtypeAvailability,
-  cheapestAffordableSubtype,
   depthLabel,
   type Selection,
   type TypologyId,
 } from "@/lib/typologies";
+import {
+  typologyAffordability,
+  subtypeAffordability,
+  cheapestAffordableSubtype,
+  type Currency,
+  type PriceIndex,
+} from "@/lib/affordability";
 import {
   availableTypologies,
   availableSubtypes,
@@ -20,6 +24,10 @@ type Props = {
   selection: Selection;
   onChange: (sel: Selection) => void;
   budget: number;
+  /** Real-engine price index + active currency drive the affordability
+   *  grey-out. Omitted → everything shows as affordable (legacy). */
+  priceIndex?: PriceIndex | null;
+  currency?: Currency;
   /** Compact variant for the in-configurator step-1 collapse. */
   compact?: boolean;
   /**
@@ -38,6 +46,8 @@ export default function TypologyPicker({
   selection,
   onChange,
   budget,
+  priceIndex,
+  currency = "UGX",
   compact = false,
   plans,
   columns,
@@ -58,7 +68,7 @@ export default function TypologyPicker({
     ? availableTypologies(plans)
     : [...TYPOLOGY_ORDER];
 
-  const typAvail = typologyAvailability(budget);
+  const typAvail = typologyAffordability(priceIndex, currency, budget);
   const activeTyp = TYPOLOGIES[selection.typology];
 
   // Strip placeholder typology — when the active one has no subtypes (or none
@@ -80,7 +90,7 @@ export default function TypologyPicker({
       ? selection.typology
       : (firstSubtyped ?? selection.typology);
   const stripHidden = !monopitchActive && stripTypology !== selection.typology;
-  const subAvail = subtypeAvailability(budget, stripTypology);
+  const subAvail = subtypeAffordability(priceIndex, currency, budget, stripTypology);
   const stripDef = TYPOLOGIES[stripTypology];
   const subtypeIdsShown: string[] = monopitchActive
     ? ["__monopitch_standard__"]
@@ -99,7 +109,7 @@ export default function TypologyPicker({
     // Prefer the cheapest affordable subtype that is also on disk; otherwise
     // fall back to the first available, or the first defined subtype.
     const onDisk = plans ? availableSubtypes(plans, id) : Object.keys(typ.subtypes);
-    const cheapest = cheapestAffordableSubtype(budget, id);
+    const cheapest = cheapestAffordableSubtype(priceIndex, currency, budget, id);
     const sub =
       (cheapest && onDisk.includes(cheapest) && cheapest)
       || onDisk[0]

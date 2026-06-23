@@ -34,18 +34,27 @@ import { useIsMobile, useMediaQuery, usePrefersReducedMotion } from "@/lib/use-m
 import { FURNITURE_CAVEAT } from "@/lib/configurator-submit";
 import {
   depthLabel,
-  maxBedroomsFor,
   minBedroomsFor,
-  priceFor,
-  resolveAffordableSelection,
   selectionFromParams,
   selectionLabel,
   type Selection,
 } from "@/lib/typologies";
+import {
+  budgetBounds,
+  maxAffordableBedrooms,
+  priceForSelection,
+  resolveAffordableSelection,
+  type Currency,
+  type PriceIndex,
+} from "@/lib/affordability";
 
-const LANDING_DEFAULT_BUDGET = 75_000_000;
-
-function ConfiguratorScreen({ initialPlans }: { initialPlans: FloorPlanEntry[] }) {
+function ConfiguratorScreen({
+  initialPlans,
+  priceIndex,
+}: {
+  initialPlans: FloorPlanEntry[];
+  priceIndex: PriceIndex;
+}) {
   const isMobile = useIsMobile();
   // Block the configurator until a country has been picked at the gate.
   // Renders no money in the wrong currency, even briefly.
@@ -81,11 +90,19 @@ function ConfiguratorScreen({ initialPlans }: { initialPlans: FloorPlanEntry[] }
   );
   const planFile = currentEntry?.file ?? null;
   // Budget is local state (source of truth for gating + the slider) so dragging
-  // stays smooth; it's seeded from ?budget= and synced back to the URL below.
-  const [budget, setBudget] = useState(() => {
+  // stays smooth; it's seeded from ?budget= (NATIVE currency) and synced back to
+  // the URL below. When absent we default to the top of the catalog range, so
+  // nothing is greyed out until the user lowers it.
+  const currency = (country?.currency.code ?? "UGX") as Currency;
+  const budgetStep = country?.currency.displayRound ?? 100_000;
+  const bounds = budgetBounds(priceIndex, currency);
+  const sliderMin = Math.floor(bounds.min / budgetStep) * budgetStep;
+  const sliderMax = Math.ceil(bounds.max / budgetStep) * budgetStep;
+  const [budget, setBudget] = useState<number | null>(() => {
     const n = budgetParam != null ? Number(budgetParam) : NaN;
-    return Number.isFinite(n) && n > 0 ? n : LANDING_DEFAULT_BUDGET;
+    return Number.isFinite(n) && n > 0 ? n : null;
   });
+  const budgetValue = budget ?? sliderMax;
 
   useEffect(() => {
     if (!planFile) return;
@@ -165,7 +182,7 @@ function ConfiguratorScreen({ initialPlans }: { initialPlans: FloorPlanEntry[] }
     params.set("typology", currentEntry.selection.typology);
     if (currentEntry.selection.subtype) params.set("subtype", currentEntry.selection.subtype);
     params.set("bedrooms", String(currentEntry.bedrooms));
-    params.set("budget", String(budget));
+    params.set("budget", String(budgetValue));
     params.set("v", String(currentEntry.version));
     params.set("delta", String(delta));
     router.push(`/summary?${params.toString()}`);
@@ -200,22 +217,22 @@ function ConfiguratorScreen({ initialPlans }: { initialPlans: FloorPlanEntry[] }
   useEffect(() => {
     const id = setTimeout(() => {
       const params = new URLSearchParams(searchParams.toString());
-      if ((params.get("budget") ?? "") !== String(budget)) {
-        params.set("budget", String(budget));
+      if ((params.get("budget") ?? "") !== String(budgetValue)) {
+        params.set("budget", String(budgetValue));
         router.replace(`${pathname}?${params.toString()}`);
       }
     }, 300);
     return () => clearTimeout(id);
-  }, [budget, searchParams, pathname, router]);
+  }, [budgetValue, searchParams, pathname, router]);
 
   // When the budget drops below the current selection/bedroom cost, move to the
   // cheapest still-affordable + available option (mirrors the landing screen).
   useEffect(() => {
     if (!plans) return;
-    if (priceFor(selection, requestedBedrooms) <= budget) return;
-    const affordable = resolveAffordableSelection(budget, selection);
+    if (priceForSelection(priceIndex, currency, selection, requestedBedrooms) <= budgetValue) return;
+    const affordable = resolveAffordableSelection(priceIndex, currency, budgetValue, selection);
     const reachable = resolveAvailableSelection(plans, affordable) ?? affordable;
-    const maxBr = maxBedroomsFor(budget, reachable);
+    const maxBr = maxAffordableBedrooms(priceIndex, currency, budgetValue, reachable, requestedBedrooms);
     const targetBr = Math.max(minBedroomsFor(reachable), Math.min(maxBr, requestedBedrooms));
     const finalBr = resolveAvailableBedrooms(plans, reachable, targetBr);
     if (
@@ -227,7 +244,7 @@ function ConfiguratorScreen({ initialPlans }: { initialPlans: FloorPlanEntry[] }
     }
     // updateParams is stable for our purposes; re-running only on the inputs below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [budget, selection, requestedBedrooms, plans]);
+  }, [priceIndex, currency, budgetValue, selection, requestedBedrooms, plans]);
 
   if (!country) return null;
 
@@ -246,7 +263,12 @@ function ConfiguratorScreen({ initialPlans }: { initialPlans: FloorPlanEntry[] }
         modelLabel={modelLabel}
         bedrooms={bedrooms}
         selection={selection}
-        budget={budget}
+        budget={budgetValue}
+        budgetMin={sliderMin}
+        budgetMax={sliderMax}
+        budgetStep={budgetStep}
+        priceIndex={priceIndex}
+        currency={currency}
         showFallbackNotice={showFallbackNotice}
         servedLabel={servedLabel}
         roomsBreakdown={derived.rooms}
@@ -354,13 +376,21 @@ function ConfiguratorScreen({ initialPlans }: { initialPlans: FloorPlanEntry[] }
           <PlanSwitcher
             bedrooms={bedrooms}
             selection={selection}
-            budget={budget}
+            budget={budgetValue}
             plans={plans ?? undefined}
+            priceIndex={priceIndex}
+            currency={currency}
             onChange={updateParams}
           />
 
           {/* Budget — adjustable here too; gates the switcher above. */}
-          <BudgetSlider value={budget} onChange={setBudget} />
+          <BudgetSlider
+            value={budgetValue}
+            onChange={setBudget}
+            min={sliderMin}
+            max={sliderMax}
+            step={budgetStep}
+          />
 
           {/* Dimensions */}
           <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
@@ -605,6 +635,11 @@ interface MobileConfiguratorProps {
   bedrooms: number;
   selection: Selection;
   budget: number;
+  budgetMin: number;
+  budgetMax: number;
+  budgetStep: number;
+  priceIndex: PriceIndex;
+  currency: Currency;
   showFallbackNotice: boolean;
   servedLabel: string | null;
   roomsBreakdown: ReturnType<typeof countRooms> | null;
@@ -656,6 +691,11 @@ function MobileConfigurator({
   bedrooms,
   selection,
   budget,
+  budgetMin,
+  budgetMax,
+  budgetStep,
+  priceIndex,
+  currency,
   showFallbackNotice,
   servedLabel,
   roomsBreakdown,
@@ -718,7 +758,7 @@ function MobileConfigurator({
   const bedroomOptions = (() => {
     if (!plans) return [bedrooms];
     const availBR = availableBedrooms(plans, selection);
-    const affordableMax = maxBedroomsFor(budget, selection);
+    const affordableMax = maxAffordableBedrooms(priceIndex, currency, budget, selection, bedrooms);
     const affordableBR = availBR.filter((b) => b <= affordableMax);
     return affordableBR.length > 0 ? affordableBR : availBR;
   })();
@@ -842,13 +882,21 @@ function MobileConfigurator({
 
         {/* Budget + roof live in the peek too so the user can re-shape the
             design without going back to the landing. */}
-        <MobileBudgetSlider value={budget} onChange={onChangeBudget} />
+        <MobileBudgetSlider
+          value={budget}
+          onChange={onChangeBudget}
+          min={budgetMin}
+          max={budgetMax}
+          step={budgetStep}
+        />
 
         <div className="eh-configurator-mobile__typology-wrap">
           <TypologyPicker
             selection={selection}
             onChange={onChangeSelection}
             budget={budget}
+            priceIndex={priceIndex}
+            currency={currency}
             plans={plans ?? undefined}
             compact
             columns={isTiny ? 1 : 2}
@@ -929,10 +977,16 @@ function MobileConfigurator({
   );
 }
 
-export default function ConfiguratorClient({ initialPlans }: { initialPlans: FloorPlanEntry[] }) {
+export default function ConfiguratorClient({
+  initialPlans,
+  priceIndex,
+}: {
+  initialPlans: FloorPlanEntry[];
+  priceIndex: PriceIndex;
+}) {
   return (
     <Suspense fallback={null}>
-      <ConfiguratorScreen initialPlans={initialPlans} />
+      <ConfiguratorScreen initialPlans={initialPlans} priceIndex={priceIndex} />
     </Suspense>
   );
 }

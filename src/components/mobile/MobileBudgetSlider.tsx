@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { fmtMoney } from "@/lib/countries";
+import { fmtLocal } from "@/lib/countries";
 
 interface Props {
   value: number;
@@ -103,7 +103,7 @@ export default function MobileBudgetSlider({
             fontVariantNumeric: "tabular-nums",
           }}
         >
-          {fmtMoney(value)}
+          {fmtLocal(value)}
         </span>
       </div>
 
@@ -193,8 +193,8 @@ export default function MobileBudgetSlider({
           pointerEvents: "none",
         }}
       >
-        <span>{fmtMoney(min)}</span>
-        <span>{fmtMoney(max)}</span>
+        <span>{fmtLocal(min)}</span>
+        <span>{fmtLocal(max)}</span>
       </div>
     </div>
   );

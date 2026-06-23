@@ -35,8 +35,6 @@ import {
 } from "@/lib/configurator-submit";
 import { checkPhone } from "@/lib/contact-checks";
 
-const LANDING_DEFAULT_BUDGET = 75_000_000;
-
 const fmtM = (mm: number) => `${(mm / 1000).toFixed(2)} m`;
 const fmtArea = (m2: number) => `${m2.toFixed(2)} m²`;
 
@@ -58,7 +56,6 @@ function FinalScreen({ initialPlans }: { initialPlans: FloorPlanEntry[] }) {
   const typologyParam = searchParams.get("typology");
   const subtypeParam = searchParams.get("subtype");
   const bedroomsParam = searchParams.get("bedrooms");
-  const budgetParam = searchParams.get("budget");
   const deltaParam = searchParams.get("delta");
 
   const selection: Selection = useMemo(
@@ -74,10 +71,6 @@ function FinalScreen({ initialPlans }: { initialPlans: FloorPlanEntry[] }) {
     () => (plans ? pickPlan(plans, selection, bedroomsNum) : null),
     [plans, selection, bedroomsNum],
   );
-  const budgetParamNum = (() => {
-    const n = budgetParam != null ? Number(budgetParam) : NaN;
-    return Number.isFinite(n) && n > 0 ? n : LANDING_DEFAULT_BUDGET;
-  })();
 
   const [plan, setPlan] = useState<FloorplanJSON | null>(null);
   const [error, setError] = useState<string | null>(null);

@@ -1,5 +1,6 @@
 import ConfiguratorClient from "./ConfiguratorClient";
 import { scanFloorPlans } from "@/lib/floor-plan-scan";
+import { buildPriceIndex } from "@/lib/server/price-index";
 
 // Re-scan on each request so newly uploaded DXFs show up without a rebuild,
 // and hand the registry to the client tree as a prop. This removes the
@@ -8,6 +9,6 @@ import { scanFloorPlans } from "@/lib/floor-plan-scan";
 export const dynamic = "force-dynamic";
 
 export default async function Page() {
-  const plans = await scanFloorPlans();
-  return <ConfiguratorClient initialPlans={plans} />;
+  const [plans, priceIndex] = await Promise.all([scanFloorPlans(), buildPriceIndex()]);
+  return <ConfiguratorClient initialPlans={plans} priceIndex={priceIndex} />;
 }

@@ -1,7 +1,8 @@
 "use client";
 
 import TypologyPicker from "@/components/landing/TypologyPicker";
-import { priceFor, type Selection } from "@/lib/typologies";
+import { type Selection } from "@/lib/typologies";
+import { priceForSelection, type Currency, type PriceIndex } from "@/lib/affordability";
 import { availableBedrooms, type FloorPlanEntry } from "@/lib/floor-plans";
 
 const BEDROOM_LABEL: Record<number, string> = {
@@ -19,6 +20,9 @@ interface Props {
   onChange: (next: { bedrooms?: number; selection?: Selection }) => void;
   /** Scanned plans; gates the bedroom seg + typology picker. */
   plans?: FloorPlanEntry[];
+  /** Real-engine price index + active currency for the affordability gate. */
+  priceIndex?: PriceIndex | null;
+  currency?: Currency;
 }
 
 export default function PlanSwitcher({
@@ -27,6 +31,8 @@ export default function PlanSwitcher({
   budget,
   onChange,
   plans,
+  priceIndex,
+  currency = "UGX",
 }: Props) {
   // Bedroom options: only those that have a DXF for the current selection.
   // Plus the currently-active value if it isn't in the set (e.g. while the
@@ -51,7 +57,7 @@ export default function PlanSwitcher({
         </div>
         <div className="seg" role="tablist" aria-label="Bedrooms">
           {options.map((value) => {
-            const affordable = priceFor(selection, value) <= budget;
+            const affordable = priceForSelection(priceIndex, currency, selection, value) <= budget;
             const isActive = value === bedrooms;
             const disabled = !affordable && !isActive;
             return (
@@ -80,6 +86,8 @@ export default function PlanSwitcher({
       <TypologyPicker
         selection={selection}
         budget={budget}
+        priceIndex={priceIndex}
+        currency={currency}
         compact
         plans={plans}
         onChange={(sel) => onChange({ selection: sel })}

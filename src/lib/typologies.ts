@@ -390,112 +390,14 @@ export function parseDxfFilename(
 }
 
 // ----------------------------------------------------------------------------
-// PRICING helpers — basePrice + BEDROOM_COST premium model.
-// NOTE: base prices are PLACEHOLDERS (see PRICING note above). The model and
-// helper shapes are final; only the numbers are provisional.
+// Landing/configurator AFFORDABILITY now lives in `src/lib/affordability.ts`,
+// driven by the REAL pricing engine (every plan priced at min & max width via
+// the server-built price index) — not the old basePrice + BEDROOM_COST
+// placeholder. The `basePrice` fields and `BEDROOM_COST` above are therefore no
+// longer consulted at runtime; they're retained only as the spec's documented
+// placeholder figures pending confirmed numbers. Do not reintroduce a second
+// pricing path here.
 // ----------------------------------------------------------------------------
-
-/** Base price (UGX) that applies to a selection — subtype's, or Monopitch's. */
-function basePriceOf(sel: Selection): number {
-  const sub = subtypeOf(sel);
-  return sub ? sub.basePrice : TYPOLOGIES[sel.typology].basePrice;
-}
-
-/** Total price for a selection at a given bedroom count. */
-export function priceFor(sel: Selection, bedrooms: number): number {
-  return basePriceOf(sel) + BEDROOM_COST * bedrooms;
-}
-
-/** Cheapest configuration cost for a selection (priced at its min bedrooms). */
-export function minCostFor(sel: Selection): number {
-  return priceFor(sel, minBedroomsFor(sel));
-}
-
-/** Is the selection's cheapest configuration within budget? */
-export function isSelectionAffordable(budget: number, sel: Selection): boolean {
-  return minCostFor(sel) <= budget;
-}
-
-/** Largest affordable bedroom count in [minBedrooms..4]; falls to min if none. */
-export function maxBedroomsFor(budget: number, sel: Selection): number {
-  const floor = minBedroomsFor(sel);
-  for (let b = 4; b >= floor; b--) {
-    if (priceFor(sel, b) <= budget) return b;
-  }
-  return floor;
-}
-
-/** Per-typology affordability at the cheapest reachable configuration. */
-export function typologyAvailability(budget: number): Record<TypologyId, boolean> {
-  const out = {} as Record<TypologyId, boolean>;
-  for (const id of TYPOLOGY_ORDER) {
-    const typ = TYPOLOGIES[id];
-    if (!typ.subtypes) {
-      out[id] = isSelectionAffordable(budget, { typology: id, subtype: null });
-    } else {
-      out[id] = Object.keys(typ.subtypes).some((sub) =>
-        isSelectionAffordable(budget, { typology: id, subtype: sub }),
-      );
-    }
-  }
-  return out;
-}
-
-/** Per-subtype affordability map for a typology (empty for Monopitch). */
-export function subtypeAvailability(
-  budget: number,
-  typology: TypologyId,
-): Record<string, boolean> {
-  const typ = TYPOLOGIES[typology];
-  const out: Record<string, boolean> = {};
-  if (!typ.subtypes) return out;
-  for (const sub of Object.keys(typ.subtypes)) {
-    out[sub] = isSelectionAffordable(budget, { typology, subtype: sub });
-  }
-  return out;
-}
-
-/** Cheapest affordable subtype id for a typology, or null (none / Monopitch). */
-export function cheapestAffordableSubtype(
-  budget: number,
-  typology: TypologyId,
-): string | null {
-  const typ = TYPOLOGIES[typology];
-  if (!typ.subtypes) return null;
-  const affordable = Object.entries(typ.subtypes)
-    .filter(([id]) => isSelectionAffordable(budget, { typology, subtype: id }))
-    .sort((a, b) => a[1].basePrice - b[1].basePrice);
-  return affordable.length ? affordable[0][0] : null;
-}
-
-/**
- * Resolve a selection to one that fits the budget:
- *  - keep it if already affordable;
- *  - else fall back to the cheapest affordable subtype in the same typology;
- *  - else fall back to the cheapest affordable typology (by min cost);
- *  - else return the selection unchanged (everything is over budget — keep
- *    a stable choice while the UI greys everything out).
- */
-export function resolveAffordableSelection(budget: number, sel: Selection): Selection {
-  if (isSelectionAffordable(budget, sel)) return sel;
-
-  const sameTypology = cheapestAffordableSubtype(budget, sel.typology);
-  if (sameTypology) return { typology: sel.typology, subtype: sameTypology };
-
-  const byMinCost = [...TYPOLOGY_ORDER].sort(
-    (a, b) =>
-      minCostFor(defaultSelectionFor(a)) - minCostFor(defaultSelectionFor(b)),
-  );
-  for (const id of byMinCost) {
-    const candidate = TYPOLOGIES[id].subtypes
-      ? { typology: id, subtype: cheapestAffordableSubtype(budget, id) }
-      : { typology: id, subtype: null };
-    if (candidate.subtype !== undefined && isSelectionAffordable(budget, candidate as Selection)) {
-      return candidate as Selection;
-    }
-  }
-  return sel;
-}
 
 // ----------------------------------------------------------------------------
 // URL (de)serialisation — keeps the selection shareable via query params.

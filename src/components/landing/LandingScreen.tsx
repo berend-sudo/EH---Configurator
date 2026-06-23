@@ -11,12 +11,17 @@ import MobileBudgetSlider from "@/components/mobile/MobileBudgetSlider";
 import BedroomsCounter from "./BedroomsCounter";
 import TypologyPicker from "./TypologyPicker";
 import {
-  maxBedroomsFor,
-  resolveAffordableSelection,
   selectionLabel,
   selectionToParams,
   type Selection,
 } from "@/lib/typologies";
+import {
+  budgetBounds,
+  maxAffordableBedrooms,
+  resolveAffordableSelection,
+  type Currency,
+  type PriceIndex,
+} from "@/lib/affordability";
 import {
   availableBedrooms,
   resolveAvailableBedrooms,
@@ -28,16 +33,29 @@ interface Props {
   /** Scanned at request time on the server; passed through so the picker has
    *  the availability set on first paint (no client-fetch flash). */
   plans: FloorPlanEntry[];
+  /** Real-engine prices for every plan (min/max width, both currencies) —
+   *  drives the budget slider's bounds and the affordability grey-out. */
+  priceIndex: PriceIndex;
 }
 
-export default function LandingScreen({ plans }: Props) {
+export default function LandingScreen({ plans, priceIndex }: Props) {
   const router = useRouter();
   const isMobile = useIsMobile();
   // Block the landing until we know the country — otherwise the SSR render
   // (no localStorage) and the hydrated render (KES) would disagree on every
   // price, and there's no point in showing prices in the wrong currency.
   const country = useCountryGuard();
-  const [budget, setBudget] = useState(75_000_000);
+  // Budget slider works in the active country's NATIVE currency. Its endpoints
+  // are the catalog's cheapest plan @ min width ‥ priciest plan @ max width.
+  // `budget` is null until the user drags; we read `budgetValue` (defaulting to
+  // the top of the range, so nothing is greyed initially) everywhere.
+  const currency = (country?.currency.code ?? "UGX") as Currency;
+  const budgetStep = country?.currency.displayRound ?? 100_000;
+  const bounds = budgetBounds(priceIndex, currency);
+  const sliderMin = Math.floor(bounds.min / budgetStep) * budgetStep;
+  const sliderMax = Math.ceil(bounds.max / budgetStep) * budgetStep;
+  const [budget, setBudget] = useState<number | null>(null);
+  const budgetValue = budget ?? sliderMax;
   const [bedrooms, setBedrooms] = useState(2);
   const initialSelection = useMemo<Selection>(
     () => resolveAvailableSelection(plans, { typology: "monopitch", subtype: null })
@@ -51,18 +69,18 @@ export default function LandingScreen({ plans }: Props) {
   // of reach. If nothing is affordable the selection is left untouched so
   // the user keeps a stable choice while every tile is greyed.
   useEffect(() => {
-    const affordable = resolveAffordableSelection(budget, selection);
+    const affordable = resolveAffordableSelection(priceIndex, currency, budgetValue, selection);
     const reachable = resolveAvailableSelection(plans, affordable) ?? affordable;
     if (reachable.typology !== selection.typology || reachable.subtype !== selection.subtype) {
       setSelection(reachable);
     }
-  }, [budget, selection, plans]);
+  }, [priceIndex, currency, budgetValue, selection, plans]);
 
   // Bedroom options — what's on disk for this selection, capped by the budget.
   // The counter steps through THIS list so gaps (e.g. Clerestory Large ships
   // 2BR + 4BR but no 3BR) are skipped instead of trapping the user at 2.
   const availBR = availableBedrooms(plans, selection);
-  const affordableMax = maxBedroomsFor(budget, selection);
+  const affordableMax = maxAffordableBedrooms(priceIndex, currency, budgetValue, selection, bedrooms);
   const affordableBR = availBR.filter((b) => b <= affordableMax);
   const bedroomOptions = affordableBR.length > 0 ? affordableBR : availBR;
   const minBed = bedroomOptions[0] ?? 0;
@@ -86,7 +104,7 @@ export default function LandingScreen({ plans }: Props) {
     const qs = new URLSearchParams({
       ...selectionToParams(selection),
       bedrooms: String(bedrooms),
-      budget: String(budget),
+      budget: String(budgetValue),
     });
     router.push(`/configurator?${qs.toString()}`);
   };
@@ -95,8 +113,13 @@ export default function LandingScreen({ plans }: Props) {
     return (
       <MobileLandingScreen
         plans={plans}
-        budget={budget}
+        priceIndex={priceIndex}
+        currency={currency}
+        budget={budgetValue}
         setBudget={setBudget}
+        budgetMin={sliderMin}
+        budgetMax={sliderMax}
+        budgetStep={budgetStep}
         bedrooms={bedrooms}
         setBedrooms={setBedrooms}
         bedroomOptions={bedroomOptions}
@@ -173,24 +196,30 @@ export default function LandingScreen({ plans }: Props) {
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 36, marginBottom: 32 }}>
-            <BudgetSlider value={budget} onChange={setBudget} />
+            <BudgetSlider
+              value={budgetValue}
+              onChange={setBudget}
+              min={sliderMin}
+              max={sliderMax}
+              step={budgetStep}
+            />
             <BedroomsCounter value={bedrooms} onChange={setBedrooms} options={bedroomOptions} />
           </div>
-          <TypologyPicker selection={selection} onChange={setSelection} budget={budget} plans={plans} />
+          <TypologyPicker
+            selection={selection}
+            onChange={setSelection}
+            budget={budgetValue}
+            priceIndex={priceIndex}
+            currency={currency}
+            plans={plans}
+          />
 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginTop: 36 }}>
             <button
               type="button"
               className="ab-cta"
               style={{ padding: "16px 36px", fontSize: 16 }}
-              onClick={() => {
-                const qs = new URLSearchParams({
-                  ...selectionToParams(selection),
-                  bedrooms: String(bedrooms),
-                  budget: String(budget),
-                });
-                router.push(`/configurator?${qs.toString()}`);
-              }}
+              onClick={openConfigurator}
             >
               Open the configurator
               <span style={{ fontSize: 18, lineHeight: 1 }}>→</span>
@@ -214,8 +243,13 @@ export default function LandingScreen({ plans }: Props) {
 
 interface MobileLandingProps {
   plans: FloorPlanEntry[];
+  priceIndex: PriceIndex;
+  currency: Currency;
   budget: number;
   setBudget: (n: number) => void;
+  budgetMin: number;
+  budgetMax: number;
+  budgetStep: number;
   bedrooms: number;
   setBedrooms: (n: number) => void;
   bedroomOptions: number[];
@@ -227,8 +261,13 @@ interface MobileLandingProps {
 
 function MobileLandingScreen({
   plans,
+  priceIndex,
+  currency,
   budget,
   setBudget,
+  budgetMin,
+  budgetMax,
+  budgetStep,
   bedrooms,
   setBedrooms,
   bedroomOptions,
@@ -304,7 +343,13 @@ function MobileLandingScreen({
           {/* Phone uses the pointer-driven MobileBudgetSlider (same fat touch
               box as the configurator) — the desktop BudgetSlider's native
               <input type=range> is small and flaky on iOS touch. */}
-          <MobileBudgetSlider value={budget} onChange={setBudget} />
+          <MobileBudgetSlider
+            value={budget}
+            onChange={setBudget}
+            min={budgetMin}
+            max={budgetMax}
+            step={budgetStep}
+          />
         </section>
 
         <section className="eh-landing-mobile__section" ref={bedroomsRef}>
@@ -328,6 +373,8 @@ function MobileLandingScreen({
             selection={selection}
             onChange={setSelection}
             budget={budget}
+            priceIndex={priceIndex}
+            currency={currency}
             plans={plans}
             columns={2}
           />
