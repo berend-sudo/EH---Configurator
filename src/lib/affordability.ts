@@ -142,6 +142,26 @@ export function maxAffordableBedrooms(
   return Math.min(...ps.map((p) => p.bedrooms));
 }
 
+/** Honest, budget-responsive summary for a selection's affordability:
+ *  whether any matching plan exists, whether one is within budget, and the
+ *  largest bedroom count that fits (or the smallest available when nothing
+ *  fits, for display alongside the not-affordable state). Unlike
+ *  `maxAffordableBedrooms`, the `affordable` flag lets callers distinguish a
+ *  genuinely-covered plan from the fallback. */
+export function selectionReach(
+  index: PriceIndex | null | undefined,
+  currency: Currency,
+  budget: number,
+  sel: Selection,
+): { hasPlan: boolean; affordable: boolean; bedrooms: number } {
+  if (!index) return { hasPlan: true, affordable: true, bedrooms: 4 };
+  const ps = matching(index, sel.typology, sel.subtype);
+  if (ps.length === 0) return { hasPlan: false, affordable: false, bedrooms: 0 };
+  const within = ps.filter((p) => cheapest(p, currency) <= budget).map((p) => p.bedrooms);
+  if (within.length) return { hasPlan: true, affordable: true, bedrooms: Math.max(...within) };
+  return { hasPlan: true, affordable: false, bedrooms: Math.min(...ps.map((p) => p.bedrooms)) };
+}
+
 /**
  * Resolve a selection to one that fits the budget:
  *  - keep it if affordable;
