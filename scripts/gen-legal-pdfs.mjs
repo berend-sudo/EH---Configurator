@@ -1,5 +1,15 @@
+// Renders the legal PDFs served from /legal/*.pdf (linked from the summary
+// page's consent line) out of the markdown source of truth in docs/legal/.
+//
+// Update flow: edit docs/legal/<doc>.md, then `npm run gen-legal`. The PDFs
+// are committed artifacts — regenerate and commit both together.
+//
+// The parser is deliberately small: it understands just the markdown these
+// documents use — `#`/`##` headings, `*italic*` lines, `- ` bullet lists,
+// `**bold**` inline spans, and blank-line-separated paragraphs.
+
 import React from "react";
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { Document, Page, View, Text, renderToFile, StyleSheet } from "@react-pdf/renderer";
 
@@ -8,42 +18,111 @@ const GREEN = "#003B2B";
 const MUTED = "#4A5C56";
 
 const styles = StyleSheet.create({
-  page: { padding: 56, color: GREEN, fontSize: 11, lineHeight: 1.6, fontFamily: "Helvetica" },
-  h1: { fontSize: 24, fontFamily: "Helvetica-Bold", marginBottom: 4 },
-  eyebrow: { fontSize: 9, letterSpacing: 1.4, color: MUTED, marginBottom: 16 },
-  h2: { fontSize: 13, fontFamily: "Helvetica-Bold", marginTop: 16, marginBottom: 4 },
+  page: { paddingVertical: 56, paddingHorizontal: 56, color: GREEN, fontSize: 10.5, lineHeight: 1.6, fontFamily: "Helvetica" },
+  eyebrow: { fontSize: 9, letterSpacing: 1.4, color: MUTED, marginBottom: 14 },
+  h1: { fontSize: 22, fontFamily: "Helvetica-Bold", marginBottom: 4 },
+  date: { fontSize: 9.5, color: MUTED, marginBottom: 18, fontFamily: "Helvetica-Oblique" },
+  h2: { fontSize: 12, fontFamily: "Helvetica-Bold", marginTop: 16, marginBottom: 4 },
   p: { marginBottom: 8, color: MUTED },
-  footer: { marginTop: 24, fontSize: 9, color: MUTED },
+  li: { flexDirection: "row", marginBottom: 4, color: MUTED, paddingLeft: 8 },
+  liBullet: { width: 12 },
+  liText: { flex: 1 },
+  footer: { marginTop: 26, paddingTop: 10, borderTopWidth: 0.5, borderTopColor: "#C8D0C9", fontSize: 9, color: MUTED },
 });
 
-function doc(title, sections) {
+// Split a line into Text runs, turning **…** spans bold.
+function inline(text, keyPrefix) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g).filter((s) => s !== "");
+  return parts.map((part, i) => {
+    const bold = part.startsWith("**") && part.endsWith("**");
+    return h(
+      Text,
+      { key: `${keyPrefix}-${i}`, style: bold ? { fontFamily: "Helvetica-Bold", color: GREEN } : undefined },
+      bold ? part.slice(2, -2) : part,
+    );
+  });
+}
+
+// Parse the supported markdown subset into a flat list of block nodes.
+function parseBlocks(md) {
+  const lines = md.replace(/\r\n/g, "\n").split("\n");
+  const blocks = [];
+  let para = [];
+  const flushPara = () => {
+    if (para.length) {
+      blocks.push({ type: "p", text: para.join(" ") });
+      para = [];
+    }
+  };
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (line === "") {
+      flushPara();
+    } else if (line.startsWith("## ")) {
+      flushPara();
+      blocks.push({ type: "h2", text: line.slice(3) });
+    } else if (line.startsWith("# ")) {
+      flushPara();
+      blocks.push({ type: "h1", text: line.slice(2) });
+    } else if (line.startsWith("*") && line.endsWith("*") && !line.startsWith("**")) {
+      flushPara();
+      blocks.push({ type: "date", text: line.replace(/^\*|\*$/g, "") });
+    } else if (line.startsWith("- ")) {
+      flushPara();
+      blocks.push({ type: "li", text: line.slice(2) });
+    } else {
+      para.push(line);
+    }
+  }
+  flushPara();
+  return blocks;
+}
+
+function render(blocks) {
+  return blocks.map((b, i) => {
+    const key = `b${i}`;
+    switch (b.type) {
+      case "h1":
+        return h(Text, { key, style: styles.h1 }, b.text);
+      case "date":
+        return h(Text, { key, style: styles.date }, b.text);
+      case "h2":
+        return h(Text, { key, style: styles.h2 }, b.text);
+      case "li":
+        return h(View, { key, style: styles.li }, [
+          h(Text, { key: "bul", style: styles.liBullet }, "•"),
+          h(Text, { key: "txt", style: styles.liText }, inline(b.text, key)),
+        ]);
+      default:
+        return h(Text, { key, style: styles.p }, inline(b.text, key));
+    }
+  });
+}
+
+async function buildDoc(srcPath) {
+  const md = await readFile(srcPath, "utf8");
+  const blocks = parseBlocks(md);
+  const titleBlock = blocks.find((b) => b.type === "h1");
+  const title = titleBlock ? titleBlock.text : "Easy Housing";
   return h(Document, { title }, h(Page, { size: "A4", style: styles.page }, [
-    h(Text, { key: "e", style: styles.eyebrow }, "EASY HOUSING"),
-    h(Text, { key: "h", style: styles.h1 }, title),
-    h(Text, { key: "s", style: styles.p },
-      "Placeholder document. Replace with the final legal text before launch."),
-    ...sections.flatMap((sec, i) => [
-      h(Text, { key: `h${i}`, style: styles.h2 }, sec.heading),
-      h(Text, { key: `p${i}`, style: styles.p }, sec.body),
-    ]),
-    h(Text, { key: "f", style: styles.footer }, "A home for everyone, Easy Housing"),
+    h(Text, { key: "eyebrow", style: styles.eyebrow }, "EASY HOUSING"),
+    ...render(blocks),
+    h(Text, { key: "footer", style: styles.footer }, "A home for everyone, Easy Housing"),
   ]));
 }
 
-const terms = doc("Terms & Conditions", [
-  { heading: "1. Scope", body: "These terms govern your use of the Easy Housing configurator and the design brief it generates. The indicative budget is an estimate and is not a binding quotation." },
-  { heading: "2. Your design", body: "The design and pricing depend on the floor plan you select and the dimensions you choose. Final pricing depends on site conditions and local sourcing." },
-  { heading: "3. Contact", body: "By submitting the form you ask us to prepare and email your design PDF and to have our sales team contact you about it." },
-]);
-
-const privacy = doc("Privacy Policy", [
-  { heading: "1. What we collect", body: "Your name, email address, phone number, intended timeline, and the design you configured." },
-  { heading: "2. How we use it", body: "To email you your design PDF and to have our Easy Housing sales team contact you about it. We will not share or sell your details to any third party." },
-  { heading: "3. Your rights", body: "You can ask us to access, correct or delete your details at any time by contacting hello@easyhousing.org." },
-]);
-
+const srcDir = path.join(process.cwd(), "docs", "legal");
 const outDir = path.join(process.cwd(), "public", "legal");
 await mkdir(outDir, { recursive: true });
-await renderToFile(terms, path.join(outDir, "terms-and-conditions.pdf"));
-await renderToFile(privacy, path.join(outDir, "privacy-policy.pdf"));
-console.log("Legal PDFs written to public/legal/");
+
+const jobs = [
+  ["terms-and-conditions.md", "terms-and-conditions.pdf"],
+  ["privacy-policy.md", "privacy-policy.pdf"],
+];
+
+for (const [src, out] of jobs) {
+  const doc = await buildDoc(path.join(srcDir, src));
+  await renderToFile(doc, path.join(outDir, out));
+}
+
+console.log("Legal PDFs written to public/legal/ from docs/legal/.");

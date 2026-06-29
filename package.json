@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "sync-pricing": "node scripts/extract-price-book.mjs"
+    "sync-pricing": "node scripts/extract-price-book.mjs",
+    "gen-legal": "node scripts/gen-legal-pdfs.mjs"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.5.1",
